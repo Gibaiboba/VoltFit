@@ -26,10 +26,20 @@ export default async function MainLayout({ children }: MainLayoutProps) {
     data: { user },
   } = await supabase.auth.getUser();
 
+  let profile = null;
+  if (user) {
+    const { data } = await supabase
+      .from("profiles")
+      .select("avatar_url, full_name")
+      .eq("id", user.id)
+      .single();
+    profile = data;
+  }
+
   return (
     <>
       <RouteGuardListener />
-      <Header initialUser={user} />
+      <Header initialUser={user} initialProfile={profile} />
       {children}
     </>
   );

@@ -6,14 +6,26 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Zap, LogOut, User as UserIcon } from "lucide-react";
 import { User } from "@supabase/supabase-js";
+import Image from "next/image";
 
 interface HeaderProps {
   initialUser: User | null;
+  initialProfile?: {
+    avatar_url: string | null;
+    full_name: string | null;
+  } | null;
 }
 
-export default function Header({ initialUser }: HeaderProps) {
+// 1. Добавили initialProfile в аргументы
+export default function Header({ initialUser, initialProfile }: HeaderProps) {
   const [user, setUser] = useState<User | null>(initialUser);
+  const [profile, setProfile] = useState(initialProfile);
   const router = useRouter();
+
+  // Синхронизация профиля с сервером
+  useEffect(() => {
+    setProfile(initialProfile);
+  }, [initialProfile]);
 
   useEffect(() => {
     const {
@@ -45,13 +57,28 @@ export default function Header({ initialUser }: HeaderProps) {
         <nav className="flex items-center gap-4">
           {user ? (
             <div className="flex items-center gap-6">
-              <div className="flex items-center gap-2">
-                <div className="bg-slate-100 p-1.5 rounded-full">
-                  <UserIcon size={16} className="text-slate-600" />
+              <div className="flex items-center gap-3">
+                {/* 2. ЛОГИКА АВАТАРА: Контейнер для фото или иконки */}
+                <div className="w-9 h-9 rounded-full overflow-hidden border border-slate-200 bg-slate-100 flex items-center justify-center relative">
+                  {profile?.avatar_url ? (
+                    <Image
+                      src={profile.avatar_url}
+                      alt="Avatar"
+                      fill
+                      className="object-cover"
+                      sizes="36px"
+                    />
+                  ) : (
+                    <UserIcon size={18} className="text-slate-400" />
+                  )}
                 </div>
+
                 <div className="flex flex-col">
                   <span className="text-[14px] font-bold text-slate-800 leading-none">
-                    {user.user_metadata?.full_name || "Атлет"}
+                    {/* 3. Приоритет имени из профиля */}
+                    {profile?.full_name ||
+                      user.user_metadata?.full_name ||
+                      "Атлет"}
                   </span>
                   <span className="text-[10px] font-black text-blue-600 uppercase tracking-tighter">
                     {user.user_metadata?.role || "User"}

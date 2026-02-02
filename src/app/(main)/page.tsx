@@ -21,9 +21,19 @@ export default async function Home() {
     data: { user },
   } = await supabase.auth.getUser();
 
+  let profile = null;
+  if (user) {
+    const { data } = await supabase
+      .from("profiles")
+      .select("avatar_url, full_name")
+      .eq("id", user.id)
+      .single();
+    profile = data;
+  }
+
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col items-center pt-10 px-4">
-      <Header initialUser={user} />
+      <Header initialUser={user} initialProfile={profile} />
 
       <h1 className="text-3xl font-black text-slate-800 mt-12 mb-8 tracking-tight">
         Volt<span className="text-blue-600">Fit</span>
@@ -42,6 +52,13 @@ export default async function Home() {
           className="flex items-center justify-center p-4 bg-white text-slate-700 font-bold rounded-2xl shadow-sm border border-slate-200 hover:shadow-md hover:bg-indigo-50 hover:text-indigo-600 transition-all"
         >
           👟 Кабинет Тренера
+        </Link>
+
+        <Link
+          href="/settings"
+          className="flex items-center justify-center p-4 bg-white text-slate-700 font-bold rounded-2xl shadow-sm border border-slate-200 hover:shadow-md hover:bg-indigo-50 hover:text-indigo-600 transition-all"
+        >
+          Настройка профиля
         </Link>
       </div>
     </div>
