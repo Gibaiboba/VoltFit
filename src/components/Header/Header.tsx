@@ -1,47 +1,38 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
+import { useUserStore, UserProfile } from "@/store/useUserStore";
 import { supabase } from "@/lib/supabase";
-import { useRouter } from "next/navigation";
-import Link from "next/link";
-import { Zap, LogOut, User as UserIcon } from "lucide-react";
-import { User } from "@supabase/supabase-js";
 import Image from "next/image";
+import { LogOut, User as UserIcon, Zap } from "lucide-react";
+import Link from "next/link";
+import { User } from "@supabase/supabase-js";
 
 interface HeaderProps {
   initialUser: User | null;
-  initialProfile?: {
-    avatar_url: string | null;
-    full_name: string | null;
-  } | null;
+  initialProfile: UserProfile | null;
 }
 
-// 1. Добавили initialProfile в аргументы
 export default function Header({ initialUser, initialProfile }: HeaderProps) {
-  const [user, setUser] = useState<User | null>(initialUser);
-  const [profile, setProfile] = useState(initialProfile);
-  const router = useRouter();
-
-  // Синхронизация профиля с сервером
-  useEffect(() => {
-    setProfile(initialProfile);
-  }, [initialProfile]);
+  const { user, profile, setUser, setProfile, clearUser } = useUserStore();
 
   useEffect(() => {
+    if (initialUser) setUser(initialUser);
+    if (initialProfile) setProfile(initialProfile);
+
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null);
-      router.refresh();
+    } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === "SIGNED_OUT") clearUser();
+      if (event === "SIGNED_IN" && session) setUser(session.user);
     });
 
     return () => subscription.unsubscribe();
-  }, [router]);
+  }, [initialUser, initialProfile, setUser, setProfile, clearUser]);
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
-    router.push("/");
-    router.refresh();
+    window.location.href = "/";
   };
 
   return (
@@ -54,58 +45,43 @@ export default function Header({ initialUser, initialProfile }: HeaderProps) {
           <Zap className="text-blue-600 fill-current" /> VOLTFIT
         </Link>
 
-        <nav className="flex items-center gap-4">
-          {user ? (
-            <div className="flex items-center gap-6">
-              <div className="flex items-center gap-3">
-                {/* 2. ЛОГИКА АВАТАРА: Контейнер для фото или иконки */}
-                <div className="w-9 h-9 rounded-full overflow-hidden border border-slate-200 bg-slate-100 flex items-center justify-center relative">
-                  {profile?.avatar_url ? (
-                    <Image
-                      src={profile.avatar_url}
-                      alt="Avatar"
-                      fill
-                      className="object-cover"
-                      sizes="36px"
-                    />
-                  ) : (
-                    <UserIcon size={18} className="text-slate-400" />
-                  )}
-                </div>
-
-                <div className="flex flex-col">
-                  <span className="text-[14px] font-bold text-slate-800 leading-none">
-                    {/* 3. Приоритет имени из профиля */}
-                    {profile?.full_name ||
-                      user.user_metadata?.full_name ||
-                      "Атлет"}
-                  </span>
-                  <span className="text-[10px] font-black text-blue-600 uppercase tracking-tighter">
-                    {user.user_metadata?.role || "User"}
-                  </span>
-                </div>
+        {user && (
+          <div className="flex items-center gap-6">
+            <Link href="/settings" className="flex items-center gap-3 group">
+              <div className="w-9 h-9 rounded-full overflow-hidden border border-slate-200 bg-slate-100 relative">
+                {profile?.avatar_url ? (
+                  <Image
+                    src={profile.avatar_url}
+                    alt="Avatar"
+                    height={128}
+                    width={128}
+                    className="object-cover"
+                  />
+                ) : (
+                  <UserIcon
+                    size={18}
+                    className="text-slate-400 absolute inset-0 m-auto"
+                  />
+                )}
               </div>
-
-              <button
-                onClick={handleLogout}
-                className="flex items-center gap-2 text-slate-400 hover:text-red-600 transition-colors font-bold text-sm group"
-              >
-                <LogOut
-                  size={18}
-                  className="group-hover:-translate-x-0.5 transition-transform"
-                />
-                <span className="hidden sm:inline">Выйти</span>
-              </button>
-            </div>
-          ) : (
-            <Link
-              href="/login"
-              className="bg-blue-600 text-white px-6 py-2 rounded-xl font-bold hover:bg-blue-700 transition-all shadow-lg shadow-blue-100"
-            >
-              Войти
+              <div className="flex flex-col text-left">
+                <span className="text-sm font-bold text-slate-800">
+                  {profile?.full_name || "Атлет"}
+                </span>
+                <span className="text-[10px] font-bold text-blue-600 uppercase">
+                  {user.user_metadata?.role}
+                </span>
+              </div>
             </Link>
-          )}
-        </nav>
+
+            <button
+              onClick={handleLogout}
+              className="text-slate-400 hover:text-red-600 transition-colors"
+            >
+              <LogOut size={20} />
+            </button>
+          </div>
+        )}
       </div>
     </header>
   );

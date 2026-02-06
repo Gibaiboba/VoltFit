@@ -25,7 +25,7 @@ export default async function Home() {
   if (user) {
     const { data } = await supabase
       .from("profiles")
-      .select("avatar_url, full_name")
+      .select("*")
       .eq("id", user.id)
       .single();
     profile = data;

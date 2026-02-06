@@ -30,7 +30,7 @@ export default async function MainLayout({ children }: MainLayoutProps) {
   if (user) {
     const { data } = await supabase
       .from("profiles")
-      .select("avatar_url, full_name")
+      .select("*")
       .eq("id", user.id)
       .single();
     profile = data;
