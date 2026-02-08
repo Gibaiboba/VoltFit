@@ -7,15 +7,11 @@ export default function StudentPage() {
   const [weight, setWeight] = useState("");
 
   const handleSave = async () => {
-    // Для теста: если авторизация еще не настроена, Supabase вернет ошибку.
-    // Проверь консоль браузера, если вылетает alert.
     const {
       data: { user },
     } = await supabase.auth.getUser();
-    if (!user)
-      return alert(
-        "Ошибка: Вы не авторизованы. Сначала настройте Auth в Supabase.",
-      );
+
+    if (!user) return alert("Вы не авторизованы");
 
     const { error } = await supabase.from("daily_logs").upsert({
       user_id: user.id,
@@ -24,8 +20,12 @@ export default function StudentPage() {
       weight: parseFloat(weight),
     });
 
-    if (error) alert("Ошибка: " + error.message);
-    else alert("✅ Данные успешно сохранены!");
+    if (error) {
+      console.error("RLS Error:", error);
+      alert("Ошибка: " + error.message);
+    } else {
+      alert("✅ Данные успешно сохранены!");
+    }
   };
 
   return (

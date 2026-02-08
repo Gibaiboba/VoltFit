@@ -6,6 +6,7 @@ import { useUserStore, UserProfile } from "@/store/useUserStore";
 import { toast } from "sonner";
 import { Camera, User as UserIcon, Save, Loader2 } from "lucide-react";
 import Image from "next/image";
+import imageCompression from "browser-image-compression";
 
 interface SettingsFormProps {
   initialProfile: UserProfile | null;
@@ -16,7 +17,8 @@ export default function SettingsForm({
   initialProfile,
   userId,
 }: SettingsFormProps) {
-  const { updateProfile } = useUserStore();
+  // Используем setProfile для мгновенного обновления Header через Zustand
+  const { setProfile, profile } = useUserStore();
 
   const [fullNameInput, setFullNameInput] = useState(
     initialProfile?.full_name || "",
@@ -27,65 +29,89 @@ export default function SettingsForm({
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    if (initialProfile) {
-      updateProfile(initialProfile);
+    if (initialProfile && !profile) {
+      setProfile(initialProfile);
     }
-  }, [initialProfile, updateProfile]);
+  }, [initialProfile, profile, setProfile]);
 
   const handleUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     try {
       const file = event.target.files?.[0];
       if (!file) return;
 
-      const fileExt = file.name.split(".").pop();
-      const filePath = `${userId}/avatar-${Math.random()}.${fileExt}`;
-
       const uploadPromise = async () => {
+        // Настройки сжатия
+        const options = {
+          maxSizeMB: 0.1,
+          maxWidthOrHeight: 200,
+          useWebWorker: true,
+          initialQuality: 0.8,
+        };
+
+        // Сжатие файла
+        const compressedFile = await imageCompression(file, options);
+
+        // Фиксированный путь для перезаписи (всегда один файл на юзера)
+        const filePath = `${userId}/avatar.png`;
+
+        // Загрузка в Supabase (upsert: true перезаписывает старый файл)
         const { error: uploadError } = await supabase.storage
           .from("avatars")
-          .upload(filePath, file, { upsert: true });
+          .upload(filePath, compressedFile, {
+            upsert: true,
+            contentType: compressedFile.type,
+          });
 
         if (uploadError) throw uploadError;
 
+        // Получаем URL и добавляем Timestamp (?t=...), чтобы Header увидел изменения
         const {
           data: { publicUrl },
         } = supabase.storage.from("avatars").getPublicUrl(filePath);
+        const urlWithTimestamp = `${publicUrl}?t=${Date.now()}`;
 
-        const { error: updateError } = await supabase
+        // Обновляем БД и Zustand
+        const { data: updatedProfile, error: updateError } = await supabase
           .from("profiles")
-          .update({ avatar_url: publicUrl })
-          .eq("id", userId);
+          .update({ avatar_url: urlWithTimestamp })
+          .eq("id", userId)
+          .select()
+          .single();
 
         if (updateError) throw updateError;
 
-        setAvatarUrl(publicUrl);
-        updateProfile({ avatar_url: publicUrl });
+        if (updatedProfile) {
+          setAvatarUrl(updatedProfile.avatar_url || "");
+          setProfile(updatedProfile);
+        }
 
-        return "Аватар обновлен!";
+        return "Аватар оптимизирован и обновлен!";
       };
 
       toast.promise(uploadPromise(), {
-        loading: "Загружаем фото...",
+        loading: "Сжимаем и загружаем...",
         success: (msg) => msg,
-        error: "Не удалось загрузить фото",
+        error: "Ошибка при обработке фото",
       });
     } catch (error) {
-      console.error(error);
+      console.error("Compression error:", error);
     }
   };
 
   const handleUpdateName = async () => {
     setIsUpdating(true);
 
-    const { error } = await supabase
+    const { data: updatedProfile, error } = await supabase
       .from("profiles")
       .update({ full_name: fullNameInput })
-      .eq("id", userId);
+      .eq("id", userId)
+      .select()
+      .single();
 
     if (error) {
       toast.error("Ошибка при обновлении");
-    } else {
-      updateProfile({ full_name: fullNameInput });
+    } else if (updatedProfile) {
+      setProfile(updatedProfile);
       toast.success("Профиль успешно обновлен!");
     }
     setIsUpdating(false);

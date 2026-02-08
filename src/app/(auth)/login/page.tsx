@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -20,7 +21,7 @@ export default function LoginPage() {
     });
 
     if (error) {
-      alert(error.message);
+      toast.error("Неверный логин или пользователь не зарегистрирован!");
       setLoading(false);
       return;
     }

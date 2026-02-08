@@ -25,13 +25,14 @@ export const useUserStore = create<UserState>((set) => ({
   setProfile: (profile) => set({ profile }),
 
   updateProfile: (updates) =>
-    set((state) => {
-      if (!state.profile) return {};
-
-      return {
-        profile: { ...state.profile, ...updates },
-      };
-    }),
+    set((state) => ({
+      // Убираем проверку на null.
+      // Если профиля нет, создаем его из updates.
+      // Если профиль есть, мержим старые данные с новыми.
+      profile: state.profile
+        ? { ...state.profile, ...updates }
+        : (updates as UserProfile),
+    })),
 
   clearUser: () => set({ user: null, profile: null }),
 }));
