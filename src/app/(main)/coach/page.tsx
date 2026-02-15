@@ -1,119 +1,130 @@
 "use client";
-import { useState, useCallback, useEffect } from "react";
-import { supabase } from "@/lib/supabase";
+import { useEffect } from "react";
+import { useCoachStore } from "@/store/useCoachStore";
 import AddStudentForm from "@/components/coach/AddStudentForm";
+import StudentCard from "@/components/coach/StudentCard";
+import StudentModal from "@/components/coach/StudentModal";
 
-interface StudentLog {
-  weight: number;
-  steps: number;
-  log_date: string;
-}
-
-interface StudentData {
-  student: {
-    full_name: string;
-    daily_logs: StudentLog[];
-  };
-}
+const ACTIVITY_FILTERS = [
+  "Все",
+  "Силовая тренировка",
+  "Кардио тренировка",
+  "Групповая тренировка",
+  "День без тренировок",
+];
 
 export default function CoachDashboard() {
-  const [students, setStudents] = useState<StudentData[]>([]);
-  const [loading, setLoading] = useState(true);
+  const {
+    loading,
+    selectedStudent,
+    fetchStudents,
+    setSelectedStudent,
+    getWeeklySteps,
+    searchQuery,
+    setSearchQuery,
+    selectedActivity,
+    setSelectedActivity,
+    getFilteredStudents,
+  } = useCoachStore();
 
-  const fetchStudents = useCallback(async () => {
-    try {
-      const { data, error } = await supabase
-        .from("coach_students")
-        .select(
-          `
-            student:profiles!student_id (
-              full_name,
-              daily_logs ( 
-                weight, 
-                steps, 
-                log_date 
-              )
-            )
-          `,
-        )
-        .order("log_date", {
-          foreignTable: "profiles.daily_logs",
-          ascending: false,
-        });
-
-      if (error) throw error;
-
-      if (data) {
-        setStudents(data as unknown as StudentData[]);
-      }
-    } catch (error) {
-      console.error("Ошибка при загрузке учеников:", error);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  // Запускаем эффект строго один раз при монтировании.
   useEffect(() => {
     fetchStudents();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [fetchStudents]);
+
+  const filteredStudents = getFilteredStudents();
+
+  // Функция для сброса всех фильтров
+  const resetFilters = () => {
+    setSearchQuery("");
+    setSelectedActivity("Все");
+  };
 
   return (
     <div className="p-6 bg-slate-50 pt-24 min-h-screen">
-      <div className="max-w-4xl mx-auto">
-        <h1 className="text-3xl font-black text-slate-800 mb-8 tracking-tight">
-          Панель <span className="text-blue-600">Тренера</span>
-        </h1>
+      <div className="max-w-5xl mx-auto space-y-8">
+        {/* Шапка и Фильтры */}
+        <div className="flex flex-col gap-6">
+          <h1 className="text-3xl font-black text-slate-800 tracking-tight">
+            Панель <span className="text-blue-600">Тренера</span>
+          </h1>
 
+          <div className="flex flex-col md:flex-row gap-4">
+            {/* Поиск по имени */}
+            <div className="relative flex-1">
+              <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">
+                🔍
+              </span>
+              <input
+                type="text"
+                placeholder="Поиск ученика по имени..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full p-4 pl-12 bg-white border border-slate-200 rounded-2xl outline-none focus:border-blue-500 shadow-sm transition-all font-semibold text-slate-700"
+              />
+            </div>
+
+            {/* Фильтр по активности */}
+            <select
+              value={selectedActivity}
+              onChange={(e) => setSelectedActivity(e.target.value)}
+              className="p-4 bg-white border border-slate-200 rounded-2xl outline-none focus:border-blue-500 shadow-sm font-bold text-slate-600 cursor-pointer appearance-none px-8 text-sm md:w-64"
+            >
+              {ACTIVITY_FILTERS.map((filter) => (
+                <option key={filter} value={filter}>
+                  {filter === "Все" ? "🎯 Все активности" : filter}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        {/* Форма добавления ученика */}
         <AddStudentForm onStudentAdded={fetchStudents} />
 
+        {/* Список учеников */}
         {loading ? (
           <div className="flex justify-center p-12">
-            <p className="text-slate-500 animate-pulse">Загрузка данных...</p>
+            <div className="flex items-center gap-3 text-slate-400 animate-pulse">
+              <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+              <p className="font-black uppercase tracking-widest text-xs">
+                Обновление данных
+              </p>
+            </div>
           </div>
         ) : (
           <div className="grid gap-6">
-            {students.length === 0 ? (
-              <div className="bg-white p-12 rounded-3xl border border-dashed border-slate-300 text-center">
-                <p className="text-slate-400 italic">
-                  Учеников пока нет. Добавьте первого ученика по email выше.
+            {filteredStudents.length === 0 ? (
+              <div className="bg-white p-16 rounded-[40px] border-2 border-dashed border-slate-200 text-center space-y-4">
+                <p className="text-slate-400 font-medium italic">
+                  {searchQuery || selectedActivity !== "Все"
+                    ? "Никто не подходит под эти фильтры"
+                    : "Список учеников пуст"}
                 </p>
+                {(searchQuery || selectedActivity !== "Все") && (
+                  <button
+                    onClick={resetFilters}
+                    className="text-blue-600 font-black text-xs uppercase tracking-tighter hover:underline"
+                  >
+                    Сбросить все фильтры
+                  </button>
+                )}
               </div>
             ) : (
-              students.map((item, i) => (
-                <div
+              filteredStudents.map((item, i) => (
+                <StudentCard
                   key={i}
-                  className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 flex items-center justify-between hover:shadow-md transition-shadow"
-                >
-                  <div>
-                    <p className="text-lg font-bold text-slate-800">
-                      {item.student.full_name}
-                    </p>
-                    <div className="flex gap-4 mt-1">
-                      <span className="text-sm font-medium text-slate-500 flex items-center gap-1">
-                        👣 {item.student.daily_logs?.[0]?.steps || 0}
-                      </span>
-                      <span className="text-sm font-medium text-slate-500 flex items-center gap-1">
-                        ⚖️ {item.student.daily_logs?.[0]?.weight || "—"} кг
-                      </span>
-                    </div>
-                  </div>
-
-                  <div className="text-right">
-                    <p className="text-xs text-slate-400 mb-2">
-                      Последнее обновление:
-                    </p>
-                    <span className="px-3 py-1 bg-blue-50 text-blue-600 text-xs font-bold rounded-full">
-                      {item.student.daily_logs?.[0]?.log_date || "Нет данных"}
-                    </span>
-                  </div>
-                </div>
+                  item={item}
+                  weeklySteps={getWeeklySteps(item)}
+                  onClick={() => setSelectedStudent(item)}
+                />
               ))
             )}
           </div>
         )}
       </div>
+
+      {/* Модалка с историей */}
+      {selectedStudent && <StudentModal />}
     </div>
   );
 }

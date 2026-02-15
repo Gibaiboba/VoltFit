@@ -4,6 +4,8 @@ import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import { toast } from "sonner";
 import { ShieldAlert } from "lucide-react";
 
+// Следит чтобы пользователь с активной сессией не залез туда, куда ему не положено по роли.
+
 export default function RouteGuardListener() {
   const searchParams = useSearchParams();
   const router = useRouter();

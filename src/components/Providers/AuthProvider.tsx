@@ -4,6 +4,9 @@ import { useEffect } from "react";
 import { supabase } from "@/lib/supabase";
 import { useUserStore } from "@/store/useUserStore";
 
+// Клиентский рендеринг. Следит за сессией. Если сессия истечет или
+// пользователь нажмет «Выйти», то стор обновится автоматически и интерфейс среагирует (например исчезнет аватарка).
+
 export default function AuthProvider({
   children,
 }: {
