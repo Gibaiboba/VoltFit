@@ -24,7 +24,7 @@ interface CoachState {
 
   // Состояния фильтрации
   searchQuery: string;
-  selectedActivity: string; // "Все", "Силовая тренировка" и т.д.
+  selectedActivity: string;
 
   // Экшны
   fetchStudents: () => Promise<void>;

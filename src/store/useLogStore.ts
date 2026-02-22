@@ -42,7 +42,10 @@ export const useLogStore = create<LogState>((set, get) => ({
     // 1. Сначала сохраняем в базу через upsert
     const { data, error } = await supabase
       .from("daily_logs")
-      .upsert({ user_id: userId, ...logData })
+      .upsert(
+        { user_id: userId, ...logData },
+        { onConflict: "user_id,log_date" },
+      )
       .select()
       .single();
 

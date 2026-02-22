@@ -6,7 +6,12 @@ export interface UserProfile {
   full_name: string | null;
   avatar_url: string | null;
   role: "student" | "coach";
-  updated_at: string | null;
+  weight?: number;
+  height?: number;
+  chest?: number;
+  waist?: number;
+  hips?: number;
+  updated_at?: string;
 }
 
 interface UserState {

@@ -33,10 +33,19 @@ export default function CoachDashboard() {
 
   const filteredStudents = getFilteredStudents();
 
-  // Функция для сброса всех фильтров
   const resetFilters = () => {
     setSearchQuery("");
     setSelectedActivity("Все");
+  };
+
+  // Функция для правильного склонения слова "ученик"
+  const getStudentLabel = (count: number) => {
+    const lastDigit = count % 10;
+    const lastTwoDigits = count % 100;
+    if (lastTwoDigits >= 11 && lastTwoDigits <= 19) return "учеников";
+    if (lastDigit === 1) return "ученик";
+    if (lastDigit >= 2 && lastDigit <= 4) return "ученика";
+    return "учеников";
   };
 
   return (
@@ -49,7 +58,6 @@ export default function CoachDashboard() {
           </h1>
 
           <div className="flex flex-col md:flex-row gap-4">
-            {/* Поиск по имени */}
             <div className="relative flex-1">
               <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">
                 🔍
@@ -59,15 +67,14 @@ export default function CoachDashboard() {
                 placeholder="Поиск ученика по имени..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full p-4 pl-12 bg-white border border-slate-200 rounded-2xl outline-none focus:border-blue-500 shadow-sm transition-all font-semibold text-slate-700"
+                className="w-full p-4 pl-12 bg-white border border-slate-200 rounded-2xl outline-none focus:border-blue-500 shadow-sm transition-all font-semibold text-slate-700 placeholder:font-normal"
               />
             </div>
 
-            {/* Фильтр по активности */}
             <select
               value={selectedActivity}
               onChange={(e) => setSelectedActivity(e.target.value)}
-              className="p-4 bg-white border border-slate-200 rounded-2xl outline-none focus:border-blue-500 shadow-sm font-bold text-slate-600 cursor-pointer appearance-none px-8 text-sm md:w-64"
+              className="p-4 bg-white border border-slate-200 rounded-2xl outline-none focus:border-blue-500 shadow-sm font-bold text-slate-600 cursor-pointer px-8 text-sm md:w-64 appearance-none"
             >
               {ACTIVITY_FILTERS.map((filter) => (
                 <option key={filter} value={filter}>
@@ -78,7 +85,33 @@ export default function CoachDashboard() {
           </div>
         </div>
 
-        {/* Форма добавления ученика */}
+        {/* Счётчик результатов */}
+        {!loading && (
+          <div className="flex items-center justify-between px-2">
+            <p className="text-xs font-black uppercase tracking-[0.2em] text-slate-400">
+              {filteredStudents.length > 0 ? (
+                <>
+                  Найдено:{" "}
+                  <span className="text-blue-600">
+                    {filteredStudents.length}
+                  </span>{" "}
+                  {getStudentLabel(filteredStudents.length)}
+                </>
+              ) : (
+                "Результатов нет"
+              )}
+            </p>
+            {searchQuery || selectedActivity !== "Все" ? (
+              <button
+                onClick={resetFilters}
+                className="text-[10px] font-black uppercase tracking-widest text-red-400 hover:text-red-500 transition-colors"
+              >
+                ✕ Сбросить
+              </button>
+            ) : null}
+          </div>
+        )}
+
         <AddStudentForm onStudentAdded={fetchStudents} />
 
         {/* Список учеников */}
@@ -87,7 +120,7 @@ export default function CoachDashboard() {
             <div className="flex items-center gap-3 text-slate-400 animate-pulse">
               <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
               <p className="font-black uppercase tracking-widest text-xs">
-                Обновление данных
+                Синхронизация данных
               </p>
             </div>
           </div>
@@ -95,19 +128,10 @@ export default function CoachDashboard() {
           <div className="grid gap-6">
             {filteredStudents.length === 0 ? (
               <div className="bg-white p-16 rounded-[40px] border-2 border-dashed border-slate-200 text-center space-y-4">
-                <p className="text-slate-400 font-medium italic">
-                  {searchQuery || selectedActivity !== "Все"
-                    ? "Никто не подходит под эти фильтры"
-                    : "Список учеников пуст"}
+                <div className="text-4xl">🤷‍♂️</div>
+                <p className="text-slate-400 font-medium">
+                  Никто не подходит под эти параметры
                 </p>
-                {(searchQuery || selectedActivity !== "Все") && (
-                  <button
-                    onClick={resetFilters}
-                    className="text-blue-600 font-black text-xs uppercase tracking-tighter hover:underline"
-                  >
-                    Сбросить все фильтры
-                  </button>
-                )}
               </div>
             ) : (
               filteredStudents.map((item, i) => (
@@ -123,7 +147,6 @@ export default function CoachDashboard() {
         )}
       </div>
 
-      {/* Модалка с историей */}
       {selectedStudent && <StudentModal />}
     </div>
   );

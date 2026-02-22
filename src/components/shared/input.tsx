@@ -3,6 +3,7 @@ interface InputProps {
   value: string | number;
   onChange: (value: string) => void;
   step?: string;
+  type?: string;
 }
 
 function Input({ label, value, onChange, step = "1" }: InputProps) {
@@ -12,7 +13,7 @@ function Input({ label, value, onChange, step = "1" }: InputProps) {
         {label}
       </label>
       <input
-        type="number"
+        type="text"
         step={step}
         className="w-full p-4 bg-slate-50 border-2 border-transparent focus:border-blue-500 rounded-2xl outline-none font-semibold transition-all"
         value={value}

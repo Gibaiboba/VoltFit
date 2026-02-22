@@ -3,7 +3,7 @@ import { createServerClient } from "@supabase/ssr";
 import Header from "@/components/Header/Header";
 import Link from "next/link";
 
-//Серверный рендеринг. Проверяет сессию на сервере, чтобы страница сразу открылась с нужными данными, без мерцания пустых полей
+//Серверный рендеринг. Проверяет сессию на сервере, чтобы страница сразу открылась с нужными данными
 
 export default async function Home() {
   const cookieStore = await cookies();

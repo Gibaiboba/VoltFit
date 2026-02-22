@@ -73,7 +73,6 @@ export default function Header({ initialUser, initialProfile }: HeaderProps) {
                     alt="Avatar"
                     height={40}
                     width={40}
-                    // Добавляем unoptimized или случайный ключ, если кэширование мешает
                     className="object-cover w-full h-full"
                   />
                 ) : (
