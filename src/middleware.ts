@@ -45,7 +45,10 @@ export async function middleware(request: NextRequest) {
   } = await supabase.auth.getUser();
   const userRole = user?.user_metadata?.role;
   const isPublicPage =
-    path === "/" || path === "/login" || path === "/register";
+    path === "/" ||
+    path === "/login" ||
+    path === "/register" ||
+    path === "/products";
 
   // Если юзера нет и страница не публичная перенаправляем на логин
   if (!user && !isPublicPage) {

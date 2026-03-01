@@ -13,6 +13,7 @@ export interface Log {
 interface LogState {
   history: Log[];
   loading: boolean;
+  setHistory: (data: Log[]) => void;
   // Загрузка данных из БД
   fetchHistory: (userId: string) => Promise<void>;
   // Сохранение новой записи (или обновление старой)
@@ -25,6 +26,8 @@ interface LogState {
 export const useLogStore = create<LogState>((set, get) => ({
   history: [],
   loading: false,
+
+  setHistory: (data: Log[]) => set({ history: data, loading: false }), //   !!!
 
   fetchHistory: async (userId) => {
     set({ loading: true });
