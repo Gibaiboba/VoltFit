@@ -7,6 +7,7 @@ import { ChevronDown, Calendar } from "lucide-react";
 import LogHistory from "@/components/shared/LogHistory";
 import Input from "@/components/shared/input";
 import ActivityVisualizer from "@/components/shared/ActivityVisualizer";
+import Link from "next/link";
 
 const ACTIVITY_OPTIONS = [
   "Силовая тренировка",
@@ -186,6 +187,15 @@ export default function StudentClient({
               {hasLog ? "✨ Обновить отчет" : "🚀 Сохранить отчет"}
             </button>
           </div>
+        </div>
+
+        <div className="flex mt-10 mb-10 w-full items-center justify-center">
+          <Link
+            href="/history"
+            className="text-4xl font-bold text-blue-600 hover:underline"
+          >
+            История питания
+          </Link>
         </div>
 
         {history.length >= 2 && (

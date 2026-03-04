@@ -19,3 +19,13 @@ export interface Totals {
   f: number;
   c: number;
 }
+export interface SavedMeal {
+  id: string;
+  meal_name: string;
+  total_kcal: number;
+  total_p: number;
+  total_f: number;
+  total_c: number;
+  items: SelectedProduct[];
+  created_at: string;
+}

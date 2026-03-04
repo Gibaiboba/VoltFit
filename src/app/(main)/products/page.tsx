@@ -4,15 +4,22 @@ import { useState, useEffect, ChangeEvent } from "react";
 import { supabase } from "@/lib/supabase";
 import { useMealStore } from "@/store/useMealStore";
 import { Product } from "@/types/food";
-import { Plus, Trash2, Scale, Loader2, Database } from "lucide-react";
+import { Plus, Trash2, Scale, Loader2, Database, Save } from "lucide-react";
 
 export default function FoodConstructor() {
   const [query, setQuery] = useState<string>("");
   const [results, setResults] = useState<Product[]>([]);
   const [isSearching, setIsSearching] = useState<boolean>(false);
+  const [isSaving, setIsSaving] = useState<boolean>(false);
 
-  const { selectedItems, addItem, removeItem, updateWeight, getTotal } =
-    useMealStore();
+  const {
+    selectedItems,
+    addItem,
+    removeItem,
+    updateWeight,
+    getTotal,
+    saveMeal,
+  } = useMealStore();
   const totals = getTotal();
 
   useEffect(() => {
@@ -49,9 +56,34 @@ export default function FoodConstructor() {
     updateWeight(id, value);
   };
 
+  const handleSaveMeal = async () => {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+      alert("Пожалуйста, войдите в систему, чтобы сохранить блюдо");
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+      const result = await saveMeal(supabase, user.id);
+
+      if (result.success) {
+        alert("Блюдо успешно сохранено в вашу историю!");
+      } else {
+        alert(`Ошибка при сохранении: ${result.error}`);
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   return (
     <div className="mt-20 max-w-5xl mx-auto p-6 grid grid-cols-1 lg:grid-cols-12 gap-8">
-      {/* Левая колонка: Поиск */}
       <div className="lg:col-span-5 border-r pr-0 lg:pr-8">
         <div className="relative mb-6">
           <input
@@ -86,7 +118,10 @@ export default function FoodConstructor() {
                 </p>
               </div>
               <button
-                onClick={() => addItem(product)}
+                onClick={() => {
+                  addItem(product);
+                  setQuery("");
+                }}
                 className="p-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors shadow-sm active:scale-95"
               >
                 <Plus size={18} />
@@ -101,7 +136,6 @@ export default function FoodConstructor() {
         </div>
       </div>
 
-      {/* Правая колонка */}
       <div className="lg:col-span-7 bg-gray-50 p-6 rounded-3xl border border-gray-100">
         <h2 className="text-2xl font-black mb-6">Ваше блюдо</h2>
         <div className="space-y-4 mb-8">
@@ -139,30 +173,45 @@ export default function FoodConstructor() {
         </div>
 
         {selectedItems.length > 0 && (
-          <div className="bg-blue-600 p-6 rounded-2xl text-white shadow-xl">
-            <div className="flex justify-between items-end mb-4">
-              <span className="opacity-80 uppercase text-xs font-bold tracking-widest">
-                Всего калорий
-              </span>
-              <span className="text-4xl font-black">
-                {Math.round(totals.kcal)}
-              </span>
+          <>
+            <div className="bg-blue-600 p-6 rounded-2xl text-white shadow-xl">
+              <div className="flex justify-between items-end mb-4">
+                <span className="opacity-80 uppercase text-xs font-bold tracking-widest">
+                  Всего калорий
+                </span>
+                <span className="text-4xl font-black">
+                  {Math.round(totals.kcal)}
+                </span>
+              </div>
+              <div className="grid grid-cols-3 gap-2 pt-4 border-t border-blue-400/50 text-center">
+                <div>
+                  <p className="text-[10px] opacity-70 uppercase">Белки</p>
+                  <p className="font-bold">{totals.p.toFixed(1)}г</p>
+                </div>
+                <div>
+                  <p className="text-[10px] opacity-70 uppercase">Жиры</p>
+                  <p className="font-bold">{totals.f.toFixed(1)}г</p>
+                </div>
+                <div>
+                  <p className="text-[10px] opacity-70 uppercase">Углеводы</p>
+                  <p className="font-bold">{totals.c.toFixed(1)}г</p>
+                </div>
+              </div>
             </div>
-            <div className="grid grid-cols-3 gap-2 pt-4 border-t border-blue-400/50 text-center">
-              <div>
-                <p className="text-[10px] opacity-70 uppercase">Белки</p>
-                <p className="font-bold">{totals.p.toFixed(1)}г</p>
-              </div>
-              <div>
-                <p className="text-[10px] opacity-70 uppercase">Жиры</p>
-                <p className="font-bold">{totals.f.toFixed(1)}г</p>
-              </div>
-              <div>
-                <p className="text-[10px] opacity-70 uppercase">Углеводы</p>
-                <p className="font-bold">{totals.c.toFixed(1)}г</p>
-              </div>
-            </div>
-          </div>
+
+            <button
+              onClick={handleSaveMeal}
+              disabled={isSaving}
+              className="w-full mt-6 flex items-center justify-center gap-2 py-4 bg-green-500 hover:bg-green-600 text-white font-bold rounded-2xl shadow-lg transition-all active:scale-[0.98] disabled:bg-gray-300 disabled:cursor-not-allowed"
+            >
+              {isSaving ? (
+                <Loader2 className="animate-spin" size={20} />
+              ) : (
+                <Save size={20} />
+              )}
+              {isSaving ? "Сохраняем..." : "Сохранить в историю питания"}
+            </button>
+          </>
         )}
       </div>
     </div>
