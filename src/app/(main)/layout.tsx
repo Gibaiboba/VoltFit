@@ -1,7 +1,7 @@
 import { cookies } from "next/headers";
 import { createServerClient } from "@supabase/ssr";
 import Header from "@/components/Header/Header";
-import RouteGuardListener from "@/components/utils/RouteGuardListener";
+import RouteGuardListener from "@/providers/RouteGuardListener";
 
 interface MainLayoutProps {
   children: React.ReactNode;

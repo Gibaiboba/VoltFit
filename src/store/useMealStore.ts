@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { Product, SelectedProduct, Totals } from "@/types/food";
 import { SupabaseClient } from "@supabase/supabase-js";
+import { queryClient } from "@/lib/query-client";
 
 interface SaveMealResponse {
   success: boolean;
@@ -68,6 +69,10 @@ export const useMealStore = create<MealState>((set, get) => ({
     }
 
     set({ selectedItems: [] });
+
+    // Сообщаем кэшу, что данные в истории устарели
+    queryClient.invalidateQueries({ queryKey: ["meals-history"] });
+
     return { success: true, error: null };
   },
 
