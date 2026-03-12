@@ -12,6 +12,7 @@ export interface StudentLog {
 
 export interface StudentData {
   student: {
+    id: string;
     full_name: string;
     daily_logs: StudentLog[];
   };
@@ -58,6 +59,7 @@ export const useCoachStore = create<CoachState>((set, get) => ({
         .select(
           `
           student:profiles!student_id (
+          id,
             full_name,
             daily_logs ( 
               weight, steps, calories, sleep_hours, activity_level, log_date 

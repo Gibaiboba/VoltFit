@@ -4,55 +4,55 @@ import { useState, useMemo } from "react";
 import { useMealHistory } from "@/hooks/use-meal-history";
 import { MealCard } from "@/components/history/meal-card";
 import { DateFilter } from "@/components/history/date-filter";
-import { Utensils, Loader2, AlertCircle, RefreshCw, Plus } from "lucide-react";
+import { Utensils, AlertCircle, RefreshCw, Plus } from "lucide-react";
 import Link from "next/link";
+import { toISODate } from "@/lib/utils/date-utils";
+import { HistorySkeleton } from "@/components/history/history-skeleton";
 
 export default function HistoryPage() {
   const { meals, isLoading, error, refetch, deleteMeal } = useMealHistory();
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
 
-  // Логика группировки (чистые данные)
-  const allDates = useMemo(() => {
-    const dates = meals.map((m) =>
-      new Date(m.created_at).toLocaleDateString("ru-RU", {
-        day: "numeric",
-        month: "short",
-      }),
-    );
-    return Array.from(new Set(dates));
-  }, [meals]);
-
   const groupedMeals = useMemo(() => {
-    const groups: Record<string, typeof meals> = {};
-    meals.forEach((meal) => {
-      const fullDate = new Date(meal.created_at).toLocaleDateString("ru-RU", {
-        day: "numeric",
-        month: "long",
-        year: "numeric",
-      });
-      const shortDate = new Date(meal.created_at).toLocaleDateString("ru-RU", {
-        day: "numeric",
-        month: "short",
-      });
+    const groups: Record<string, { displayDate: string; meals: typeof meals }> =
+      {};
 
-      if (selectedDate && shortDate !== selectedDate) return;
-      if (!groups[fullDate]) groups[fullDate] = [];
-      groups[fullDate].push(meal);
+    meals.forEach((meal) => {
+      const dateObj = new Date(meal.created_at);
+      const isoKey = toISODate(dateObj);
+
+      // Если фильтр включен и дата не совпадает — пропускаем
+      if (selectedDate && isoKey !== selectedDate) return;
+
+      if (!groups[isoKey]) {
+        groups[isoKey] = {
+          displayDate: dateObj.toLocaleDateString("ru-RU", {
+            day: "numeric",
+            month: "long",
+            year: "numeric",
+          }),
+          meals: [],
+        };
+      }
+      groups[isoKey].meals.push(meal);
     });
-    return Object.entries(groups);
+
+    // Сортируем группы по убыванию даты (чтобы свежие были сверху)
+    return Object.entries(groups).sort((a, b) => b[0].localeCompare(a[0]));
   }, [meals, selectedDate]);
 
-  // 1. Состояние загрузки
+  const last14Days = useMemo(() => {
+    return Array.from({ length: 14 }, (_, i) => {
+      const d = new Date();
+      d.setDate(d.getDate() - i);
+      return d;
+    });
+  }, []);
+
   if (isLoading) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-screen text-gray-500">
-        <Loader2 className="animate-spin mb-2 text-blue-500" size={32} />
-        <p className="animate-pulse">Загружаем вашу историю...</p>
-      </div>
-    );
+    return <HistorySkeleton />;
   }
 
-  // 2. Состояние ОШИБКИ (вот тут используем AlertCircle и RefreshCw)
   if (error) {
     return (
       <div className="mt-20 max-w-md mx-auto p-8 text-center bg-red-50 rounded-3xl border border-red-100">
@@ -64,7 +64,7 @@ export default function HistoryPage() {
             : "Не удалось загрузить данные"}
         </p>
         <button
-          onClick={() => refetch()} // Вызываем повторный запрос
+          onClick={() => refetch()}
           className="flex items-center gap-2 mx-auto px-6 py-2 bg-red-500 text-white rounded-full font-bold hover:bg-red-600 transition-all"
         >
           <RefreshCw size={16} /> Попробовать снова
@@ -88,7 +88,8 @@ export default function HistoryPage() {
       </div>
 
       <DateFilter
-        dates={allDates}
+        days={last14Days}
+        meals={meals} // Передаем все приемы пищи для проверки галочек
         selectedDate={selectedDate}
         onSelect={setSelectedDate}
       />
@@ -102,22 +103,22 @@ export default function HistoryPage() {
         </div>
       ) : (
         <div className="space-y-10">
-          {groupedMeals.map(([date, dayMeals]) => (
-            <div key={date} className="space-y-4">
+          {groupedMeals.map(([isoKey, group]) => (
+            <div key={isoKey} className="space-y-4">
               <div className="flex justify-between items-end px-2 border-b border-gray-100 pb-2">
                 <h2 className="text-sm font-black text-gray-400 uppercase tracking-widest">
-                  {date}
+                  {group.displayDate}
                 </h2>
                 <div className="text-[10px] font-bold text-blue-500 bg-blue-50 px-2 py-1 rounded-lg">
                   Всего:{" "}
                   {Math.round(
-                    dayMeals.reduce((sum, m) => sum + m.total_kcal, 0),
+                    group.meals.reduce((sum, m) => sum + m.total_kcal, 0),
                   )}{" "}
                   ккал
                 </div>
               </div>
               <div className="space-y-4">
-                {dayMeals.map((meal) => (
+                {group.meals.map((meal) => (
                   <MealCard key={meal.id} meal={meal} onDelete={deleteMeal} />
                 ))}
               </div>

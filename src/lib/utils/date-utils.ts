@@ -11,3 +11,10 @@ export const formatMealTime = (date: string) =>
     hour: "2-digit",
     minute: "2-digit",
   });
+
+// Превращает Date в "2026-03-09"
+export const toISODate = (date: Date) => {
+  const offset = date.getTimezoneOffset();
+  const adjustedDate = new Date(date.getTime() - offset * 60 * 1000);
+  return adjustedDate.toISOString().split("T")[0];
+};
