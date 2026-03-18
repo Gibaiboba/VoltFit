@@ -4,6 +4,7 @@ import { useCoachStore } from "@/store/useCoachStore";
 import AddStudentForm from "@/components/coach/AddStudentForm";
 import StudentCard from "@/components/coach/StudentCard";
 import StudentModal from "@/components/coach/StudentModal";
+import Link from "next/link";
 
 const ACTIVITY_FILTERS = [
   "Все",
@@ -56,6 +57,13 @@ export default function CoachDashboard() {
           <h1 className="text-3xl font-black text-slate-800 tracking-tight">
             Панель <span className="text-blue-600">Тренера</span>
           </h1>
+
+          <Link
+            href="/history"
+            className="text-4xl font-bold text-blue-600 hover:underline"
+          >
+            История питания тренера
+          </Link>
 
           <div className="flex flex-col md:flex-row gap-4">
             <div className="relative flex-1">

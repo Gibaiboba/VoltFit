@@ -44,6 +44,10 @@ export async function middleware(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
   const userRole = user?.user_metadata?.role;
+
+  // Проверяем флаг в user_metadata пройден ли опрос
+  const onboardingDone = user?.user_metadata?.onboarding_completed === true;
+
   const isPublicPage =
     path === "/" ||
     path === "/login" ||
@@ -53,6 +57,16 @@ export async function middleware(request: NextRequest) {
   // Если юзера нет и страница не публичная перенаправляем на логин
   if (!user && !isPublicPage) {
     return NextResponse.redirect(new URL("/login", request.url));
+  }
+
+  // Если залогинен, опрос НЕ пройден, и страница НЕ публичная и НЕ сам опрос — на опрос
+  if (
+    user &&
+    !onboardingDone &&
+    !isPublicPage &&
+    !path.startsWith("/onboarding")
+  ) {
+    return NextResponse.redirect(new URL("/onboarding", request.url));
   }
 
   // Если юзер залогинен и лезет на защищенные страницы отправляем в свой кабинет
