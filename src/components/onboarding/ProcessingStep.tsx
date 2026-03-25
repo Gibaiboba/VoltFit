@@ -1,3 +1,204 @@
+// "use client";
+
+// import { useEffect, useState, useRef } from "react";
+// import { useRouter } from "next/navigation";
+// import { motion, AnimatePresence } from "framer-motion";
+// import { CheckCircle2, Loader2, AlertCircle } from "lucide-react";
+// import { useOnboardingStore } from "@/store/useOnboardingStore";
+// import { supabase } from "@/lib/supabase";
+
+// // Динамические тексты под каждую цель
+// const STAGES = {
+//   lose_weight: [
+//     "Анализируем метаболизм...",
+//     "Рассчитываем безопасный дефицит...",
+//     "Оптимизируем баланс БЖУ...",
+//     "План похудения готов!",
+//   ],
+//   gain_muscle: [
+//     "Оцениваем тренировочный потенциал...",
+//     "Рассчитываем анаболический профицит...",
+//     "Подбираем норму белка...",
+//     "План роста мышц готов!",
+//   ],
+//   maintain: [
+//     "Ищем маркеры дефицитов...",
+//     "Анализируем уровень энергии...",
+//     "Балансируем микронутриенты...",
+//     "Ваш ЗОЖ-профиль готов!",
+//   ],
+// };
+
+// export default function ProcessingStep() {
+//   const router = useRouter();
+//   const { data, setStep, reset } = useOnboardingStore();
+//   const [stage, setStage] = useState(0);
+//   const [status, setStatus] = useState<"loading" | "success" | "error">(
+//     "loading",
+//   );
+
+//   const isSaving = useRef(false);
+//   const isSuccess = useRef(false);
+
+//   // Выбираем список стадий на основе цели
+//   const currentStages =
+//     STAGES[data.goal as keyof typeof STAGES] || STAGES.lose_weight;
+
+//   useEffect(() => {
+//     // 1. Анимация прогресса текста
+//     const interval = setInterval(() => {
+//       setStage((prev) => (prev < currentStages.length - 1 ? prev + 1 : prev));
+//     }, 1200);
+
+//     const finalize = async () => {
+//       if (isSaving.current) return;
+//       isSaving.current = true;
+
+//       try {
+//         const {
+//           data: { user },
+//         } = await supabase.auth.getUser();
+//         if (!user) throw new Error("Пользователь не авторизован");
+
+//         // Собираем ВСЕ данные из опросника (включая динамические ветки)
+//         // Мы сохраняем их в jsonb колонку 'onboarding_data', чтобы не менять схему таблицы каждый раз
+//         const { error: profileError } = await supabase
+//           .from("profiles")
+//           .update({
+//             goal: data.goal,
+//             gender: data.gender,
+//             age: data.age,
+//             weight: data.weight,
+//             height: data.height,
+//             target_weight: data.target_weight,
+//             activity_level: data.activityLevel,
+//             daily_calories: data.daily_calories,
+//             // Складываем все остальные ответы в метаданные
+//             onboarding_metadata: data,
+//             onboarding_completed: true,
+//             updated_at: new Date().toISOString(),
+//           })
+//           .eq("id", user.id);
+
+//         if (profileError) throw profileError;
+
+//         // Обновляем метаданные юзера в Auth (для middleware/защиты роутов)
+//         await supabase.auth.updateUser({
+//           data: { onboarding_completed: true },
+//         });
+
+//         isSuccess.current = true;
+//         setStatus("success");
+
+//         // Редирект в зависимости от роли
+//         const target =
+//           user.user_metadata?.role === "coach" ? "/coach" : "/student";
+
+//         setTimeout(() => {
+//           router.refresh(); // Обновляет куки и серверные данные (Middleware увидит изменения)
+//           router.replace(target); // ЗАМЕНЯЕТ текущую страницу в истории на дашборд
+//         }, 2000);
+//       } catch (error) {
+//         console.error("Save error:", error);
+//         setStatus("error");
+//         isSaving.current = false;
+//       }
+//     };
+
+//     finalize();
+//     return () => clearInterval(interval);
+//   }, [data, setStep, router, currentStages]);
+
+//   // Сброс стора при успешном завершении
+//   useEffect(() => {
+//     return () => {
+//       if (isSuccess.current) reset();
+//     };
+//   }, [reset]);
+
+//   return (
+//     <div className="flex flex-col items-center justify-center min-h-[450px] text-center p-6 bg-white rounded-3xl">
+//       <div className="relative mb-10">
+//         <AnimatePresence mode="wait">
+//           {status === "loading" && (
+//             <motion.div
+//               key="loader"
+//               initial={{ scale: 0.8, opacity: 0 }}
+//               animate={{ scale: 1, opacity: 1 }}
+//               exit={{ scale: 0.8, opacity: 0 }}
+//               className="relative"
+//             >
+//               <Loader2 className="w-20 h-20 text-blue-600 animate-spin stroke-[3]" />
+//               <div className="absolute inset-0 flex items-center justify-center">
+//                 <div className="w-2 h-2 bg-blue-600 rounded-full animate-ping" />
+//               </div>
+//             </motion.div>
+//           )}
+//           {status === "success" && (
+//             <motion.div
+//               key="success"
+//               initial={{ scale: 0.5, rotate: -20 }}
+//               animate={{ scale: 1, rotate: 0 }}
+//             >
+//               <CheckCircle2 className="w-20 h-20 text-emerald-500 stroke-[2]" />
+//             </motion.div>
+//           )}
+//           {status === "error" && (
+//             <motion.div
+//               key="error"
+//               initial={{ scale: 0.5 }}
+//               animate={{ scale: 1 }}
+//             >
+//               <AlertCircle className="w-20 h-20 text-rose-500 stroke-[2]" />
+//             </motion.div>
+//           )}
+//         </AnimatePresence>
+//       </div>
+
+//       <div className="space-y-6 max-w-xs">
+//         <div className="h-16">
+//           <AnimatePresence mode="wait">
+//             <motion.h3
+//               key={status === "loading" ? stage : status}
+//               initial={{ y: 15, opacity: 0 }}
+//               animate={{ y: 0, opacity: 1 }}
+//               exit={{ y: -15, opacity: 0 }}
+//               className="text-2xl font-black text-gray-900 uppercase tracking-tighter"
+//             >
+//               {status === "loading" && currentStages[stage]}
+//               {status === "success" && "Всё готово!"}
+//               {status === "error" && "Сбой связи..."}
+//             </motion.h3>
+//           </AnimatePresence>
+//         </div>
+
+//         {status === "loading" && data.daily_calories && (
+//           <motion.div
+//             initial={{ opacity: 0 }}
+//             animate={{ opacity: 1 }}
+//             className="flex flex-col gap-1 items-center"
+//           >
+//             <span className="text-[10px] font-black text-blue-400 uppercase tracking-widest">
+//               Ваша норма:
+//             </span>
+//             <div className="text-3xl font-black text-blue-600 italic">
+//               {data.daily_calories} ккал
+//             </div>
+//           </motion.div>
+//         )}
+
+//         {status === "error" && (
+//           <button
+//             onClick={() => window.location.reload()}
+//             className="px-8 py-4 bg-gray-100 text-gray-900 rounded-2xl font-black uppercase tracking-widest text-xs hover:bg-gray-200 transition-all"
+//           >
+//             Повторить попытку
+//           </button>
+//         )}
+//       </div>
+//     </div>
+//   );
+// }
 "use client";
 
 import { useEffect, useState, useRef } from "react";
@@ -7,39 +208,46 @@ import { CheckCircle2, Loader2, AlertCircle } from "lucide-react";
 import { useOnboardingStore } from "@/store/useOnboardingStore";
 import { supabase } from "@/lib/supabase";
 
-const loadingStages = [
-  "Анализируем параметры...",
-  "Рассчитываем индекс массы тела...",
-  "Подбираем дефицит калорий...",
-  "Почти готово!",
-];
+const STAGES = {
+  lose_weight: [
+    "Анализируем метаболизм...",
+    "Рассчитываем безопасный дефицит...",
+    "Оптимизируем баланс БЖУ...",
+    "План похудения готов!",
+  ],
+  gain_muscle: [
+    "Оцениваем тренировочный потенциал...",
+    "Рассчитываем анаболический профицит...",
+    "Подбираем норму белка...",
+    "План роста мышц готов!",
+  ],
+  maintain: [
+    "Ищем маркеры дефицитов...",
+    "Анализируем уровень энергии...",
+    "Балансируем микронутриенты...",
+    "Ваш ЗОЖ-профиль готов!",
+  ],
+};
 
 export default function ProcessingStep() {
   const router = useRouter();
-  const { data, setStep } = useOnboardingStore();
-  const reset = useOnboardingStore((state) => state.reset);
+  const { data, reset } = useOnboardingStore();
   const [stage, setStage] = useState(0);
   const [status, setStatus] = useState<"loading" | "success" | "error">(
     "loading",
   );
 
-  // Флаги для предотвращения повторных запросов и отслеживания успеха
   const isSaving = useRef(false);
   const isSuccess = useRef(false);
 
+  const currentStages =
+    STAGES[data.goal as keyof typeof STAGES] || STAGES.lose_weight;
+
   useEffect(() => {
-    // Анимация текста
     const interval = setInterval(() => {
-      setStage((prev) => (prev < loadingStages.length - 1 ? prev + 1 : prev));
-    }, 1000);
+      setStage((prev) => (prev < currentStages.length - 1 ? prev + 1 : prev));
+    }, 1200);
 
-    // Валидация данных перед сохранением
-    if (!data.goal || !data.weight) {
-      setStep(1);
-      return () => clearInterval(interval);
-    }
-
-    // Основная функция сохранения
     const finalize = async () => {
       if (isSaving.current) return;
       isSaving.current = true;
@@ -48,85 +256,98 @@ export default function ProcessingStep() {
         const {
           data: { user },
         } = await supabase.auth.getUser();
-        if (!user) throw new Error("User not found");
+        if (!user) throw new Error("Пользователь не авторизован");
 
-        const [profileRes, authRes] = await Promise.all([
-          supabase
-            .from("profiles")
-            .update({
-              goal: data.goal,
-              gender: data.gender,
-              age: data.age,
-              weight: data.weight,
-              height: data.height,
-              target_weight: data.target_weight,
-              activity_level: data.activityLevel,
-              vibe_description: data.vibe,
-              onboarding_completed: true,
-              updated_at: new Date().toISOString(),
-            })
-            .eq("id", user.id),
-          supabase.auth.updateUser({
-            data: { onboarding_completed: true },
-          }),
-        ]);
+        // 1. Извлекаем основные поля, чтобы они НЕ дублировались в JSONB
+        const {
+          goal,
+          gender,
+          age,
+          weight,
+          height,
+          target_weight,
+          activityLevel,
+          daily_calories,
+          ...metadata // Все остальные специфические ответы
+        } = data;
 
-        if (profileRes.error) throw profileRes.error;
-        if (authRes.error) throw authRes.error;
+        // 2. Обновляем профиль с чистым разделением данных
+        const { error: profileError } = await supabase
+          .from("profiles")
+          .update({
+            goal,
+            gender,
+            age,
+            weight,
+            height,
+            target_weight,
+            activity_level: activityLevel,
+            daily_calories,
+            onboarding_metadata: metadata, // Теперь тут нет дублей веса/роста
+            onboarding_completed: true,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", user.id);
+
+        if (profileError) throw profileError;
+
+        // 3. Обновляем метаданные Auth, чтобы Middleware увидел статус
+        await supabase.auth.updateUser({
+          data: { onboarding_completed: true },
+        });
 
         isSuccess.current = true;
         setStatus("success");
 
         const target =
-          user.user_metadata.role === "coach" ? "/coach" : "/student";
+          user.user_metadata?.role === "coach" ? "/coach" : "/student";
 
-        // Только навигация, без сброса данных
         setTimeout(() => {
-          router.push(target);
-        }, 1500);
+          router.refresh(); // Принудительно обновляем серверный контекст
+          router.replace(target); // Заменяем историю, чтобы нельзя было вернуться "назад"
+        }, 2000);
       } catch (error) {
         console.error("Save error:", error);
         setStatus("error");
-        isSaving.current = false; // разрешаем повторную попытку
+        isSaving.current = false;
       }
     };
 
     finalize();
-
     return () => clearInterval(interval);
-  }, [data, setStep, router]);
+  }, [data, router, currentStages]);
 
-  // Сброс данных только при размонтировании компонента (после успеха)
   useEffect(() => {
     return () => {
-      if (isSuccess.current) {
-        reset();
-      }
+      if (isSuccess.current) reset();
     };
   }, [reset]);
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-[400px] space-y-8 text-center px-4">
-      {/* Иконка статуса */}
-      <div className="h-20 flex items-center justify-center">
+    <div className="flex flex-col items-center justify-center min-h-[450px] text-center p-6 bg-white rounded-3xl">
+      <div className="relative mb-10">
         <AnimatePresence mode="wait">
           {status === "loading" && (
             <motion.div
               key="loader"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
+              initial={{ scale: 0.8, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.8, opacity: 0 }}
+              className="relative"
             >
-              <Loader2 className="w-16 h-16 text-blue-600 animate-spin" />
+              <Loader2 className="w-20 h-20 text-blue-600 animate-spin stroke-[3]" />
+              <div className="absolute inset-0 flex items-center justify-center">
+                <div className="w-2 h-2 bg-blue-600 rounded-full animate-ping" />
+              </div>
             </motion.div>
           )}
           {status === "success" && (
             <motion.div
               key="success"
-              initial={{ scale: 0.5 }}
-              animate={{ scale: 1 }}
+              initial={{ scale: 0.5, rotate: -20 }}
+              animate={{ scale: 1, rotate: 0 }}
             >
-              <CheckCircle2 className="w-16 h-16 text-green-500" />
+              <CheckCircle2 className="w-20 h-20 text-emerald-500 stroke-[2]" />
             </motion.div>
           )}
           {status === "error" && (
@@ -135,46 +356,50 @@ export default function ProcessingStep() {
               initial={{ scale: 0.5 }}
               animate={{ scale: 1 }}
             >
-              <AlertCircle className="w-16 h-16 text-red-500" />
+              <AlertCircle className="w-20 h-20 text-rose-500 stroke-[2]" />
             </motion.div>
           )}
         </AnimatePresence>
       </div>
 
-      {/* Текстовый блок */}
-      <div className="space-y-4">
-        <div className="h-12 flex flex-col justify-center">
+      <div className="space-y-6 max-w-xs">
+        <div className="h-16">
           <AnimatePresence mode="wait">
-            <motion.p
+            <motion.h3
               key={status === "loading" ? stage : status}
-              initial={{ y: 10, opacity: 0 }}
+              initial={{ y: 15, opacity: 0 }}
               animate={{ y: 0, opacity: 1 }}
-              exit={{ y: -10, opacity: 0 }}
-              className="text-xl font-bold text-gray-800"
+              exit={{ y: -15, opacity: 0 }}
+              className="text-2xl font-black text-gray-900 uppercase tracking-tighter"
             >
-              {status === "loading" && loadingStages[stage]}
-              {status === "success" && "Ваш план готов!"}
-              {status === "error" && "Упс! Что-то пошло не так..."}
-            </motion.p>
+              {status === "loading" && currentStages[stage]}
+              {status === "success" && "Всё готово!"}
+              {status === "error" && "Сбой связи..."}
+            </motion.h3>
           </AnimatePresence>
         </div>
 
         {status === "loading" && data.daily_calories && (
-          <motion.p
+          <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            className="text-blue-600 font-medium bg-blue-50 px-4 py-1 rounded-full inline-block"
+            className="flex flex-col gap-1 items-center"
           >
-            Цель: {data.daily_calories} ккал/день
-          </motion.p>
+            <span className="text-[10px] font-black text-blue-400 uppercase tracking-widest">
+              Ваша норма:
+            </span>
+            <div className="text-3xl font-black text-blue-600 italic">
+              {data.daily_calories} ккал
+            </div>
+          </motion.div>
         )}
 
         {status === "error" && (
           <button
             onClick={() => window.location.reload()}
-            className="text-blue-600 font-bold underline"
+            className="px-8 py-4 bg-gray-100 text-gray-900 rounded-2xl font-black uppercase tracking-widest text-xs hover:bg-gray-200 transition-all"
           >
-            Попробовать снова
+            Повторить попытку
           </button>
         )}
       </div>

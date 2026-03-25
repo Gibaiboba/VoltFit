@@ -1,15 +1,16 @@
 "use client";
 
-import { useForm, UseFormRegister } from "react-hook-form"; //FieldErrors было раньше, потом проверь для чего это
+import { useForm, UseFormRegister } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { MetricsSchema, MetricsFormData } from "@/lib/schemas";
 import { useOnboardingStore } from "@/store/useOnboardingStore";
-import { motion } from "framer-motion";
+import { Gender } from "@/types/onboarding";
+import { QuestionWrapper } from "./QuestionWrapper";
 
-// Типизируем пропсы для нашего инпута
+// Типизируем пропсы для инпута
 interface InputProps {
   label: string;
-  name: keyof MetricsFormData; // Гарантирует, что имя совпадает со схемой
+  name: keyof MetricsFormData;
   register: UseFormRegister<MetricsFormData>;
   error?: string;
   placeholder: string;
@@ -20,6 +21,9 @@ export default function MetricsStep() {
   const nextStep = useOnboardingStore((state) => state.nextStep);
   const initialData = useOnboardingStore((state) => state.data);
 
+  // Список доступных полов для маппинга
+  const genderOptions: Gender[] = ["male", "female"];
+
   const {
     register,
     handleSubmit,
@@ -28,7 +32,7 @@ export default function MetricsStep() {
     resolver: zodResolver(MetricsSchema),
     mode: "onChange",
     defaultValues: {
-      gender: initialData.gender || "male",
+      gender: (initialData.gender as Gender) || "male",
       age: initialData.age,
       height: initialData.height,
       weight: initialData.weight,
@@ -42,22 +46,14 @@ export default function MetricsStep() {
   };
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
-      className="w-full max-w-md mx-auto space-y-6"
+    <QuestionWrapper
+      title="Твои параметры"
+      description="Это база для расчета твоего метаболизма."
     >
-      <div className="text-center space-y-1">
-        <h1 className="text-2xl font-bold">Твои параметры</h1>
-        <p className="text-gray-500 text-sm italic">
-          Используются для расчета КБЖУ
-        </p>
-      </div>
-
-      <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
-        {/* Выбор пола */}
+      <form onSubmit={handleSubmit(onSubmit)} className="space-y-6 mt-4">
+        {/* Выбор пола - Строгая типизация через genderOptions */}
         <div className="flex gap-2 p-1.5 bg-gray-100 rounded-2xl">
-          {(["male", "female"] as const).map((g) => (
+          {genderOptions.map((g) => (
             <label key={g} className="flex-1 cursor-pointer">
               <input
                 type="radio"
@@ -65,7 +61,7 @@ export default function MetricsStep() {
                 {...register("gender")}
                 className="hidden peer"
               />
-              <div className="text-center py-2.5 rounded-xl peer-checked:bg-white peer-checked:shadow-sm transition-all text-sm font-bold">
+              <div className="text-center py-3 rounded-xl transition-all font-black uppercase text-xs tracking-widest peer-checked:bg-white peer-checked:text-blue-600 peer-checked:shadow-sm text-gray-400">
                 {g === "male" ? "Мужчина" : "Женщина"}
               </div>
             </label>
@@ -107,19 +103,20 @@ export default function MetricsStep() {
         <button
           type="submit"
           disabled={!isValid}
-          className="w-full py-4 bg-blue-600 text-white rounded-2xl font-bold hover:bg-blue-700 disabled:opacity-50 disabled:grayscale transition-all active:scale-[0.98]"
+          className="w-full py-5 bg-blue-600 text-white rounded-3xl font-black uppercase tracking-widest hover:bg-blue-700 disabled:opacity-30 disabled:grayscale transition-all active:scale-[0.98] shadow-lg shadow-blue-100"
         >
-          Далее
+          Продолжить
         </button>
       </form>
-    </motion.div>
+    </QuestionWrapper>
   );
 }
 
+// Вспомогательный компонент инпута
 function Input({ label, name, register, error, placeholder }: InputProps) {
   return (
-    <div className="space-y-1.5">
-      <label className="text-[10px] font-bold text-gray-400 ml-3 uppercase tracking-wider">
+    <div className="space-y-2">
+      <label className="text-[10px] font-black text-gray-400 ml-3 uppercase tracking-widest">
         {label}
       </label>
       <input
@@ -127,12 +124,14 @@ function Input({ label, name, register, error, placeholder }: InputProps) {
         step="0.1"
         placeholder={placeholder}
         {...register(name, { valueAsNumber: true })}
-        className={`w-full p-4 bg-gray-50 border-2 rounded-2xl outline-none focus:border-blue-500 transition-all placeholder:text-gray-300 font-medium ${
+        className={`w-full p-4 bg-gray-50 border-2 rounded-2xl outline-none focus:border-blue-600 transition-all font-bold ${
           error ? "border-red-200 bg-red-50" : "border-transparent"
         }`}
       />
       {error && (
-        <p className="text-[10px] text-red-500 ml-3 font-semibold">{error}</p>
+        <p className="text-[10px] text-red-500 ml-3 font-bold uppercase">
+          {error}
+        </p>
       )}
     </div>
   );

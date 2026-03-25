@@ -39,37 +39,32 @@ export async function middleware(request: NextRequest) {
     },
   );
 
-  // Получаем пользователя и обновляем сессию
+  // Используем getSession() вместо getUser()
+  // Это берет данные из куки БЕЗ обязательного запроса к серверу Supabase
   const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  const userRole = user?.user_metadata?.role;
+    data: { session },
+    error,
+  } = await supabase.auth.getSession();
 
-  // Проверяем флаг в user_metadata пройден ли опрос
+  const user = session?.user;
+  const userRole = user?.app_metadata?.role || user?.user_metadata?.role;
   const onboardingDone = user?.user_metadata?.onboarding_completed === true;
 
   const isPublicPage =
     path === "/" ||
     path === "/login" ||
     path === "/register" ||
-    path === "/products";
+    path.startsWith("/products");
 
-  // Если юзера нет и страница не публичная перенаправляем на логин
-  if (!user && !isPublicPage) {
+  // проверка авторизации
+  // редиректим на логин ТОЛЬКО если сессии точно нет (!session)
+  // и при этом нет ошибки запроса (!error).
+  // Если error есть (например, ошибка сети), мы пропускаем запрос дальше.
+  if (!session && !isPublicPage && !error) {
     return NextResponse.redirect(new URL("/login", request.url));
   }
 
-  // Если залогинен, опрос НЕ пройден, и страница НЕ публичная и НЕ сам опрос — на опрос
-  if (
-    user &&
-    !onboardingDone &&
-    !isPublicPage &&
-    !path.startsWith("/onboarding")
-  ) {
-    return NextResponse.redirect(new URL("/onboarding", request.url));
-  }
-
-  // Если юзер залогинен и лезет на защищенные страницы отправляем в свой кабинет
+  // Если залогинен и лезет на логин/регистрацию
   if (user && (path === "/login" || path === "/register")) {
     const target = userRole === "coach" ? "/coach" : "/student";
     return NextResponse.redirect(new URL(target, request.url));
@@ -86,6 +81,21 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(
       new URL("/coach?error=no_access", request.url),
     );
+  }
+  // Если опрос пройден и юзер лезет на страницу опроса — редиректим в личный кабинет
+  if (user && onboardingDone && path.startsWith("/onboarding")) {
+    const target = userRole === "coach" ? "/coach" : "/student";
+    return NextResponse.redirect(new URL(target, request.url));
+  }
+
+  // Если залогинен, опрос НЕ пройден
+  if (
+    user &&
+    !onboardingDone &&
+    !isPublicPage &&
+    !path.startsWith("/onboarding")
+  ) {
+    return NextResponse.redirect(new URL("/onboarding", request.url));
   }
 
   return response;

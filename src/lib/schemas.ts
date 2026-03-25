@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 export const MetricsSchema = z.object({
-  gender: z.enum(["male", "female", "other"], {
+  gender: z.enum(["male", "female"], {
     errorMap: () => ({ message: "Выберите пол" }),
   }),
   age: z

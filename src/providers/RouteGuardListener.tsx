@@ -2,9 +2,7 @@
 import { useEffect } from "react";
 import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import { toast } from "sonner";
-import { ShieldAlert } from "lucide-react";
-
-// Следит чтобы пользователь с активной сессией не залез туда, куда ему не положено по роли.
+import { ShieldAlert, WifiOff, Wifi } from "lucide-react";
 
 export default function RouteGuardListener() {
   const searchParams = useSearchParams();
@@ -12,8 +10,8 @@ export default function RouteGuardListener() {
   const pathname = usePathname();
 
   useEffect(() => {
+    // ПРОВЕРКА ДОСТУПА
     const error = searchParams.get("error");
-
     if (error === "no_access") {
       toast.error("Доступ запрещен", {
         description: "У вас нет прав для просмотра этого раздела.",
@@ -28,6 +26,37 @@ export default function RouteGuardListener() {
         : pathname;
       router.replace(newUrl);
     }
+
+    // ПРОВЕРКА ИНТЕРНЕТА
+    const handleOffline = () => {
+      toast.error("Сеть потеряна", {
+        description:
+          "Данные могут не сохраняться, пока связь не восстановится.",
+        icon: <WifiOff className="text-red-500" size={20} />,
+        duration: Infinity, // Висит, пока нет сети
+        id: "network-status", // Фиксированный ID, чтобы не плодить дубли
+      });
+    };
+
+    const handleOnline = () => {
+      toast.success("Связь восстановлена", {
+        description: "Вы снова онлайн.",
+        icon: <Wifi className="text-green-500" size={20} />,
+        duration: 3000,
+        id: "network-status", // Заменяет "оффлайн" тостер на этот
+      });
+    };
+
+    window.addEventListener("offline", handleOffline);
+    window.addEventListener("online", handleOnline);
+
+    // Проверка при первой загрузке (если вдруг сразу зашли без сети)
+    if (!navigator.onLine) handleOffline();
+
+    return () => {
+      window.removeEventListener("offline", handleOffline);
+      window.removeEventListener("online", handleOnline);
+    };
   }, [searchParams, pathname, router]);
 
   return null;
