@@ -2,7 +2,6 @@
 import { useOnboardingStore } from "@/store/useOnboardingStore";
 import { QUESTIONS } from "@/constants/questions";
 import GoalStep from "@/components/onboarding/GoalStep";
-import MetricsStep from "@/components/onboarding/MetricsStep";
 import ActivityStep from "@/components/onboarding/ActivityStep";
 import ProcessingStep from "@/components/onboarding/ProcessingStep";
 import { QuestionCard } from "../../components/onboarding/QuestionCard";
@@ -14,24 +13,31 @@ export default function OnboardingPage() {
   const currentBranch = QUESTIONS[data.goal as keyof typeof QUESTIONS] || [];
 
   // РАСЧЕТ ПРОГРЕССА:
-  // 1 (Цель) + 1 (Метрики) + 1 (Активность) + вопросы ветки + 1 (Финал)
+  // 1 (Цель) + вопросы ветки + 1 (Активность) + 1 (Финал)
   const questionsCount = data.goal ? currentBranch.length : 8;
-  const totalSteps = 1 + 1 + 1 + questionsCount + 1;
+  const totalSteps = 1 + questionsCount + 1 + 1;
 
   const progressPercentage = Math.min((step / totalSteps) * 100, 100);
 
   const renderStep = (step: number) => {
+    // 1. Первый шаг — выбор цели
     if (step === 1) return <GoalStep />;
-    if (step === 2) return <MetricsStep />;
-    if (step === 3) return <ActivityStep />;
 
-    // Теперь динамические вопросы начинаются со step 4
-    // Чтобы получить первый вопрос из массива (индекс 0), вычитаем 4
-    const questionData = currentBranch[step - 4];
+    // 2. Основные вопросы из QUESTIONS (начинаются со 2-го шага)
+    // Индекс в массиве: step - 2
+    const questionData = currentBranch[step - 2];
 
-    if (!questionData) return <ProcessingStep />;
+    if (questionData) {
+      return <QuestionCard key={questionData.id} question={questionData} />;
+    }
 
-    return <QuestionCard key={questionData.id} question={questionData} />;
+    // 3. Когда вопросы в ветке кончились (индекс вышел за пределы массива)
+    // Показываем Активность как финальный уточняющий штрих
+    const activityStepIndex = 1 + currentBranch.length + 1;
+    if (step === activityStepIndex) return <ActivityStep />;
+
+    // 4. Финальный расчет и сохранение в базу
+    return <ProcessingStep />;
   };
 
   return (

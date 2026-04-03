@@ -15,23 +15,38 @@ export default async function StudentPage() {
     },
   );
 
-  // 1. Получаем сессию пользователя
   const {
     data: { user },
   } = await supabase.auth.getUser();
 
   let initialHistory = [];
+  let initialProfile = null;
+
   if (user) {
-    // 2. Сразу тянем логи логов
-    const { data } = await supabase
+    // 1. Тянем логи (историю)
+    const { data: logs } = await supabase
       .from("daily_logs")
       .select("*")
       .eq("user_id", user.id)
       .order("log_date", { ascending: false });
 
-    initialHistory = data || [];
+    initialHistory = logs || [];
+
+    // 2. ТЯНЕМ ПРОФИЛЬ (БЖУ, Калории, Метаданные)
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("*")
+      .eq("id", user.id)
+      .single();
+
+    initialProfile = profile;
   }
 
-  // 3. Отдаем чистые данные в клиентский компонент
-  return <StudentClient initialHistory={initialHistory} />;
+  // 3. Отдаем и логи, и профиль в клиент
+  return (
+    <StudentClient
+      initialHistory={initialHistory}
+      initialProfile={initialProfile}
+    />
+  );
 }

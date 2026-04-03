@@ -1,3 +1,4 @@
+"use client";
 import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
 import { OnboardingData, Goal, ActivityLevel } from "../types/onboarding";
@@ -17,6 +18,48 @@ interface OnboardingState {
   reset: () => void;
 }
 
+// 1. Вспомогательная функция для БЖУ по твоим пропорциям
+const calculateMacros = (data: Partial<OnboardingData>, calories: number) => {
+  const weight = Number(data.weight) || 0;
+  const { gender, goal } = data;
+
+  if (!weight || calories <= 0) return { protein: 0, fat: 0, carbs: 0 };
+
+  let p_rate = 1.5;
+  let f_rate = 1.0;
+
+  if (gender === "male") {
+    if (goal === "lose_weight") {
+      p_rate = 2.0;
+      f_rate = 0.75;
+    } else if (goal === "gain_muscle") {
+      p_rate = 1.7;
+      f_rate = 0.9;
+    } else {
+      p_rate = 1.6;
+      f_rate = 1.0;
+    } // maintain
+  } else {
+    if (goal === "lose_weight") {
+      p_rate = 1.7;
+      f_rate = 0.9;
+    } else if (goal === "gain_muscle") {
+      p_rate = 1.5;
+      f_rate = 1.0;
+    } else {
+      p_rate = 1.3;
+      f_rate = 1.1;
+    } // maintain
+  }
+
+  const protein = Math.round(weight * p_rate);
+  const fat = Math.round(weight * f_rate);
+  // Углеводы — остаток калорий
+  const carbs = Math.round((calories - protein * 4 - fat * 9) / 4);
+
+  return { protein, fat, carbs };
+};
+
 const calculateDailyCalories = (data: Partial<OnboardingData>): number => {
   const {
     weight,
@@ -29,18 +72,14 @@ const calculateDailyCalories = (data: Partial<OnboardingData>): number => {
     massQuality,
   } = data;
 
-  // Если базовых данных нет, возвращаем 0
   if (!weight || !height || !age || !gender || !activityLevel) return 0;
 
-  // Формула Миффлина-Сан Жеора
   let bmr = 10 * Number(weight) + 6.25 * Number(height) - 5 * Number(age);
   bmr = gender === "male" ? bmr + 5 : bmr - 161;
 
   let total = Math.round(bmr * Number(activityLevel));
 
-  // Корректировка целей
   if (goal === "lose_weight") total -= 500;
-
   if (goal === "gain_muscle") {
     let surplus = 300;
     if (bodyType === "ectomorph") surplus += 200;
@@ -61,19 +100,23 @@ export const useOnboardingStore = create<OnboardingState>()(
       setStep: (step) => set({ step }),
 
       setGoal: (goal) => {
-        const currentData = get().data;
-        const updatedData = { ...currentData, goal };
-        set({
-          data: updatedData,
-          step: get().step + 1,
-        });
+        const updatedData = { ...get().data, goal };
+        set({ data: updatedData, step: get().step + 1 });
       },
 
       setActivity: (activityLevel) => {
         const updatedData = { ...get().data, activityLevel };
         const calories = calculateDailyCalories(updatedData);
+        const macros = calculateMacros(updatedData, calories); // Расчет БЖУ
+
         set({
-          data: { ...updatedData, daily_calories: calories },
+          data: {
+            ...updatedData,
+            daily_calories: calories,
+            protein: macros.protein,
+            fat: macros.fat,
+            carbs: macros.carbs,
+          },
           step: get().step + 1,
         });
       },
@@ -85,15 +128,17 @@ export const useOnboardingStore = create<OnboardingState>()(
       updateData: (newData) => {
         const currentData = get().data;
         const updatedData = { ...currentData, ...newData };
-
-        // Пересчитываем калории
         const calories = calculateDailyCalories(updatedData);
+        const macros = calculateMacros(updatedData, calories); // Расчет БЖУ
 
         set({
           data: {
             ...updatedData,
             daily_calories:
               calories > 0 ? calories : currentData.daily_calories,
+            protein: macros.protein > 0 ? macros.protein : currentData.protein,
+            fat: macros.fat > 0 ? macros.fat : currentData.fat,
+            carbs: macros.carbs > 0 ? macros.carbs : currentData.carbs,
           },
         });
       },

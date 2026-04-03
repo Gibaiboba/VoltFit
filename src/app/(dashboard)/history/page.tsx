@@ -1,10 +1,9 @@
 "use client";
-
 import { useState, useMemo, useEffect } from "react";
 import { useMealHistory } from "@/hooks/use-meal-history";
 import { MealCard } from "@/components/history/meal-card";
 import { DateFilter } from "@/components/history/date-filter";
-import { Utensils, AlertCircle, RefreshCw, Plus, Target } from "lucide-react";
+import { Utensils, AlertCircle, Plus } from "lucide-react";
 import Link from "next/link";
 import { toISODate } from "@/lib/utils/date-utils";
 import { HistorySkeleton } from "@/components/history/history-skeleton";
@@ -13,11 +12,12 @@ import { supabase } from "@/lib/supabase";
 export default function HistoryPage() {
   const { meals, isLoading, error, refetch, deleteMeal } = useMealHistory();
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
-  const [dailyGoal, setDailyGoal] = useState<number | null>(null);
 
-  // Загружаем дневную норму из базы данных
+  // 1. Расширенный стейт для всех целей из профиля
+  const [goals, setGoals] = useState({ kcal: 2000, p: 0, f: 0, c: 0 });
+
   useEffect(() => {
-    async function fetchDailyGoal() {
+    async function fetchGoals() {
       const {
         data: { user },
       } = await supabase.auth.getUser();
@@ -25,30 +25,47 @@ export default function HistoryPage() {
 
       const { data, error } = await supabase
         .from("profiles")
-        .select("daily_calories")
+        .select("daily_calories, protein, fat, carbs")
         .eq("id", user.id)
         .single();
 
-      if (!error && data?.daily_calories) {
-        setDailyGoal(data.daily_calories);
+      if (!error && data) {
+        setGoals({
+          kcal: data.daily_calories || 2000,
+          p: data.protein || 0,
+          f: data.fat || 0,
+          c: data.carbs || 0,
+        });
       }
     }
-    fetchDailyGoal();
+    fetchGoals();
   }, []);
 
-  // Считаем калории за выбранный день
+  // 2. Считаем детальную статистику за выбранный день (Ккал + БЖУ)
   const dailyStats = useMemo(() => {
     const targetDate = selectedDate || toISODate(new Date());
-    const totalConsumed = meals
-      .filter((m) => toISODate(new Date(m.created_at)) === targetDate)
-      .reduce((sum, m) => sum + (m.total_kcal || 0), 0);
 
-    const goal = dailyGoal || 2000;
-    const progress = Math.min((totalConsumed / goal) * 100, 100);
-    const isOverLimit = totalConsumed > goal;
+    // Фильтруем приемы пищи за этот день
+    const dayMeals = meals.filter(
+      (m) => toISODate(new Date(m.created_at)) === targetDate,
+    );
 
-    return { totalConsumed, goal, progress, isOverLimit };
-  }, [meals, selectedDate, dailyGoal]);
+    // Суммируем нутриенты
+    const consumed = dayMeals.reduce(
+      (acc, m) => ({
+        kcal: acc.kcal + (m.total_kcal || 0),
+        p: acc.p + (m.total_p || 0),
+        f: acc.f + (m.total_f || 0),
+        c: acc.c + (m.total_c || 0),
+      }),
+      { kcal: 0, p: 0, f: 0, c: 0 },
+    );
+
+    const progress = Math.min((consumed.kcal / goals.kcal) * 100, 100);
+    const isOverLimit = consumed.kcal > goals.kcal;
+
+    return { consumed, goals, progress, isOverLimit };
+  }, [meals, selectedDate, goals]);
 
   const groupedMeals = useMemo(() => {
     const groups: Record<string, { displayDate: string; meals: typeof meals }> =
@@ -92,25 +109,20 @@ export default function HistoryPage() {
         <h2 className="text-red-900 font-black text-xl mb-2">
           Ошибка загрузки
         </h2>
-        <p className="text-red-600 text-sm mb-6">
-          {error instanceof Error
-            ? error.message
-            : "Не удалось получить данные"}
-        </p>
         <button
           onClick={() => refetch()}
-          className="flex items-center gap-2 mx-auto px-8 py-3 bg-red-500 text-white rounded-full font-bold hover:bg-red-600 transition-all active:scale-95 shadow-lg shadow-red-200"
+          className="px-8 py-3 bg-red-500 text-white rounded-full font-bold"
         >
-          <RefreshCw size={18} /> Попробовать снова
+          Попробовать снова
         </button>
       </div>
     );
   }
 
   return (
-    <div className="mt-20 max-w-3xl mx-auto p-6">
+    <div className="mt-20 max-w-3xl mx-auto p-6 pb-20">
       <div className="flex justify-between items-center mb-8">
-        <h1 className="text-3xl font-black text-gray-900 tracking-tight">
+        <h1 className="text-3xl font-black text-gray-900 tracking-tight text-left">
           История
         </h1>
         <Link
@@ -121,42 +133,105 @@ export default function HistoryPage() {
         </Link>
       </div>
 
-      {/* ВИДЖЕТ ПРОГРЕССА КАЛОРИЙ */}
-      <div className="mb-8 p-6 bg-white rounded-[32px] border border-gray-100 shadow-sm">
-        <div className="flex justify-between items-end mb-4">
-          <div>
-            <div className="flex items-center gap-1.5 text-gray-400 mb-1">
-              <Target size={14} className="font-bold" />
-              <p className="text-[11px] font-black uppercase tracking-widest">
-                Прогресс дня{" "}
-                {selectedDate
-                  ? `(${new Date(selectedDate).toLocaleDateString("ru-RU", { day: "numeric", month: "short" })})`
-                  : ""}
+      {/* ВИДЖЕТ ПРОГРЕССА (ОБНОВЛЕННЫЙ) */}
+      <div className="mb-8 p-8 bg-white rounded-[40px] border border-gray-100 shadow-sm space-y-8">
+        {/* КАРТОЧКА КАЛОРИЙ (ЧЕРНАЯ) */}
+        <div className="bg-slate-900 rounded-[32px] p-8 text-white relative overflow-hidden shadow-xl">
+          <div className="absolute -right-10 -bottom-10 w-40 h-40 bg-blue-500/20 rounded-full blur-3xl" />
+          <div className="flex justify-between items-end relative z-10">
+            <div className="text-left">
+              <p className="text-[10px] font-black uppercase tracking-[0.2em] text-blue-400 mb-1">
+                Ккал сегодня
+              </p>
+              <div className="text-5xl font-black italic tracking-tighter leading-none">
+                {Math.round(dailyStats.consumed.kcal)}
+                <span className="text-xl opacity-30 not-italic ml-2 font-bold">
+                  / {dailyStats.goals.kcal}
+                </span>
+              </div>
+            </div>
+            <div className="text-right">
+              <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-1 text-right">
+                Осталось
+              </p>
+              <p className="text-3xl font-black text-emerald-400 italic leading-none">
+                {Math.max(
+                  0,
+                  dailyStats.goals.kcal - Math.round(dailyStats.consumed.kcal),
+                )}
               </p>
             </div>
-            <div className="flex items-baseline gap-1.5">
-              <span className="text-3xl font-black text-gray-900">
-                {Math.round(dailyStats.totalConsumed)}
-              </span>
-              <span className="text-gray-400 font-bold">
-                / {dailyStats.goal} ккал
-              </span>
-            </div>
           </div>
-          <div
-            className={`text-sm font-black px-3 py-1 rounded-lg ${dailyStats.isOverLimit ? "bg-red-50 text-red-500" : "bg-green-50 text-green-600"}`}
-          >
-            {Math.round(dailyStats.progress)}%
+          <div className="h-2 w-full bg-white/10 rounded-full mt-6 overflow-hidden">
+            <div
+              className={`h-full transition-all duration-1000 ${dailyStats.isOverLimit ? "bg-red-500" : "bg-blue-500"}`}
+              style={{ width: `${dailyStats.progress}%` }}
+            />
           </div>
         </div>
 
-        <div className="h-4 w-full bg-gray-50 rounded-full overflow-hidden border border-gray-100">
-          <div
-            className={`h-full transition-all duration-700 ease-out rounded-full ${
-              dailyStats.isOverLimit ? "bg-red-500" : "bg-blue-600"
-            }`}
-            style={{ width: `${dailyStats.progress}%` }}
-          />
+        <div className="grid grid-cols-3 gap-3">
+          {[
+            {
+              label: "Белки",
+              cur: dailyStats.consumed.p,
+              target: dailyStats.goals.p,
+              color: "bg-orange-500",
+              light: "bg-orange-50",
+              text: "text-orange-600",
+            },
+            {
+              label: "Жиры",
+              cur: dailyStats.consumed.f,
+              target: dailyStats.goals.f,
+              color: "bg-rose-500",
+              light: "bg-rose-50",
+              text: "text-rose-600",
+            },
+            {
+              label: "Углеводы",
+              cur: dailyStats.consumed.c,
+              target: dailyStats.goals.c,
+              color: "bg-indigo-500",
+              light: "bg-indigo-50",
+              text: "text-indigo-600",
+            },
+          ].map((m) => {
+            // 1. Считаем процент для полоски
+            const proc = m.target > 0 ? (m.cur / m.target) * 100 : 0;
+
+            return (
+              <div
+                key={m.label}
+                className={`${m.light} p-4 rounded-[32px] border border-white shadow-sm flex flex-col items-center`}
+              >
+                <span className="text-[9px] font-black uppercase tracking-widest text-gray-400 mb-1 text-center">
+                  {m.label}
+                </span>
+
+                {/* 2. ИЗМЕНЕНИЕ: Теперь выводим СЪЕДЕНО (m.cur) вместо остатка */}
+                <div className={`text-2xl font-black italic ${m.text}`}>
+                  {Math.round(m.cur)}
+                  <span className="text-[10px] not-italic ml-0.5 opacity-60">
+                    г
+                  </span>
+                </div>
+
+                {/* 3. Подпись цели */}
+                <p className="text-[8px] font-bold text-gray-400 uppercase mt-0.5">
+                  из {m.target}г план
+                </p>
+
+                {/* Прогресс-бар */}
+                <div className="w-full h-1 bg-white rounded-full mt-3 overflow-hidden">
+                  <div
+                    className={`h-full ${m.color} transition-all duration-700`}
+                    style={{ width: `${Math.min(proc, 100)}%` }}
+                  />
+                </div>
+              </div>
+            );
+          })}
         </div>
       </div>
 
@@ -168,21 +243,21 @@ export default function HistoryPage() {
       />
 
       {meals.length === 0 ? (
-        <div className="text-center py-20 bg-gray-50 rounded-3xl border-2 border-dashed border-gray-200">
+        <div className="text-center py-20 bg-gray-50 rounded-[40px] border-2 border-dashed border-gray-200 mt-8">
           <Utensils className="mx-auto text-gray-300 mb-4" size={48} />
           <p className="text-gray-500">
             История пуста. Самое время что-нибудь съесть!
           </p>
         </div>
       ) : (
-        <div className="space-y-10 mt-8">
+        <div className="space-y-10 mt-10">
           {groupedMeals.map(([isoKey, group]) => (
             <div key={isoKey} className="space-y-4">
-              <div className="flex justify-between items-end px-2 border-b border-gray-100 pb-2">
-                <h2 className="text-sm font-black text-gray-400 uppercase tracking-widest">
+              <div className="flex justify-between items-end px-4 border-b border-gray-100 pb-2">
+                <h2 className="text-xs font-black text-gray-400 uppercase tracking-widest">
                   {group.displayDate}
                 </h2>
-                <div className="text-[10px] font-bold text-blue-500 bg-blue-50 px-2 py-1 rounded-lg">
+                <div className="text-[10px] font-bold text-blue-500 bg-blue-50 px-3 py-1 rounded-full">
                   Всего:{" "}
                   {Math.round(
                     group.meals.reduce((sum, m) => sum + m.total_kcal, 0),

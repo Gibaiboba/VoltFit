@@ -24,9 +24,9 @@ export default function OnboardingLayout({
   const router = useRouter();
 
   const handleLogout = async () => {
-    reset();
     await supabase.auth.signOut();
-    router.push("/login");
+    router.replace("/login");
+    reset();
   };
 
   const currentBranch = QUESTIONS[data.goal as keyof typeof QUESTIONS] || [];

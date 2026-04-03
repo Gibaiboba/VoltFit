@@ -8,6 +8,7 @@ export interface Log {
   calories: number;
   sleep_hours: number;
   activity_level: string;
+  water: number;
 }
 
 interface LogState {

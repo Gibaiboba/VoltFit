@@ -13,6 +13,12 @@ export interface OnboardingData {
   target_weight: number;
   activityLevel: ActivityLevel;
   daily_calories?: number;
+  role?: "student" | "coach";
+
+  // Макронутриенты
+  protein?: number;
+  fat?: number;
+  carbs?: number;
 
   // Ветка: Мышцы
   bodyType?: BodyType;

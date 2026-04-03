@@ -1,28 +1,50 @@
 "use client";
-import { useState } from "react"; // для локального контроля блокировки
+import { useState } from "react";
 import { useOnboardingStore } from "@/store/useOnboardingStore";
 import { QuestionWrapper } from "./QuestionWrapper";
 import { QuestionOption, Question } from "@/types/onboarding";
+import { MetricsSchema } from "@/lib/schemas";
 
 interface QuestionCardProps {
   question: Question;
 }
 
 export const QuestionCard = ({ question }: QuestionCardProps) => {
-  // 1. Достаем data, чтобы сделать инпут "управляемым"
   const { updateData, nextStep, setCurrentInsight, data } =
     useOnboardingStore();
-
-  // Локальный стейт для предотвращения двойных кликов во время показа инсайта
   const [isProcessing, setIsProcessing] = useState(false);
 
-  const handleSelect = (option: QuestionOption) => {
-    if (isProcessing) return; // Блокировка повторного клика
+  // Стейт для хранения ошибки валидации
+  const [error, setError] = useState<string | null>(null);
 
+  const currentValue = data[question.id as keyof typeof data] || "";
+
+  // Логика валидации перед переходом
+  const handleNext = () => {
+    // Проверяем, есть ли правила для этого ID в нашей Zod схеме
+    const fieldSchema =
+      MetricsSchema.shape[question.id as keyof typeof MetricsSchema.shape];
+
+    if (fieldSchema) {
+      const result = fieldSchema.safeParse(currentValue);
+      if (!result.success) {
+        // Если Zod вернул ошибку — записываем её текст в стейт
+        setError(result.error.errors[0].message);
+        return;
+      }
+    }
+
+    // Если ошибок нет — идем дальше
+    setError(null);
+    nextStep();
+  };
+
+  const handleSelect = (option: QuestionOption) => {
+    if (isProcessing) return;
     updateData({ [question.id]: option.value });
 
     if (option.insight) {
-      setIsProcessing(true); // Включаем режим ожидания
+      setIsProcessing(true);
       setCurrentInsight(option.insight);
       setTimeout(() => {
         setCurrentInsight(null);
@@ -36,15 +58,13 @@ export const QuestionCard = ({ question }: QuestionCardProps) => {
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = e.target.value;
-
-    // Если инпут пустой, не превращаем его в 0 (Number("") === 0),
-    // чтобы не ломать логику формул в сторе. Сохраняем null или пустую строку.
     const numericValue = val === "" ? "" : Number(val);
+
+    // Сбрасываем ошибку, когда пользователь начал вводить заново
+    if (error) setError(null);
+
     updateData({ [question.id]: numericValue });
   };
-
-  // 3. БЕРЕМ ЗНАЧЕНИЕ ИЗ СТОРА: Чтобы при возврате назад данные были на месте
-  const currentValue = data[question.id as keyof typeof data] || "";
 
   return (
     <QuestionWrapper title={question.title} description={question.description}>
@@ -67,21 +87,39 @@ export const QuestionCard = ({ question }: QuestionCardProps) => {
           ))
         ) : (
           <div className="flex flex-col gap-4">
-            <input
-              type="number"
-              autoFocus
-              value={currentValue}
-              className="w-full p-5 bg-gray-50 border-2 border-gray-100 rounded-2xl outline-none focus:border-blue-500 text-2xl font-black transition-all"
-              placeholder="0"
-              onKeyDown={(e) => {
-                // Добавили проверку, чтобы нельзя было уйти с пустым полем
-                if (e.key === "Enter" && currentValue) nextStep();
-              }}
-              onChange={handleInputChange}
-            />
+            <div className="relative">
+              <input
+                type="number"
+                autoFocus
+                value={currentValue}
+                // Красная рамка при ошибке
+                className={`w-full p-5 bg-gray-50 border-2 rounded-2xl outline-none focus:border-blue-500 text-2xl font-black transition-all ${
+                  error ? "border-red-400 bg-red-50" : "border-gray-100"
+                }`}
+                placeholder="0"
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && currentValue) handleNext();
+                }}
+                onChange={handleInputChange}
+              />
+              {/* Юнит (кг/см) справа в инпуте */}
+              {question.unit && (
+                <span className="absolute right-5 top-1/2 -translate-y-1/2 font-black text-gray-300 text-xl pointer-events-none">
+                  {question.unit}
+                </span>
+              )}
+            </div>
+
+            {/* Вывод текста ошибки под инпутом */}
+            {error && (
+              <p className="text-red-500 text-xs font-bold px-4 uppercase tracking-wider animate-shake">
+                {error}
+              </p>
+            )}
+
             <button
-              onClick={nextStep}
-              disabled={!currentValue} // 6. ВАЛИДАЦИЯ: Кнопка не активна, пока поле пустое
+              onClick={handleNext}
+              disabled={!currentValue}
               className="w-full bg-blue-600 text-white p-5 rounded-2xl font-extrabold uppercase tracking-tight hover:bg-blue-700 active:scale-95 transition-all shadow-lg shadow-blue-100 disabled:bg-gray-300 disabled:shadow-none"
             >
               Продолжить
