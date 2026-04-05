@@ -1,23 +1,19 @@
 "use client";
 
+import { useMemo } from "react";
+import Link from "next/link";
+import { Calendar, Scale, Footprints, Moon } from "lucide-react";
 import { UserProfile } from "@/store/useUserStore";
 import { Log } from "@/store/useLogStore";
-import {
-  ChevronDown,
-  Calendar,
-  Droplets,
-  Scale,
-  Footprints,
-  Moon,
-} from "lucide-react";
-import Link from "next/link";
 import { MacroCard } from "@/components/student/macro-card";
-import { ProgressCircle } from "@/components/student/progress-circle";
-import { MetricCard } from "@/components/student/metric-card";
 import LogHistory from "@/components/shared/LogHistory";
-import ActivityVisualizer from "@/components/shared/ActivityVisualizer";
 import PersonalTip from "@/components/shared/PersonalTip";
-import { ACTIVITY_OPTIONS } from "@/constants/activityOptions";
+import ProgressBar from "@/components/student/progress-bar";
+import CaloriesBanner from "@/components/student/calories-banner";
+import MetricWater from "@/components/student/metric-water";
+import MetricInput from "@/components/student/metric-input";
+import ActivitySelector from "@/components/student/activity-selector";
+import ChartsSection from "@/components/student/chart-section";
 import { useStudentDashboard } from "@/hooks/use-student-dashboard";
 
 export default function StudentClient({
@@ -31,8 +27,8 @@ export default function StudentClient({
     initialHistory,
     initialProfile,
   );
+
   const {
-    profile,
     loading,
     todayStr,
     formData,
@@ -46,55 +42,55 @@ export default function StudentClient({
     calProgress,
     consumedFromHistory,
     history,
+    profile,
   } = state;
 
   const { handleDateChange, handleSave, setFormData } = actions;
 
-  const macros = [
-    {
-      label: "Белки",
-      target: activeProfile?.protein || 0,
-      current: Math.round(consumedFromHistory.p),
-      colors: {
-        color: "bg-orange-500",
-        light: "bg-orange-50",
-        text: "text-orange-600",
+  // Расчет макросов оставляем здесь (это бизнес-логика данных)
+  const macroStats = useMemo(
+    () => [
+      {
+        label: "Белки",
+        target: activeProfile?.protein || 0,
+        current: Math.round(consumedFromHistory.p),
+        colors: {
+          color: "bg-orange-500",
+          light: "bg-orange-50",
+          text: "text-orange-600",
+        },
       },
-    },
-    {
-      label: "Жиры",
-      target: activeProfile?.fat || 0,
-      current: Math.round(consumedFromHistory.f),
-      colors: {
-        color: "bg-rose-500",
-        light: "bg-rose-50",
-        text: "text-rose-600",
+      {
+        label: "Жиры",
+        target: activeProfile?.fat || 0,
+        current: Math.round(consumedFromHistory.f),
+        colors: {
+          color: "bg-rose-500",
+          light: "bg-rose-50",
+          text: "text-rose-600",
+        },
       },
-    },
-    {
-      label: "Углеводы",
-      target: activeProfile?.carbs || 0,
-      current: Math.round(consumedFromHistory.c),
-      colors: {
-        color: "bg-indigo-500",
-        light: "bg-indigo-50",
-        text: "text-indigo-600",
+      {
+        label: "Углеводы",
+        target: activeProfile?.carbs || 0,
+        current: Math.round(consumedFromHistory.c),
+        colors: {
+          color: "bg-indigo-500",
+          light: "bg-indigo-50",
+          text: "text-indigo-600",
+        },
       },
-    },
-  ];
+    ],
+    [activeProfile, consumedFromHistory],
+  );
 
   return (
-    <div className="p-6 bg-slate-50 min-h-screen pt-24 pb-12">
+    <div className="p-6 bg-slate-50 min-h-screen pt-24 pb-12 text-slate-900">
       <div className="max-w-4xl mx-auto space-y-8">
         <div className="bg-white rounded-[40px] p-8 border border-slate-100 shadow-xl relative overflow-hidden">
-          {/* Индикатор загрузки дня */}
-          <div className="absolute top-0 left-0 w-full h-1.5 bg-slate-50">
-            <div
-              className={`h-full transition-all duration-500 ${hasLog ? "bg-indigo-500 w-full" : "bg-blue-500 w-1/2"}`}
-            />
-          </div>
+          <ProgressBar hasLog={hasLog} />
 
-          {/* Хедер: Календарь */}
+          {/* Навигация */}
           <div className="flex flex-col sm:flex-row justify-between items-center mb-8 gap-4 bg-slate-50 p-2 rounded-3xl border border-slate-100">
             <div className="flex items-center gap-2 px-4 py-2">
               <Calendar className="w-4 h-4 text-slate-400" />
@@ -102,205 +98,106 @@ export default function StudentClient({
                 type="date"
                 value={selectedDate}
                 onChange={(e) => handleDateChange(e.target.value)}
-                className="bg-transparent text-xs font-black text-slate-600 outline-none"
+                className="bg-transparent text-xs font-black text-slate-600 outline-none cursor-pointer"
               />
             </div>
             <button
               onClick={() => !isToday && handleDateChange(todayStr)}
-              className={`px-5 py-2.5 rounded-2xl text-[10px] font-black uppercase transition-all ${isToday ? "bg-white text-blue-500 border border-slate-200" : "bg-orange-500 text-white"}`}
+              className={`px-5 py-2.5 rounded-2xl text-[10px] font-black uppercase transition-all ${
+                isToday
+                  ? "bg-white text-blue-500 border border-slate-200"
+                  : "bg-orange-500 text-white shadow-lg"
+              }`}
             >
-              {isToday ? "● Сегодня" : "📅 Вернуться в сегодня"}
+              {isToday ? "● Сегодня" : "📅 Вернуться"}
             </button>
           </div>
 
-          {/* Блок БЖУ */}
+          {/* Сетка БЖУ */}
           <div className="grid grid-cols-3 gap-3 mb-8">
-            {macros.map((m) => (
+            {macroStats.map((m) => (
               <MacroCard key={m.label} {...m} />
             ))}
           </div>
 
-          {/* Главный дашборд калорий */}
-          <div className="bg-slate-900 rounded-[45px] p-8 text-white shadow-2xl relative overflow-hidden mb-8">
-            <div className="flex justify-between items-center relative z-10">
-              <div className="space-y-1">
-                <span className="text-[10px] font-black uppercase tracking-[0.3em] text-blue-400">
-                  Сегодня съедено
-                </span>
-                <div className="text-5xl font-black italic">
-                  {Math.round(currentCalories)}
-                  <span className="text-xl opacity-30 ml-2">
-                    / {targetCalories}
-                  </span>
-                </div>
-                <div className="text-lg font-black italic text-emerald-400">
-                  Осталось:{" "}
-                  {Math.max(0, targetCalories - Math.round(currentCalories))}{" "}
-                  ккал
-                </div>
-              </div>
-              <ProgressCircle progress={calProgress} />
-            </div>
-          </div>
+          <CaloriesBanner
+            current={currentCalories}
+            target={targetCalories}
+            progress={calProgress}
+          />
 
-          {/* ВЫПАДАЮЩИЙ СПИСОК (Activity Options) */}
-          <div className="space-y-1.5">
-            <label className="text-[10px] font-black text-slate-400 uppercase ml-2 tracking-widest">
-              Уровень активности
-            </label>
-            <div className="relative group">
-              <select
-                value={formData.activityLevel}
-                onChange={(e) =>
-                  setFormData((p) => ({ ...p, activityLevel: e.target.value }))
-                }
-                className="w-full p-4 bg-slate-50 border-2 border-transparent group-hover:bg-slate-100 focus:bg-white focus:border-blue-500 rounded-2xl outline-none font-bold transition-all appearance-none cursor-pointer pr-10 text-slate-700"
-              >
-                {ACTIVITY_OPTIONS.map((opt) => (
-                  <option key={opt} value={opt}>
-                    {opt}
-                  </option>
-                ))}
-              </select>
-              <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400 w-5 h-5" />
-            </div>
-          </div>
-
-          {/* Сетка метрик */}
           <div className="space-y-6">
-            <div className="grid grid-cols-2 gap-4 mb-8">
-              <MetricCard
-                title="Вода"
-                icon={Droplets}
-                colorClass={{
-                  bg: "bg-blue-50/50",
-                  border: "border-blue-100",
-                  iconBg: "bg-blue-500",
-                  text: "text-blue-400",
-                }}
-              >
-                <div className="text-2xl font-black italic text-blue-600">
-                  {formData.water} мл
-                </div>
-                <button
-                  onClick={() =>
-                    setFormData((p) => ({ ...p, water: p.water + 250 }))
-                  }
-                  className="w-full py-2.5 bg-white text-blue-600 rounded-2xl font-black text-[10px] uppercase border border-blue-100"
-                >
-                  + 250 мл
-                </button>
-              </MetricCard>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+              <MetricWater
+                value={formData.water}
+                onAdd={() =>
+                  setFormData((p) => ({ ...p, water: p.water + 250 }))
+                }
+              />
 
-              <MetricCard
+              <MetricInput
                 title="Вес"
                 icon={Scale}
-                footer={`Последний: ${history[0]?.weight || "--"}`}
-                colorClass={{
-                  bg: "bg-orange-50/50",
-                  border: "border-orange-100",
-                  iconBg: "bg-orange-500",
-                  text: "text-orange-400",
-                  footerText: "text-orange-300",
-                }}
-              >
-                <input
-                  type="number"
-                  step="0.1"
-                  value={formData.weight}
-                  onChange={(e) =>
-                    setFormData((p) => ({ ...p, weight: e.target.value }))
-                  }
-                  className="w-20 text-2xl font-black italic bg-transparent text-orange-600 text-center outline-none"
-                />
-              </MetricCard>
+                color="orange"
+                value={formData.weight}
+                footer={`Пред: ${history[0]?.weight || "--"}`}
+                onChange={(v) => setFormData((p) => ({ ...p, weight: v }))}
+              />
 
-              <MetricCard
+              <MetricInput
                 title="Шаги"
                 icon={Footprints}
+                color="emerald"
+                value={formData.steps}
                 footer="Цель: 10 000"
-                colorClass={{
-                  bg: "bg-emerald-50/50",
-                  border: "border-emerald-100",
-                  iconBg: "bg-emerald-500",
-                  text: "text-emerald-400",
-                  footerText: "text-emerald-300",
-                }}
-              >
-                <input
-                  type="number"
-                  value={formData.steps}
-                  onChange={(e) =>
-                    setFormData((p) => ({ ...p, steps: e.target.value }))
-                  }
-                  className="w-full text-2xl font-black italic bg-transparent text-emerald-600 text-center outline-none"
-                />
-              </MetricCard>
+                onChange={(v) => setFormData((p) => ({ ...p, steps: v }))}
+              />
 
-              <MetricCard
+              <MetricInput
                 title="Сон"
                 icon={Moon}
-                footer="Качество: норм"
-                colorClass={{
-                  bg: "bg-indigo-50/50",
-                  border: "border-indigo-100",
-                  iconBg: "bg-indigo-500",
-                  text: "text-indigo-400",
-                  footerText: "text-indigo-300",
-                }}
-              >
-                <input
-                  type="number"
-                  step="0.5"
-                  value={formData.sleepHours}
-                  onChange={(e) =>
-                    setFormData((p) => ({ ...p, sleepHours: e.target.value }))
-                  }
-                  className="w-16 text-2xl font-black italic bg-transparent text-indigo-600 text-center outline-none"
-                />
-              </MetricCard>
+                color="indigo"
+                value={formData.sleepHours}
+                suffix="ч"
+                onChange={(v) => setFormData((p) => ({ ...p, sleepHours: v }))}
+              />
             </div>
+
+            <ActivitySelector
+              value={formData.activityLevel}
+              onChange={(v) => setFormData((p) => ({ ...p, activityLevel: v }))}
+            />
 
             <button
               onClick={handleSave}
-              className={`w-full py-5 text-white font-black rounded-2xl shadow-xl transition-all uppercase ${hasLog ? "bg-indigo-600" : "bg-blue-600"}`}
+              className={`w-full py-6 text-white font-black rounded-[32px] shadow-2xl transition-all uppercase tracking-widest active:scale-95 ${
+                hasLog
+                  ? "bg-indigo-600 hover:bg-indigo-700"
+                  : "bg-blue-600 hover:bg-blue-700"
+              }`}
             >
               {hasLog ? "✨ Обновить отчет" : "🚀 Сохранить отчет"}
             </button>
           </div>
         </div>
 
-        <div className="flex mt-10 mb-10 w-full items-center justify-center">
+        <div className="text-center py-4">
           <Link
             href="/history"
-            className="text-4xl font-bold text-blue-600 hover:underline"
+            className="text-xl font-black text-slate-400 hover:text-blue-600 transition-colors"
           >
-            История питания
+            Посмотреть всю историю питания →
           </Link>
         </div>
 
-        {/* Дополнительные секции */}
         <PersonalTip metadata={profile?.onboarding_metadata} />
-        {history.length >= 2 && (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <ActivityVisualizer
-              title="👟 Активность"
-              unit="шагов"
-              data={chartData.steps}
-              color="blue"
-            />
-            <ActivityVisualizer
-              title="🔥 Калории"
-              unit="ккал"
-              data={chartData.calories}
-              color="rose"
-            />
-          </div>
-        )}
+
+        {history.length >= 2 && <ChartsSection chartData={chartData} />}
+
         <LogHistory
           logs={history}
           loading={loading}
-          title="📊 История"
+          title="📊 Последние отчеты"
           onLogClick={handleDateChange}
         />
       </div>

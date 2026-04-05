@@ -4,6 +4,7 @@ import { NextResponse, type NextRequest } from "next/server";
 export async function middleware(request: NextRequest) {
   const path = request.nextUrl.pathname;
 
+  // 1. Исключаем статику и API сразу, чтобы не нагружать Auth
   if (
     path.startsWith("/_next") ||
     path.startsWith("/api") ||
@@ -12,7 +13,8 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  let response = NextResponse.next({
+  // Создаем базовый объект ответа
+  const response = NextResponse.next({
     request: { headers: request.headers },
   });
 
@@ -21,32 +23,24 @@ export async function middleware(request: NextRequest) {
     process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY!,
     {
       cookies: {
-        getAll() {
-          return request.cookies.getAll();
-        },
-        setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name, value }) =>
-            request.cookies.set(name, value),
-          );
-          response = NextResponse.next({
-            request: { headers: request.headers },
+        getAll: () => request.cookies.getAll(),
+        setAll: (cookiesToSet) => {
+          cookiesToSet.forEach(({ name, value, options }) => {
+            // Синхронизируем куки и в запросе, и в ответе
+            request.cookies.set(name, value);
+            response.cookies.set(name, value, options);
           });
-          cookiesToSet.forEach(({ name, value, options }) =>
-            response.cookies.set(name, value, options),
-          );
         },
       },
     },
   );
 
-  // Используем getSession() вместо getUser()
-  // Это берет данные из куки БЕЗ обязательного запроса к серверу Supabase
+  // Безопасная проверка пользователя (getUser делает запрос к серверу)
   const {
-    data: { session },
+    data: { user },
     error,
-  } = await supabase.auth.getSession();
+  } = await supabase.auth.getUser();
 
-  const user = session?.user;
   const userRole = user?.app_metadata?.role || user?.user_metadata?.role;
   const onboardingDone = user?.user_metadata?.onboarding_completed === true;
 
@@ -56,47 +50,69 @@ export async function middleware(request: NextRequest) {
     path === "/register" ||
     path.startsWith("/products");
 
-  // проверка авторизации
-  // редиректим на логин ТОЛЬКО если сессии точно нет (!session)
-  // и при этом нет ошибки запроса (!error).
-  // Если error есть (например, ошибка сети), мы пропускаем запрос дальше.
-  if (!session && !isPublicPage && !error) {
-    return NextResponse.redirect(new URL("/login", request.url));
+  /**
+   * Хелпер для редиректа, который не теряет обновленные куки (токены)
+   */
+  const createRedirect = (targetPath: string) => {
+    const redirectResponse = NextResponse.redirect(
+      new URL(targetPath, request.url),
+    );
+    // Важно: переносим все установленные куки из основного response в редирект
+    response.cookies.getAll().forEach((cookie) => {
+      redirectResponse.cookies.set(cookie.name, cookie.value, cookie);
+    });
+    return redirectResponse;
+  };
+
+  // --- ЛОГИКА ПРОВЕРОК ---
+
+  // 1. Если не авторизован и страница приватная
+  if (!user && !isPublicPage) {
+    return createRedirect("/login");
   }
 
-  // Если залогинен и лезет на логин/регистрацию
+  // 2. Если залогинен и лезет на логин/регистрацию
   if (user && (path === "/login" || path === "/register")) {
     const target = userRole === "coach" ? "/coach" : "/student";
-    return NextResponse.redirect(new URL(target, request.url));
+    return createRedirect(target);
   }
 
-  // Защита ролей + Тостер (чтобы ученик не смог зайти на страницу к тренеру)
+  // 3. Защита ролей (чтобы не заходили на чужие страницы)
   if (userRole === "student" && path.startsWith("/coach")) {
-    return NextResponse.redirect(
-      new URL("/student?error=no_access", request.url),
-    );
+    return createRedirect("/student?error=no_access");
   }
-
   if (userRole === "coach" && path.startsWith("/student")) {
-    return NextResponse.redirect(
-      new URL("/coach?error=no_access", request.url),
-    );
-  }
-  // Если опрос пройден и юзер лезет на страницу опроса — редиректим в личный кабинет
-  if (user && onboardingDone && path.startsWith("/onboarding")) {
-    const target = userRole === "coach" ? "/coach" : "/student";
-    return NextResponse.redirect(new URL(target, request.url));
+    return createRedirect("/coach?error=no_access");
   }
 
-  // Если залогинен, опрос НЕ пройден
+  // 4. Проверка онбординга (если не пройден — только на онбординг)
   if (
     user &&
     !onboardingDone &&
-    !isPublicPage &&
-    !path.startsWith("/onboarding")
+    !path.startsWith("/onboarding") &&
+    !isPublicPage
   ) {
-    return NextResponse.redirect(new URL("/onboarding", request.url));
+    return createRedirect("/onboarding");
+  }
+
+  // 5. Если опрос пройден, но юзер пытается зайти на страницу опроса
+  if (user && onboardingDone && path.startsWith("/onboarding")) {
+    const target = userRole === "coach" ? "/coach" : "/student";
+    return createRedirect(target);
+  }
+
+  // 1. Если не удалось получить юзера (ошибка или его просто нет)
+  // и страница приватная — на выход.
+  if ((!user || error) && !isPublicPage) {
+    return createRedirect("/login?error=session_expired");
   }
 
   return response;
 }
+
+// Оптимизация: запускаем Middleware только на нужных маршрутах
+export const config = {
+  matcher: [
+    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+  ],
+};

@@ -10,15 +10,25 @@ export default function RouteGuardListener() {
   const pathname = usePathname();
 
   useEffect(() => {
-    // ПРОВЕРКА ДОСТУПА
+    // --- 1. ОБРАБОТКА ОШИБОК ИЗ URL (Middleware) ---
     const error = searchParams.get("error");
-    if (error === "no_access") {
-      toast.error("Доступ запрещен", {
-        description: "У вас нет прав для просмотра этого раздела.",
-        icon: <ShieldAlert className="text-red-500" size={20} />,
-        duration: 5000,
-      });
 
+    if (error) {
+      if (error === "no_access") {
+        toast.error("Доступ запрещен", {
+          description: "У вас нет прав для просмотра этого раздела.",
+          icon: <ShieldAlert className="text-red-500" size={20} />,
+          duration: 5000,
+        });
+      } else if (error === "session_expired") {
+        toast.error("Сессия истекла", {
+          description: "Пожалуйста, войдите в аккаунт снова.",
+          icon: <ShieldAlert className="text-red-500" size={20} />,
+          duration: 5000,
+        });
+      }
+
+      // Чистим URL от параметра error, чтобы не спамить тостами
       const params = new URLSearchParams(searchParams.toString());
       params.delete("error");
       const newUrl = params.toString()
@@ -27,14 +37,14 @@ export default function RouteGuardListener() {
       router.replace(newUrl);
     }
 
-    // ПРОВЕРКА ИНТЕРНЕТА
+    // ---  ПРОВЕРКА ИНТЕРНЕТА ---
     const handleOffline = () => {
       toast.error("Сеть потеряна", {
         description:
           "Данные могут не сохраняться, пока связь не восстановится.",
         icon: <WifiOff className="text-red-500" size={20} />,
-        duration: Infinity, // Висит, пока нет сети
-        id: "network-status", // Фиксированный ID, чтобы не плодить дубли
+        duration: Infinity,
+        id: "network-status",
       });
     };
 
@@ -43,14 +53,13 @@ export default function RouteGuardListener() {
         description: "Вы снова онлайн.",
         icon: <Wifi className="text-green-500" size={20} />,
         duration: 3000,
-        id: "network-status", // Заменяет "оффлайн" тостер на этот
+        id: "network-status",
       });
     };
 
     window.addEventListener("offline", handleOffline);
     window.addEventListener("online", handleOnline);
 
-    // Проверка при первой загрузке (если вдруг сразу зашли без сети)
     if (!navigator.onLine) handleOffline();
 
     return () => {

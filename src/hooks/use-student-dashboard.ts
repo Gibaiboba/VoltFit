@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useUserStore, UserProfile } from "@/store/useUserStore";
 import { useLogStore, Log } from "@/store/useLogStore";
 import { useMealHistory } from "@/hooks/use-meal-history";
@@ -13,10 +13,19 @@ export const useStudentDashboard = (
   const { history, saveLog, setHistory, loading } = useLogStore();
   const { meals } = useMealHistory();
 
-  // 1. Синхронизация стора (можно вынести в useEffect, если данные меняются)
-  if (!profile && initialProfile) setProfile(initialProfile);
-  if (history.length === 0 && initialHistory.length > 0)
-    setHistory(initialHistory);
+  // 1. Синхронизация стора
+
+  useEffect(() => {
+    if (!profile && initialProfile) {
+      setProfile(initialProfile);
+    }
+  }, [profile, initialProfile, setProfile]);
+
+  useEffect(() => {
+    if (history.length === 0 && initialHistory.length > 0) {
+      setHistory(initialHistory);
+    }
+  }, [history.length, initialHistory, setHistory]);
 
   const todayStr = useMemo(() => new Date().toLocaleDateString("en-CA"), []);
   const [selectedDate, setSelectedDate] = useState<string>(todayStr);
