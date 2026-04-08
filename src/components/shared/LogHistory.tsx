@@ -1,4 +1,5 @@
 "use client";
+import { formatNumber } from "@/lib/utils/format-number";
 
 interface Log {
   log_date: string;
@@ -87,8 +88,8 @@ export default function LogHistory({
             </div>
             <div className="flex gap-6 justify-between sm:justify-end">
               <Metric label="Вес" value={`${log.weight}кг`} />
-              <Metric label="Шаги" value={log.steps.toLocaleString()} />
-              <Metric label="Ккал" value={log.calories} />
+              <Metric label="Шаги" value={formatNumber(log.steps)} />
+              <Metric label="Ккал" value={formatNumber(log.calories)} />
               <Metric label="Сон" value={`${log.sleep_hours}ч`} />
             </div>
           </div>

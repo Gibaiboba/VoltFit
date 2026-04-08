@@ -4,6 +4,12 @@ import { NextResponse, type NextRequest } from "next/server";
 export async function middleware(request: NextRequest) {
   const path = request.nextUrl.pathname;
 
+  // ОПРЕДЕЛЕНИЕ ЧАСОВОГО ПОЯСА
+  const tz =
+    request.cookies.get("user-tz")?.value ||
+    request.headers.get("x-vercel-ip-timezone") ||
+    "UTC";
+
   // 1. Исключаем статику и API сразу, чтобы не нагружать Auth
   if (
     path.startsWith("/_next") ||
@@ -17,6 +23,11 @@ export async function middleware(request: NextRequest) {
   const response = NextResponse.next({
     request: { headers: request.headers },
   });
+
+  // Гарантируем, что кука будет в ответе
+  if (!request.cookies.has("user-tz")) {
+    response.cookies.set("user-tz", tz, { path: "/", maxAge: 31536000 });
+  }
 
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,

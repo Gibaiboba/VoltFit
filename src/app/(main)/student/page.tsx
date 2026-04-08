@@ -5,6 +5,15 @@ import StudentClient from "./StudentClient";
 export default async function StudentPage() {
   const cookieStore = await cookies();
 
+  // 1. Определяем часовой пояс и дату
+  const timeZone = cookieStore.get("user-tz")?.value || "UTC";
+  const serverToday = new Intl.DateTimeFormat("en-CA", {
+    timeZone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date());
+
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY!,
@@ -22,31 +31,28 @@ export default async function StudentPage() {
   let initialHistory = [];
   let initialProfile = null;
 
+  // 2. Делаем запросы один раз (убрал дубликат блока if (user))
   if (user) {
-    // 1. Тянем логи (историю)
-    const { data: logs } = await supabase
-      .from("daily_logs")
-      .select("*")
-      .eq("user_id", user.id)
-      .order("log_date", { ascending: false });
+    // Используем Promise.all для параллельной загрузки (так быстрее)
+    const [logsRes, profileRes] = await Promise.all([
+      supabase
+        .from("daily_logs")
+        .select("*")
+        .eq("user_id", user.id)
+        .order("log_date", { ascending: false }),
+      supabase.from("profiles").select("*").eq("id", user.id).single(),
+    ]);
 
-    initialHistory = logs || [];
-
-    // 2. ТЯНЕМ ПРОФИЛЬ (БЖУ, Калории, Метаданные)
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("*")
-      .eq("id", user.id)
-      .single();
-
-    initialProfile = profile;
+    initialHistory = logsRes.data || [];
+    initialProfile = profileRes.data;
   }
 
-  // 3. Отдаем и логи, и профиль в клиент
+  // 3. Отдаем всё в клиент
   return (
     <StudentClient
       initialHistory={initialHistory}
       initialProfile={initialProfile}
+      serverToday={serverToday}
     />
   );
 }

@@ -10,7 +10,7 @@ interface MetricInputProps {
   icon: LucideIcon;
   value: string | number;
   onChange: (val: string) => void; // Функция обновления
-  color: MetricColorKey; // Только наши 3 цвета
+  color: MetricColorKey;
   footer?: string; // Опционально
   suffix?: string; // Опционально (например, "кг" или "ч")
 }

@@ -1,45 +1,29 @@
 "use client";
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo } from "react";
 import { useMealHistory } from "@/hooks/use-meal-history";
+import { useUserProfile } from "@/hooks/use-user-profile";
 import { MealCard } from "@/components/history/meal-card";
 import { DateFilter } from "@/components/history/date-filter";
 import { Utensils, AlertCircle, Plus } from "lucide-react";
 import Link from "next/link";
 import { toISODate } from "@/lib/utils/date-utils";
 import { HistorySkeleton } from "@/components/history/history-skeleton";
-import { supabase } from "@/lib/supabase";
 
 export default function HistoryPage() {
   const { meals, isLoading, error, refetch, deleteMeal } = useMealHistory();
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
 
-  // 1. Расширенный стейт для всех целей из профиля
-  const [goals, setGoals] = useState({ kcal: 2000, p: 0, f: 0, c: 0 });
+  const { data: profile, isLoading: profileLoading } = useUserProfile();
 
-  useEffect(() => {
-    async function fetchGoals() {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (!user) return;
-
-      const { data, error } = await supabase
-        .from("profiles")
-        .select("daily_calories, protein, fat, carbs")
-        .eq("id", user.id)
-        .single();
-
-      if (!error && data) {
-        setGoals({
-          kcal: data.daily_calories || 2000,
-          p: data.protein || 0,
-          f: data.fat || 0,
-          c: data.carbs || 0,
-        });
-      }
-    }
-    fetchGoals();
-  }, []);
+  const goals = useMemo(
+    () => ({
+      kcal: profile?.daily_calories || 2000,
+      p: profile?.protein || 0,
+      f: profile?.fat || 0,
+      c: profile?.carbs || 0,
+    }),
+    [profile],
+  );
 
   // 2. Считаем детальную статистику за выбранный день (Ккал + БЖУ)
   const dailyStats = useMemo(() => {
@@ -98,7 +82,7 @@ export default function HistoryPage() {
     });
   }, []);
 
-  if (isLoading) return <HistorySkeleton />;
+  if (isLoading || profileLoading) return <HistorySkeleton />;
 
   if (error) {
     return (

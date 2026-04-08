@@ -8,7 +8,7 @@ import { Log } from "@/store/useLogStore";
 import { MacroCard } from "@/components/student/macro-card";
 import LogHistory from "@/components/shared/LogHistory";
 import PersonalTip from "@/components/shared/PersonalTip";
-import ProgressBar from "@/components/student/progress-bar";
+import { ProgressBar } from "@/components/student/progress-bar";
 import CaloriesBanner from "@/components/student/calories-banner";
 import MetricWater from "@/components/student/metric-water";
 import MetricInput from "@/components/student/metric-input";
@@ -19,13 +19,16 @@ import { useStudentDashboard } from "@/hooks/use-student-dashboard";
 export default function StudentClient({
   initialHistory,
   initialProfile,
+  serverToday,
 }: {
   initialHistory: Log[];
   initialProfile: UserProfile | null;
+  serverToday: string;
 }) {
   const { state, actions } = useStudentDashboard(
     initialHistory,
     initialProfile,
+    serverToday,
   );
 
   const {
@@ -36,13 +39,11 @@ export default function StudentClient({
     isToday,
     hasLog,
     chartData,
-    activeProfile,
     currentCalories,
     targetCalories,
     calProgress,
     consumedFromHistory,
     history,
-    profile,
   } = state;
 
   const { handleDateChange, handleSave, setFormData } = actions;
@@ -52,7 +53,7 @@ export default function StudentClient({
     () => [
       {
         label: "Белки",
-        target: activeProfile?.protein || 0,
+        target: initialProfile?.protein || 0,
         current: Math.round(consumedFromHistory.p),
         colors: {
           color: "bg-orange-500",
@@ -62,7 +63,7 @@ export default function StudentClient({
       },
       {
         label: "Жиры",
-        target: activeProfile?.fat || 0,
+        target: initialProfile?.fat || 0,
         current: Math.round(consumedFromHistory.f),
         colors: {
           color: "bg-rose-500",
@@ -72,7 +73,7 @@ export default function StudentClient({
       },
       {
         label: "Углеводы",
-        target: activeProfile?.carbs || 0,
+        target: initialProfile?.carbs || 0,
         current: Math.round(consumedFromHistory.c),
         colors: {
           color: "bg-indigo-500",
@@ -81,7 +82,7 @@ export default function StudentClient({
         },
       },
     ],
-    [activeProfile, consumedFromHistory],
+    [initialProfile, consumedFromHistory],
   );
 
   return (
@@ -125,6 +126,12 @@ export default function StudentClient({
             target={targetCalories}
             progress={calProgress}
           />
+          <Link
+            href="/products"
+            className="flex items-center mb-4 justify-center p-4 bg-white text-slate-700 font-bold rounded-2xl shadow-sm border border-slate-200 hover:shadow-md hover:bg-indigo-50 hover:text-indigo-600 transition-all"
+          >
+            + Добавить еду
+          </Link>
 
           <div className="space-y-6">
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
@@ -181,6 +188,8 @@ export default function StudentClient({
           </div>
         </div>
 
+        <PersonalTip metadata={initialProfile?.onboarding_metadata} />
+
         <div className="text-center py-4">
           <Link
             href="/history"
@@ -189,8 +198,6 @@ export default function StudentClient({
             Посмотреть всю историю питания →
           </Link>
         </div>
-
-        <PersonalTip metadata={profile?.onboarding_metadata} />
 
         {history.length >= 2 && <ChartsSection chartData={chartData} />}
 

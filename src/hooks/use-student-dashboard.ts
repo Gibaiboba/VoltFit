@@ -1,51 +1,79 @@
-import { useState, useMemo, useEffect } from "react";
-import { useUserStore, UserProfile } from "@/store/useUserStore";
-import { useLogStore, Log } from "@/store/useLogStore";
+import { useState, useMemo } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { supabase } from "@/lib/supabase";
+import { useUserStore } from "@/store/useUserStore";
 import { useMealHistory } from "@/hooks/use-meal-history";
 import { toast } from "sonner";
 import { toISODate } from "@/lib/utils/date-utils";
+import { Log } from "@/store/useLogStore";
+import { UserProfile } from "@/store/useUserStore";
 
 export const useStudentDashboard = (
   initialHistory: Log[],
   initialProfile: UserProfile | null,
+  serverToday: string, // Добавили аргумент
 ) => {
-  const { user, profile, setProfile } = useUserStore();
-  const { history, saveLog, setHistory, loading } = useLogStore();
+  const { user } = useUserStore();
+  const queryClient = useQueryClient();
   const { meals } = useMealHistory();
 
-  // 1. Синхронизация стора
-
-  useEffect(() => {
-    if (!profile && initialProfile) {
-      setProfile(initialProfile);
-    }
-  }, [profile, initialProfile, setProfile]);
-
-  useEffect(() => {
-    if (history.length === 0 && initialHistory.length > 0) {
-      setHistory(initialHistory);
-    }
-  }, [history.length, initialHistory, setHistory]);
-
-  const todayStr = useMemo(() => new Date().toLocaleDateString("en-CA"), []);
-  const [selectedDate, setSelectedDate] = useState<string>(todayStr);
-
-  const [formData, setFormData] = useState({
-    steps: "",
-    weight: "",
-    calories: "",
-    sleepHours: "",
-    water: 0,
-    activityLevel: "День без тренировок",
+  // 1. ПОЛУЧЕНИЕ ДАННЫХ
+  const { data: history = initialHistory, isLoading: loading } = useQuery({
+    queryKey: ["student-logs", user?.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("daily_logs")
+        .select("*")
+        .eq("user_id", user?.id)
+        .order("log_date", { ascending: false });
+      if (error) throw error;
+      return data as Log[];
+    },
+    initialData: initialHistory,
+    enabled: !!user?.id,
   });
 
-  // 2. Расчет съеденного (Б/Ж/У/Ккал) за выбранную дату
-  const consumedFromHistory = useMemo(() => {
-    const targetDate = selectedDate || toISODate(new Date());
-    const dayMeals = meals.filter(
-      (m) => toISODate(new Date(m.created_at)) === targetDate,
-    );
+  // Используем серверную дату вместо new Date()
+  const [selectedDate, setSelectedDate] = useState<string>(serverToday);
 
+  // Инициализируем форму сразу правильными данными для serverToday
+  const [formData, setFormData] = useState(() => {
+    const log = initialHistory.find((l) => l.log_date === serverToday);
+    return {
+      steps: log?.steps?.toString() || "",
+      weight:
+        log?.weight?.toString() || initialHistory[0]?.weight?.toString() || "",
+      calories: log?.calories?.toString() || "",
+      sleepHours: log?.sleep_hours?.toString() || "",
+      water: log?.water || 0,
+      activityLevel: log?.activity_level || "День без тренировок",
+    };
+  });
+
+  // 2. МУТАЦИЯ (Сохранение данных)
+  const saveMutation = useMutation({
+    mutationFn: async (logData: Partial<Log>) => {
+      const { error } = await supabase
+        .from("daily_logs")
+        .upsert({ user_id: user?.id, ...logData });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["student-logs", user?.id] });
+      toast.success("Данные успешно сохранены ✨");
+    },
+    onError: (err: unknown) => {
+      const errorMessage =
+        err instanceof Error ? err.message : "Произошла неизвестная ошибка";
+      toast.error(`Ошибка: ${errorMessage}`);
+    },
+  });
+
+  // 3. РАСЧЕТЫ
+  const consumedFromHistory = useMemo(() => {
+    const dayMeals = meals.filter(
+      (m) => toISODate(new Date(m.created_at)) === selectedDate,
+    );
     return dayMeals.reduce(
       (acc, m) => ({
         kcal: acc.kcal + (m.total_kcal || 0),
@@ -57,9 +85,8 @@ export const useStudentDashboard = (
     );
   }, [meals, selectedDate]);
 
-  // 3. Данные для графиков
   const chartData = useMemo(() => {
-    const dataForChart = [...history]
+    const sorted = [...history]
       .sort(
         (a, b) =>
           new Date(a.log_date).getTime() - new Date(b.log_date).getTime(),
@@ -67,96 +94,63 @@ export const useStudentDashboard = (
       .slice(-7);
 
     return {
-      steps: dataForChart.map((l) => ({
-        x: l.log_date,
-        y: Number(l.steps) || 0,
-      })),
-      calories: dataForChart.map((l) => ({
-        x: l.log_date,
-        y: Number(l.calories) || 0,
-      })),
+      steps: sorted.map((l) => ({ x: l.log_date, y: l.steps })),
+      calories: sorted.map((l) => ({ x: l.log_date, y: l.calories })),
     };
   }, [history]);
 
-  // 4. Обработчики
+  // 4. ОБРАБОТЧИКИ
   const handleDateChange = (date: string) => {
     setSelectedDate(date);
-    const existingLog = history.find((l) => l.log_date === date);
-
-    if (existingLog) {
-      setFormData({
-        steps: existingLog.steps.toString(),
-        weight: existingLog.weight.toString(),
-        calories: existingLog.calories.toString(),
-        sleepHours: existingLog.sleep_hours.toString(),
-        water: existingLog.water || 0,
-        activityLevel: existingLog.activity_level || "День без тренировок",
-      });
-    } else {
-      setFormData({
-        steps: "",
-        weight: history[0]?.weight?.toString() || "",
-        calories: "",
-        sleepHours: "",
-        water: 0,
-        activityLevel: "День без тренировок",
-      });
-    }
+    const log = history.find((l) => l.log_date === date);
+    setFormData({
+      steps: log?.steps?.toString() || "",
+      weight: log?.weight?.toString() || history[0]?.weight?.toString() || "",
+      calories: log?.calories?.toString() || "",
+      sleepHours: log?.sleep_hours?.toString() || "",
+      water: log?.water || 0,
+      activityLevel: log?.activity_level || "День без тренировок",
+    });
   };
 
-  const handleSave = async () => {
-    if (!user?.id) return toast.error("Ошибка авторизации");
-    const result = await saveLog(user.id, {
+  const handleSave = () => {
+    saveMutation.mutate({
       log_date: selectedDate,
       steps: parseInt(formData.steps) || 0,
       weight: parseFloat(formData.weight) || 0,
       calories:
         parseInt(formData.calories) || Math.round(consumedFromHistory.kcal),
       sleep_hours: parseFloat(formData.sleepHours) || 0,
+      water: formData.water,
       activity_level: formData.activityLevel,
-      water: formData.water || 0,
     });
-    if (result.success) toast.success("Данные сохранены");
-    else toast.error(result.error);
   };
 
-  const addWater = (amount: number) => {
-    setFormData((p) => ({ ...p, water: p.water + amount }));
-  };
-
-  // 5. Вспомогательные переменные для UI
-  const isToday = selectedDate === todayStr;
-  const hasLog = history.some((l) => l.log_date === selectedDate);
-  const activeProfile = profile || initialProfile;
-  const targetCalories = activeProfile?.daily_calories || 0;
+  const targetCalories = initialProfile?.daily_calories || 0;
   const currentCalories =
-    parseInt(formData.calories) || consumedFromHistory.kcal;
-  const calProgress =
-    targetCalories > 0 ? (currentCalories / targetCalories) * 100 : 0;
+    parseInt(formData.calories) || Math.round(consumedFromHistory.kcal);
 
   return {
     state: {
-      todayStr,
-      profile,
       loading,
       selectedDate,
       formData,
-      isToday,
-      hasLog,
-      consumedFromHistory,
+      isToday: selectedDate === serverToday,
+      hasLog: history.some((l) => l.log_date === selectedDate),
       chartData,
-      activeProfile,
       targetCalories,
       currentCalories,
-      calProgress,
+      calProgress:
+        targetCalories > 0 ? (currentCalories / targetCalories) * 100 : 0,
       history,
+      consumedFromHistory,
+      todayStr: serverToday,
     },
     actions: {
-      setSelectedDate,
-      setFormData,
       handleDateChange,
       handleSave,
-      addWater,
+      setFormData,
+      isSaving: saveMutation.isPending,
     },
   };
 };

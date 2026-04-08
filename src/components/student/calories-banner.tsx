@@ -13,9 +13,12 @@ export default function CaloriesBanner({
 }: CaloriesBannerProps) {
   const caloriesLeft = Math.max(0, target - Math.round(current));
 
+  // Ограничиваем прогресс для полоски до 100%, чтобы она не вылетала за края
+  const barWidth = Math.min(100, progress);
+
   return (
     <div className="bg-slate-900 rounded-[45px] p-8 text-white shadow-2xl relative overflow-hidden mb-8">
-      <div className="flex justify-between items-center relative z-10">
+      <div className="flex justify-between items-center relative z-10 mb-6">
         <div className="space-y-1">
           <span className="text-[10px] font-black uppercase tracking-[0.3em] text-blue-400">
             Сегодня съедено
@@ -29,6 +32,20 @@ export default function CaloriesBanner({
           </div>
         </div>
         <ProgressCircle progress={progress} />
+      </div>
+
+      <div className="relative z-10 space-y-2">
+        <div className="h-3 w-full bg-white/10 rounded-full overflow-hidden">
+          <div
+            className="h-full bg-gradient-to-r from-blue-500 to-emerald-400 transition-all duration-1000 ease-out rounded-full"
+            style={{ width: `${barWidth}%` }}
+          />
+        </div>
+        <div className="flex justify-between text-[9px] font-black uppercase tracking-widest opacity-40">
+          <span>0%</span>
+          <span>{Math.round(progress)}% выполнено</span>
+          <span>100%</span>
+        </div>
       </div>
 
       {/* Декоративный элемент фонового свечения */}

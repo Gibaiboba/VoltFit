@@ -11,6 +11,7 @@ interface SaveMealResponse {
 interface MealState {
   selectedItems: SelectedProduct[];
   addItem: (product: Product) => void;
+  clearItems: () => void;
   removeItem: (id: string) => void;
   updateWeight: (id: string, weight: number) => void;
   getTotal: () => Totals;
@@ -31,7 +32,7 @@ export const useMealStore = create<MealState>((set, get) => ({
       }));
     }
   },
-
+  clearItems: () => set({ selectedItems: [] }),
   removeItem: (id: string) =>
     set((state) => ({
       selectedItems: state.selectedItems.filter((item) => item.id !== id),
