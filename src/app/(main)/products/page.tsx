@@ -5,6 +5,8 @@ import { useProductSearch } from "@/hooks/use-product-search";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase";
 import { useMealStore } from "@/store/useMealStore";
+// import { useUserStore } from "@/store/useUserStore";
+
 import {
   Plus,
   Trash2,
@@ -17,9 +19,15 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 
-export default function FoodConstructor() {
+export default function FoodConstructor({
+  serverToday,
+}: {
+  serverToday: string;
+}) {
   const [query, setQuery] = useState<string>("");
   const queryClient = useQueryClient();
+
+  // const serverToday = useUserStore((state) => state.serverToday);
 
   // 1. Поиск через React Query (с кэшированием и дебаунсом внутри хука)
   const { data: results = [], isLoading: isSearching } =
@@ -45,13 +53,44 @@ export default function FoodConstructor() {
       } = await supabase.auth.getUser();
       if (!user) throw new Error("Пожалуйста, войдите в систему");
 
+      // 1. Сохраняем само блюдо (ваша текущая логика)
       const result = await saveMeal(supabase, user.id);
       if (!result.success) throw new Error(result.error || "Ошибка сохранения");
+
+      // 2. ПОЛУЧАЕМ ОБЩУЮ СУММУ: Считаем все калории пользователя за СЕГОДНЯ
+      // (включая только что добавленное блюдо)
+      const today = serverToday;
+
+      const { data: allMeals } = await supabase
+        .from("user_meals")
+        .select("total_kcal")
+        .eq("user_id", user.id)
+        .gte("created_at", `${today}T00:00:00`)
+        .lte("created_at", `${today}T23:59:59`);
+
+      const totalKcal = (allMeals || []).reduce(
+        (sum, m) => sum + (m.total_kcal || 0),
+        0,
+      );
+
+      // 3. ОБНОВЛЯЕМ DAILY_LOGS: Синхронизируем итоговое число
+      await supabase.from("daily_logs").upsert(
+        {
+          user_id: user.id,
+          log_date: today,
+          calories: Math.round(totalKcal),
+        },
+        { onConflict: "user_id,log_date" },
+      );
+
       return result;
     },
     onSuccess: () => {
+      // Инвалидируем оба ключа, чтобы все части приложения обновились
       queryClient.invalidateQueries({ queryKey: ["meals-history"] });
-      toast.success("Блюдо добавлено в ваш дневник! ✨");
+      queryClient.invalidateQueries({ queryKey: ["student-logs"] }); // Чтобы дашборд узнал об изменениях
+
+      toast.success("Блюдо добавлено и калории обновлены! ✨");
       clearItems();
       setQuery("");
     },

@@ -147,7 +147,7 @@ export default function StudentClient({
                 icon={Scale}
                 color="orange"
                 value={formData.weight}
-                footer={`Пред: ${history[0]?.weight || "--"}`}
+                footer={`Пред: ${history[1]?.weight || "--"}`}
                 onChange={(v) => setFormData((p) => ({ ...p, weight: v }))}
               />
 

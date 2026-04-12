@@ -11,7 +11,7 @@ import { UserProfile } from "@/store/useUserStore";
 export const useStudentDashboard = (
   initialHistory: Log[],
   initialProfile: UserProfile | null,
-  serverToday: string, // Добавили аргумент
+  serverToday: string,
 ) => {
   const { user } = useUserStore();
   const queryClient = useQueryClient();
@@ -55,7 +55,11 @@ export const useStudentDashboard = (
     mutationFn: async (logData: Partial<Log>) => {
       const { error } = await supabase
         .from("daily_logs")
-        .upsert({ user_id: user?.id, ...logData });
+        .upsert(
+          { user_id: user?.id, ...logData },
+          { onConflict: "user_id,log_date" },
+        );
+
       if (error) throw error;
     },
     onSuccess: () => {
@@ -114,12 +118,17 @@ export const useStudentDashboard = (
   };
 
   const handleSave = () => {
+    // Определяем, что именно мы сохраняем в колонку calories
+    const finalCalories =
+      consumedFromHistory.kcal > 0
+        ? Math.round(consumedFromHistory.kcal)
+        : parseInt(formData.calories) || 0;
+
     saveMutation.mutate({
       log_date: selectedDate,
       steps: parseInt(formData.steps) || 0,
       weight: parseFloat(formData.weight) || 0,
-      calories:
-        parseInt(formData.calories) || Math.round(consumedFromHistory.kcal),
+      calories: finalCalories, // Теперь здесь всегда актуальная сумма
       sleep_hours: parseFloat(formData.sleepHours) || 0,
       water: formData.water,
       activity_level: formData.activityLevel,
@@ -128,7 +137,9 @@ export const useStudentDashboard = (
 
   const targetCalories = initialProfile?.daily_calories || 0;
   const currentCalories =
-    parseInt(formData.calories) || Math.round(consumedFromHistory.kcal);
+    consumedFromHistory.kcal > 0
+      ? Math.round(consumedFromHistory.kcal)
+      : parseInt(formData.calories) || 0;
 
   return {
     state: {

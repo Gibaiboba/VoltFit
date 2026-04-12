@@ -1,32 +1,23 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase";
 import { SavedMeal } from "@/types/food";
+import { useUserStore } from "@/store/useUserStore";
 
 export function useMealHistory(studentId?: string) {
   const queryClient = useQueryClient();
+  // Достаем текущего пользователя из Zustand (это синхронно и быстро)
+  const currentUser = useUserStore((state) => state.user);
 
-  // Получение данных
+  const targetUserId = studentId || currentUser?.id;
+
   const {
     data: meals = [],
     isLoading,
     error,
     refetch,
   } = useQuery({
-    queryKey: ["meals-history", studentId || "me"],
-
+    queryKey: ["meals-history", targetUserId],
     queryFn: async () => {
-      let targetUserId = studentId;
-
-      // Если ID ученика не передан, значит мы на своей странице истории — берем свой ID
-      if (!targetUserId) {
-        const {
-          data: { user },
-        } = await supabase.auth.getUser();
-        if (!user) throw new Error("Пользователь не авторизован");
-        targetUserId = user.id;
-      }
-
-      // Запрос в базу с нужным ID (либо ученика, либо своим)
       const { data, error: dbError } = await supabase
         .from("user_meals")
         .select("*")
@@ -36,15 +27,15 @@ export function useMealHistory(studentId?: string) {
       if (dbError) throw dbError;
       return data as SavedMeal[];
     },
+    // Важно: не делаем запрос, пока нет ID
+    enabled: !!targetUserId,
   });
 
-  // Удаление записи (Мутация)
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
       const { error } = await supabase.from("user_meals").delete().eq("id", id);
       if (error) throw error;
     },
-    // Оптимистичное обновление или просто инвалидация кэша
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["meals-history"] });
     },
@@ -55,7 +46,7 @@ export function useMealHistory(studentId?: string) {
     isLoading,
     error,
     refetch,
-    deleteMeal: deleteMutation.mutateAsync,
+    deleteMeal: deleteMutation.mutate,
     isDeleting: deleteMutation.isPending,
   };
 }

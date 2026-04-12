@@ -251,7 +251,13 @@ export default function HistoryPage() {
               </div>
               <div className="space-y-4">
                 {group.meals.map((meal) => (
-                  <MealCard key={meal.id} meal={meal} onDelete={deleteMeal} />
+                  <MealCard
+                    key={meal.id}
+                    meal={meal}
+                    onDelete={async (id) => {
+                      deleteMeal(id);
+                    }}
+                  />
                 ))}
               </div>
             </div>

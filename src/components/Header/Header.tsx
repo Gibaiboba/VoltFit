@@ -7,6 +7,7 @@ import Image from "next/image";
 import { LogOut, User as UserIcon, Zap, LogIn } from "lucide-react";
 import Link from "next/link";
 import { User } from "@supabase/supabase-js";
+import { useQueryClient } from "@tanstack/react-query";
 
 interface HeaderProps {
   initialUser: User | null;
@@ -14,42 +15,41 @@ interface HeaderProps {
 }
 
 export default function Header({ initialUser, initialProfile }: HeaderProps) {
-  const { user, profile, setUser, setProfile, clearUser } = useUserStore();
+  const { user, profile, setUser, clearUser } = useUserStore();
+  const queryClient = useQueryClient();
 
   // Приоритет отдаем стору (клиенту), если там пусто — берем данные с сервера
   const displayUser = user || initialUser;
   const displayProfile = profile || initialProfile;
 
   useEffect(() => {
-    // Инициализируем стор только если в нем еще нет данных
-    if (initialUser && !user) setUser(initialUser);
-    if (initialProfile && !profile) setProfile(initialProfile);
-
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === "SIGNED_OUT") {
         clearUser();
+        queryClient.setQueryData(["user-profile"], null); // очищаем кеш профиля
       }
       if (event === "SIGNED_IN" && session) {
         setUser(session.user);
+        // Инвалидируем профиль, чтобы useUserProfile перезагрузил данные и обновил Zustand
+        queryClient.invalidateQueries({ queryKey: ["user-profile"] });
+      }
+      if (event === "USER_UPDATED" || event === "TOKEN_REFRESHED") {
+        // Обновляем пользователя в сторе, если изменились метаданные
+        supabase.auth.getUser().then(({ data }) => {
+          if (data.user) setUser(data.user);
+        });
       }
     });
 
     return () => subscription.unsubscribe();
-  }, [
-    initialUser,
-    initialProfile,
-    user,
-    profile,
-    setUser,
-    setProfile,
-    clearUser,
-  ]);
+  }, [clearUser, queryClient, setUser]);
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
     clearUser();
+    queryClient.clear();
     window.location.href = "/";
   };
 
