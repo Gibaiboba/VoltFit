@@ -2,7 +2,7 @@
 import { MealCard } from "@/components/history/meal-card";
 import { SavedMeal } from "@/types/food";
 import { StudentLog } from "@/store/useCoachStore";
-import { Footprints, Moon, Weight, Pizza } from "lucide-react";
+import { Footprints, Moon, Weight, Pizza, Droplets } from "lucide-react";
 
 interface StudentDayRowProps {
   date: string;
@@ -42,7 +42,9 @@ export function StudentDayRow({ date, log, meals }: StudentDayRowProps) {
       <div className="p-6 space-y-6">
         {/* Блок показателей (Логи) */}
         {log && (
-          <div className="grid grid-cols-4 gap-2">
+          <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+            {" "}
+            {/* Сетка 5 колонок на больших экранах */}
             <div className="bg-orange-50 p-3 rounded-2xl text-center">
               <Weight size={14} className="mx-auto mb-1 text-orange-500" />
               <p className="text-[10px] font-bold text-slate-400 uppercase">
@@ -52,7 +54,6 @@ export function StudentDayRow({ date, log, meals }: StudentDayRowProps) {
                 {renderValue(log.weight)}
               </p>
             </div>
-
             <div className="bg-blue-50 p-3 rounded-2xl text-center">
               <Footprints size={14} className="mx-auto mb-1 text-blue-500" />
               <p className="text-[10px] font-bold text-slate-400 uppercase">
@@ -62,7 +63,6 @@ export function StudentDayRow({ date, log, meals }: StudentDayRowProps) {
                 {renderValue(log.steps)}
               </p>
             </div>
-
             <div className="bg-indigo-50 p-3 rounded-2xl text-center">
               <Moon size={14} className="mx-auto mb-1 text-indigo-500" />
               <p className="text-[10px] font-bold text-slate-400 uppercase">
@@ -72,11 +72,20 @@ export function StudentDayRow({ date, log, meals }: StudentDayRowProps) {
                 {renderValue(log.sleep_hours)}
               </p>
             </div>
-
+            {/* НОВЫЙ БЛОК: ВОДА */}
+            <div className="bg-cyan-50 p-3 rounded-2xl text-center">
+              <Droplets size={14} className="mx-auto mb-1 text-cyan-500" />
+              <p className="text-[10px] font-bold text-slate-400 uppercase">
+                Вода
+              </p>
+              <p className="font-black text-slate-800">
+                {log.water ? `${(log.water / 1000).toFixed(1)}л` : "--"}
+              </p>
+            </div>
             <div className="bg-green-50 p-3 rounded-2xl text-center">
               <Pizza size={14} className="mx-auto mb-1 text-green-500" />
               <p className="text-[10px] font-bold text-slate-400 uppercase">
-                Цель
+                Отчет
               </p>
               <p className="font-black text-slate-800">
                 {renderValue(log.calories)}

@@ -6,6 +6,7 @@ export interface StudentLog {
   steps: number;
   calories: number;
   sleep_hours: number;
+  water: number;
   activity_level: string;
   log_date: string;
 }
@@ -62,7 +63,7 @@ export const useCoachStore = create<CoachState>((set, get) => ({
           id,
             full_name,
             daily_logs ( 
-              weight, steps, calories, sleep_hours, activity_level, log_date 
+              weight, steps, calories, sleep_hours, activity_level, log_date, water
             )
           )
         `,

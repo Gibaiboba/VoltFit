@@ -5,7 +5,6 @@ import { useProductSearch } from "@/hooks/use-product-search";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase";
 import { useMealStore } from "@/store/useMealStore";
-// import { useUserStore } from "@/store/useUserStore";
 
 import {
   Plus,
@@ -26,8 +25,6 @@ export default function FoodConstructor({
 }) {
   const [query, setQuery] = useState<string>("");
   const queryClient = useQueryClient();
-
-  // const serverToday = useUserStore((state) => state.serverToday);
 
   // 1. Поиск через React Query (с кэшированием и дебаунсом внутри хука)
   const { data: results = [], isLoading: isSearching } =

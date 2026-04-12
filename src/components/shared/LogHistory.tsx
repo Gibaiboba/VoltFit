@@ -8,6 +8,7 @@ interface Log {
   calories: number;
   sleep_hours: number;
   activity_level: string;
+  water: number;
 }
 
 interface LogHistoryProps {
@@ -90,6 +91,10 @@ export default function LogHistory({
               <Metric label="Вес" value={`${log.weight}кг`} />
               <Metric label="Шаги" value={formatNumber(log.steps)} />
               <Metric label="Ккал" value={formatNumber(log.calories)} />
+              <Metric
+                label="Вода"
+                value={`${(log.water / 1000).toFixed(1)}л`} // Переводим мл в литры (например, 2.5л)
+              />
               <Metric label="Сон" value={`${log.sleep_hours}ч`} />
             </div>
           </div>

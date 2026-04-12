@@ -1,3 +1,4 @@
+"use client";
 import { StudentData } from "@/store/useCoachStore";
 
 function StudentCard({
@@ -48,7 +49,8 @@ function StudentCard({
         </div>
       </div>
 
-      <div className="grid grid-cols-2 sm:grid-cols-5 gap-6 text-sm font-bold text-slate-700">
+      {/* Изменили сетку на 6 колонок на десктопе */}
+      <div className="grid grid-cols-2 sm:grid-cols-6 gap-6 text-sm font-bold text-slate-700">
         <div>
           <p className="text-[10px] text-slate-400 uppercase mb-1">Вес</p>⚖️{" "}
           {lastLog?.weight || "—"} кг
@@ -61,10 +63,17 @@ function StudentCard({
           <p className="text-[10px] text-slate-400 uppercase mb-1">Сон</p>🌙{" "}
           {lastLog?.sleep_hours || 0}ч
         </div>
+
+        <div className="border-l border-slate-100 pl-4">
+          <p className="text-[10px] text-slate-400 uppercase mb-1">Вода</p>💧{" "}
+          {lastLog?.water ? `${(lastLog.water / 1000).toFixed(1)}л` : "0л"}
+        </div>
+
         <div className="border-l border-slate-100 pl-4">
           <p className="text-[10px] text-slate-400 uppercase mb-1">Шаги</p>👣{" "}
           {lastLog?.steps?.toLocaleString() || 0}
         </div>
+
         <div className="bg-blue-50 p-3 rounded-2xl border border-blue-100">
           <p className="text-[10px] text-blue-400 uppercase mb-1 font-black">
             7 дней
