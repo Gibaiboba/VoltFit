@@ -1,4 +1,4 @@
-import { Goal, ActivityLevel } from "./onboarding";
+import { Goal, ActivityLevelValue } from "./shared";
 
 export interface OnboardingMetadata {
   diet_type?: "everything" | "vegan" | "keto" | "restrictions";
@@ -14,24 +14,17 @@ export interface UserProfile {
   full_name: string | null;
   avatar_url?: string | null;
   role: "student" | "coach";
-
-  // Физика (из колонок таблицы profiles)
+  email?: string;
   weight?: number;
   height?: number;
   age?: number;
   goal?: Goal;
   target_weight?: number;
-  activity_level?: ActivityLevel;
-
-  // КБЖУ (из колонок таблицы profiles)
+  activity_level?: ActivityLevelValue;
   daily_calories?: number;
   protein?: number;
   fat?: number;
   carbs?: number;
-
-  // Психология (из JSON колонки onboarding_metadata)
-  onboarding_metadata?: OnboardingMetadata;
-
   onboarding_completed?: boolean;
-  updated_at?: string;
+  onboarding_metadata?: OnboardingMetadata | null;
 }

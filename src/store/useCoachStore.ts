@@ -1,113 +1,26 @@
 import { create } from "zustand";
-import { supabase } from "@/lib/supabase";
+import { StudentData } from "@/types/coach";
 
-export interface StudentLog {
-  weight: number;
-  steps: number;
-  calories: number;
-  sleep_hours: number;
-  water: number;
-  activity_level: string;
-  log_date: string;
-}
-
-export interface StudentData {
-  student: {
-    id: string;
-    full_name: string;
-    daily_logs: StudentLog[];
-  };
-}
-
-interface CoachState {
-  students: StudentData[];
-  selectedStudent: StudentData | null;
-  loading: boolean;
-
-  // Состояния фильтрации
+interface CoachUIState {
+  // Состояния фильтрации и UI
   searchQuery: string;
   selectedActivity: string;
+  selectedStudent: StudentData | null;
 
-  // Экшны
-  fetchStudents: () => Promise<void>;
-  setSelectedStudent: (student: StudentData | null) => void;
+  // Экшны (только для изменения UI состояния)
   setSearchQuery: (query: string) => void;
   setSelectedActivity: (activity: string) => void;
-
-  // Вычисляемые данные
-  getFilteredStudents: () => StudentData[];
-  getWeeklySteps: (item: StudentData) => number;
+  setSelectedStudent: (student: StudentData | null) => void;
 }
 
-export const useCoachStore = create<CoachState>((set, get) => ({
-  students: [],
-  selectedStudent: null,
-  loading: false,
+export const useCoachStore = create<CoachUIState>((set) => ({
+  // Начальные значения
   searchQuery: "",
   selectedActivity: "Все",
+  selectedStudent: null,
 
+  // Простые сеттеры
   setSearchQuery: (query) => set({ searchQuery: query }),
-
   setSelectedActivity: (activity) => set({ selectedActivity: activity }),
-
   setSelectedStudent: (student) => set({ selectedStudent: student }),
-
-  fetchStudents: async () => {
-    set({ loading: true });
-    try {
-      const { data, error } = await supabase
-        .from("coach_students")
-        .select(
-          `
-          student:profiles!student_id (
-          id,
-            full_name,
-            daily_logs ( 
-              weight, steps, calories, sleep_hours, activity_level, log_date, water
-            )
-          )
-        `,
-        )
-        .order("log_date", {
-          foreignTable: "profiles.daily_logs",
-          ascending: false,
-        });
-
-      if (error) throw error;
-      set({ students: (data as unknown as StudentData[]) || [] });
-    } catch (err) {
-      console.error("Ошибка стора:", err);
-    } finally {
-      set({ loading: false });
-    }
-  },
-
-  // Умная фильтрация: совмещаем поиск и тип активности
-  getFilteredStudents: () => {
-    const { students, searchQuery, selectedActivity } = get();
-
-    return students.filter((item) => {
-      const lastLog = item.student.daily_logs?.[0];
-
-      // Проверка по имени
-      const matchesSearch = item.student.full_name
-        .toLowerCase()
-        .includes(searchQuery.toLowerCase());
-
-      // Проверка по активности
-      const matchesActivity =
-        selectedActivity === "Все" ||
-        lastLog?.activity_level === selectedActivity;
-
-      return matchesSearch && matchesActivity;
-    });
-  },
-
-  getWeeklySteps: (item) => {
-    return (
-      item.student.daily_logs
-        ?.slice(0, 7)
-        .reduce((sum, log) => sum + (log.steps || 0), 0) || 0
-    );
-  },
 }));

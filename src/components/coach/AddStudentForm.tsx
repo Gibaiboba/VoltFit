@@ -1,106 +1,31 @@
 "use client";
-import { useState } from "react";
-import { supabase } from "@/lib/supabase";
-import { useUserStore } from "@/store/useUserStore";
-import { toast } from "sonner";
-import { UserPlus, Search, Loader2 } from "lucide-react";
-import { PostgrestError } from "@supabase/supabase-js";
 
-export default function AddStudentForm({
-  onStudentAdded,
-}: {
-  onStudentAdded: () => void;
-}) {
+import { useState } from "react";
+import { useUserStore } from "@/store/useUserStore";
+import { useCoachMutations } from "@/hooks/coach/use-mutations";
+import { UserPlus, Search, Loader2 } from "lucide-react";
+
+export default function AddStudentForm() {
   const [email, setEmail] = useState("");
-  const [isPending, setIsPending] = useState(false);
   const { user: coach } = useUserStore();
 
-  const handleAddStudent = async (e: React.FormEvent) => {
+  const { addStudentMutation } = useCoachMutations();
+
+  const handleAddStudent = (e: React.SyntheticEvent<HTMLFormElement>) => {
     e.preventDefault();
 
     const targetEmail = email.toLowerCase().trim();
-    if (!targetEmail) return;
-    if (!coach) return toast.error("Вы не авторизованы");
+    if (!targetEmail || !coach) return;
 
-    setIsPending(true);
-
-    try {
-      //  Поиск ученика
-      const { data: student, error: searchError } = await supabase
-        .from("profiles")
-        .select("id, full_name, role, email")
-        .eq("email", targetEmail)
-        .single();
-
-      if (searchError || !student) {
-        throw new Error("Пользователь с таким Email не найден");
-      }
-
-      // Проверка логики
-      if (student.id === coach.id) {
-        throw new Error("Вы не можете добавить самого себя");
-      }
-
-      if (student.role !== "student") {
-        throw new Error("Этот пользователь зарегистрирован как тренер");
-      }
-
-      // Проверяем, не добавлен ли он уже
-      const { data: existing, error: checkError } = await supabase
-        .from("coach_students")
-        .select("id")
-        .eq("coach_id", coach.id)
-        .eq("student_id", student.id)
-        .maybeSingle();
-
-      if (checkError) throw checkError;
-      if (existing) throw new Error("Этот ученик уже есть в вашем списке");
-
-      // Создаем связь
-      const { error: linkError } = await supabase
-        .from("coach_students")
-        .insert({
-          coach_id: coach.id,
-          student_id: student.id,
-        });
-
-      if (linkError) throw linkError;
-
-      toast.success(`Ученик ${student.full_name} успешно добавлен!`);
-      setEmail("");
-      onStudentAdded();
-    } catch (err: unknown) {
-      console.error("Add Student Error:", err);
-
-      let message = "Произошла ошибка при добавлении";
-
-      // Проверяем, является ли ошибка обычным объектом Error
-      if (err instanceof Error) {
-        message = err.message;
-      }
-      // Проверяем, является ли это ошибкой Supabase
-      else if (isPostgrestError(err)) {
-        message =
-          err.code === "23505" ? "Этот ученик уже привязан к вам" : err.message;
-      }
-
-      toast.error(message);
-    } finally {
-      setIsPending(false);
-    }
-  };
-
-  /**
-   * Type Guard для проверки типа ошибки Supabase
-   */
-  function isPostgrestError(err: unknown): err is PostgrestError {
-    return (
-      typeof err === "object" &&
-      err !== null &&
-      "code" in err &&
-      "message" in err
+    addStudentMutation.mutate(
+      { email: targetEmail, coachId: coach.id },
+      {
+        onSuccess: () => {
+          setEmail("");
+        },
+      },
     );
-  }
+  };
 
   return (
     <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm mb-8">
@@ -121,7 +46,7 @@ export default function AddStudentForm({
             placeholder="Введите email ученика..."
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            disabled={isPending}
+            disabled={addStudentMutation.isPending}
             className="w-full p-4 pl-12 bg-slate-50 rounded-2xl outline-none focus:border-blue-500 border-2 border-transparent transition-all text-slate-800 disabled:opacity-50"
           />
           <Search
@@ -131,10 +56,10 @@ export default function AddStudentForm({
         </div>
         <button
           type="submit"
-          disabled={isPending || !email.includes("@")}
+          disabled={addStudentMutation.isPending || !email.includes("@")}
           className="bg-blue-600 text-white px-8 py-4 rounded-2xl font-bold hover:bg-blue-700 transition-all disabled:bg-slate-200 disabled:text-slate-400 flex items-center justify-center gap-2 min-w-[140px]"
         >
-          {isPending ? (
+          {addStudentMutation.isPending ? (
             <>
               <Loader2 className="animate-spin" size={20} />
               <span>Поиск...</span>

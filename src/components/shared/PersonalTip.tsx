@@ -4,7 +4,7 @@ import { Lightbulb, Target, Utensils, Footprints } from "lucide-react";
 import { motion } from "framer-motion";
 
 interface PersonalTipProps {
-  metadata?: OnboardingMetadata;
+  metadata?: OnboardingMetadata | undefined | null;
 }
 
 export default function PersonalTip({ metadata }: PersonalTipProps) {

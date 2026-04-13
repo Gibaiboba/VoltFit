@@ -1,6 +1,6 @@
 "use client";
-import { useEffect } from "react";
-import { useCoachStore } from "@/store/useCoachStore";
+
+import { useCoachDashboard } from "@/hooks/coach/use-coach-dashboard";
 import AddStudentForm from "@/components/coach/AddStudentForm";
 import StudentCard from "@/components/coach/StudentCard";
 import StudentModal from "@/components/coach/StudentModal";
@@ -15,31 +15,9 @@ const ACTIVITY_FILTERS = [
 ];
 
 export default function CoachDashboard() {
-  const {
-    loading,
-    selectedStudent,
-    fetchStudents,
-    setSelectedStudent,
-    getWeeklySteps,
-    searchQuery,
-    setSearchQuery,
-    selectedActivity,
-    setSelectedActivity,
-    getFilteredStudents,
-  } = useCoachStore();
+  const { state, actions } = useCoachDashboard();
 
-  useEffect(() => {
-    fetchStudents();
-  }, [fetchStudents]);
-
-  const filteredStudents = getFilteredStudents();
-
-  const resetFilters = () => {
-    setSearchQuery("");
-    setSelectedActivity("Все");
-  };
-
-  // Функция для правильного склонения слова "ученик"
+  // Функция для склонения (оставлена здесь для чистоты компонента)
   const getStudentLabel = (count: number) => {
     const lastDigit = count % 10;
     const lastTwoDigits = count % 100;
@@ -60,9 +38,9 @@ export default function CoachDashboard() {
 
           <Link
             href="/history"
-            className="text-4xl font-bold text-blue-600 hover:underline"
+            className="text-xl font-bold text-blue-600 hover:underline inline-flex items-center gap-2"
           >
-            История питания тренера
+            📊 История питания тренера
           </Link>
 
           <div className="flex flex-col md:flex-row gap-4">
@@ -73,15 +51,23 @@ export default function CoachDashboard() {
               <input
                 type="text"
                 placeholder="Поиск ученика по имени..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
+                value={state.searchQuery}
+                onChange={(e) => actions.setSearchQuery(e.target.value)}
                 className="w-full p-4 pl-12 bg-white border border-slate-200 rounded-2xl outline-none focus:border-blue-500 shadow-sm transition-all font-semibold text-slate-700 placeholder:font-normal"
               />
+              {state.searchQuery && (
+                <button
+                  onClick={() => actions.setSearchQuery("")}
+                  className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-300 hover:text-slate-500"
+                >
+                  ✕
+                </button>
+              )}
             </div>
 
             <select
-              value={selectedActivity}
-              onChange={(e) => setSelectedActivity(e.target.value)}
+              value={state.selectedActivity}
+              onChange={(e) => actions.setSelectedActivity(e.target.value)}
               className="p-4 bg-white border border-slate-200 rounded-2xl outline-none focus:border-blue-500 shadow-sm font-bold text-slate-600 cursor-pointer px-8 text-sm md:w-64 appearance-none"
             >
               {ACTIVITY_FILTERS.map((filter) => (
@@ -94,47 +80,46 @@ export default function CoachDashboard() {
         </div>
 
         {/* Счётчик результатов */}
-        {!loading && (
+        {!state.isLoading && (
           <div className="flex items-center justify-between px-2">
             <p className="text-xs font-black uppercase tracking-[0.2em] text-slate-400">
-              {filteredStudents.length > 0 ? (
+              {state.totalCount > 0 ? (
                 <>
                   Найдено:{" "}
-                  <span className="text-blue-600">
-                    {filteredStudents.length}
-                  </span>{" "}
-                  {getStudentLabel(filteredStudents.length)}
+                  <span className="text-blue-600">{state.totalCount}</span>{" "}
+                  {getStudentLabel(state.totalCount)}
                 </>
               ) : (
                 "Результатов нет"
               )}
             </p>
-            {searchQuery || selectedActivity !== "Все" ? (
+            {(state.searchQuery || state.selectedActivity !== "Все") && (
               <button
-                onClick={resetFilters}
+                onClick={actions.resetFilters}
                 className="text-[10px] font-black uppercase tracking-widest text-red-400 hover:text-red-500 transition-colors"
               >
-                ✕ Сбросить
+                ✕ Сбросить фильтры
               </button>
-            ) : null}
+            )}
           </div>
         )}
 
-        <AddStudentForm onStudentAdded={fetchStudents} />
+        {/* Форма добавления (теперь без пропсов!) */}
+        <AddStudentForm />
 
         {/* Список учеников */}
-        {loading ? (
+        {state.isLoading ? (
           <div className="flex justify-center p-12">
             <div className="flex items-center gap-3 text-slate-400 animate-pulse">
               <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
               <p className="font-black uppercase tracking-widest text-xs">
-                Синхронизация данных
+                Загрузка данных...
               </p>
             </div>
           </div>
         ) : (
           <div className="grid gap-6">
-            {filteredStudents.length === 0 ? (
+            {state.totalCount === 0 ? (
               <div className="bg-white p-16 rounded-[40px] border-2 border-dashed border-slate-200 text-center space-y-4">
                 <div className="text-4xl">🤷‍♂️</div>
                 <p className="text-slate-400 font-medium">
@@ -142,12 +127,12 @@ export default function CoachDashboard() {
                 </p>
               </div>
             ) : (
-              filteredStudents.map((item, i) => (
+              state.students.map((item) => (
                 <StudentCard
-                  key={i}
+                  key={item.student.id}
                   item={item}
-                  weeklySteps={getWeeklySteps(item)}
-                  onClick={() => setSelectedStudent(item)}
+                  weeklySteps={actions.getWeeklySteps(item)}
+                  onClick={() => actions.setSelectedStudent(item)}
                 />
               ))
             )}
@@ -155,7 +140,13 @@ export default function CoachDashboard() {
         )}
       </div>
 
-      {selectedStudent && <StudentModal />}
+      {/* Модальное окно */}
+      {state.selectedStudent && (
+        <StudentModal
+        // Если StudentModal требует пропсы, передаем их из state.selectedStudent
+        // Если он берет их из стора сам — оставляем так
+        />
+      )}
     </div>
   );
 }
