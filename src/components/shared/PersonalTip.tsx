@@ -1,5 +1,5 @@
 "use client";
-import { OnboardingMetadata } from "@/store/useUserStore";
+import { OnboardingMetadata } from "@/types/user";
 import { Lightbulb, Target, Utensils, Footprints } from "lucide-react";
 import { motion } from "framer-motion";
 

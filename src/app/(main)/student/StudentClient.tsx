@@ -13,7 +13,7 @@ import ActivitySelector from "@/components/student/activity-selector";
 import ChartsSection from "@/components/student/chart-section";
 import { DashboardSkeleton } from "@/components/student/dashboard-skeleton";
 // Импортируем тип из хука
-import { useStudentDashboard } from "@/hooks/use-student-dashboard";
+import { useStudentDashboard } from "@/hooks/use-student-dashboard/index";
 
 interface StudentClientProps {
   userId: string;
@@ -128,7 +128,7 @@ export default function StudentClient({
             progress={calProgress}
           />
           <Link
-            href="/history" // Убедись, что путь совпадает с папкой HistoryPage
+            href="/history"
             className="flex items-center justify-center p-4 bg-slate-100 text-slate-600 font-bold rounded-2xl hover:bg-slate-200 transition-all mb-4"
           >
             <Utensils className="w-4 h-4 mr-2" />
