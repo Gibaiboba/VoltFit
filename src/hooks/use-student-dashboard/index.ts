@@ -12,41 +12,40 @@ export const useStudentDashboard = (
   // 1. Локальное состояние (Дата и Ввод)
   const [selectedDate, setSelectedDate] = useState<string>(serverToday);
 
-  // Типизируем объект ввода: ключи — строки из FormDataType, значения — строка или число
-  const [userInput, setUserInput] = useState<
-    Record<keyof FormDataType, string | number | undefined>
-  >({} as Record<keyof FormDataType, string | number | undefined>);
+  // Частичный ввод пользователя (то, что он успел напечатать)
+  const [userInput, setUserInput] = useState<Partial<FormDataType>>({});
 
-  // 2. Запросы (Данные из БД)
+  // 2. Запросы через новый слой сервисов (React Query)
   const { history, profile, logsQuery, profileQuery } =
     useDashboardQueries(userId);
   const { meals } = useMealHistory(userId);
 
-  // 3. Расчеты (Вся математика вынесена в отдельный хук)
+  // 3. Математика (Расчеты на основе данных из кэша и ввода)
   const stats = useDashboardCalculations(
     history,
     profile,
     meals,
     selectedDate,
-    userInput as Record<string, string | number>, // Приведение для совместимости с внутренними расчетами
+    userInput as Record<string, string | number>,
     serverToday,
   );
 
-  // 4. Мутации (Сохранение)
-  const { saveMutation } = useDashboardMutations(userId, () =>
-    setUserInput({} as Record<keyof FormDataType, string | number | undefined>),
+  // 4. Мутации (Сохранение через studentService)
+  const { saveMutation } = useDashboardMutations(
+    userId,
+    () => setUserInput({}), // Очистка локального ввода при успехе
   );
 
   // 5. Обработчики действий (Actions)
   const handleDateChange = (date: string): void => {
     setSelectedDate(date);
-    setUserInput({} as Record<keyof FormDataType, string | number | undefined>);
+    setUserInput({}); // Сброс ввода при переключении даты
   };
 
   const setFormData = (updater: FormUpdater): void => {
     if (typeof updater === "function") {
       setUserInput((prev) => {
-        // Чтобы updater работал корректно, он получает текущую заполненную форму
+        // Берем текущие данные (из базы или ввода) и применяем апдейтер
         const next = updater(stats.formData);
         return { ...prev, ...next };
       });
@@ -56,7 +55,6 @@ export const useStudentDashboard = (
   };
 
   const addWater = (): void => {
-    // Используем функциональный апдейтер для точности
     setFormData((prev) => ({
       water: (Number(prev.water) || 0) + 250,
     }));
@@ -69,6 +67,7 @@ export const useStudentDashboard = (
   };
 
   const handleSave = (): void => {
+    // Конвертируем строковые данные формы в числа для сервиса (DailyLog)
     saveMutation.mutate({
       log_date: selectedDate,
       steps: parseInt(stats.formData.steps) || 0,
@@ -84,6 +83,7 @@ export const useStudentDashboard = (
     state: {
       ...stats,
       selectedDate,
+      // Умный лоадер: показываем загрузку только если данных еще нет совсем
       loading:
         (logsQuery.isLoading || profileQuery.isLoading) && history.length === 0,
       history,

@@ -1,6 +1,7 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase";
-import { UserProfile, useUserStore } from "@/store/useUserStore";
+import { UserProfile } from "@/types/user";
+import { useUserStore } from "@/store/useUserStore";
 
 export function useUpdateProfile() {
   const queryClient = useQueryClient();

@@ -1,7 +1,8 @@
 import { useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase";
-import { useUserStore, UserProfile } from "@/store/useUserStore";
+import { useUserStore } from "@/store/useUserStore";
+import { UserProfile } from "@/types/user";
 
 export function useUserProfile() {
   const setProfile = useUserStore((state) => state.setProfile);
