@@ -18,6 +18,7 @@ interface MealState {
   saveMeal: (
     supabase: SupabaseClient,
     userId: string,
+    mealName?: string,
   ) => Promise<SaveMealResponse>;
 }
 
@@ -32,7 +33,9 @@ export const useMealStore = create<MealState>((set, get) => ({
       }));
     }
   },
+
   clearItems: () => set({ selectedItems: [] }),
+
   removeItem: (id: string) =>
     set((state) => ({
       selectedItems: state.selectedItems.filter((item) => item.id !== id),
@@ -45,9 +48,25 @@ export const useMealStore = create<MealState>((set, get) => ({
       ),
     })),
 
+  getTotal: (): Totals => {
+    return get().selectedItems.reduce(
+      (acc, item) => {
+        const factor = item.weight / 100;
+        return {
+          kcal: acc.kcal + item.kcal * factor,
+          p: acc.p + (item.proteins || 0) * factor,
+          f: acc.f + (item.fat || 0) * factor,
+          c: acc.c + (item.carbs || 0) * factor,
+        };
+      },
+      { kcal: 0, p: 0, f: 0, c: 0 },
+    );
+  },
+
   saveMeal: async (
     supabase: SupabaseClient,
     userId: string,
+    mealName: string = "Прием пищи",
   ): Promise<SaveMealResponse> => {
     const { selectedItems, getTotal } = get();
     const totals = getTotal();
@@ -58,6 +77,7 @@ export const useMealStore = create<MealState>((set, get) => ({
 
     const { error } = await supabase.from("user_meals").insert({
       user_id: userId,
+      meal_name: mealName.trim() || "Прием пищи",
       items: selectedItems,
       total_kcal: Math.round(totals.kcal),
       total_p: totals.p,
@@ -70,25 +90,8 @@ export const useMealStore = create<MealState>((set, get) => ({
     }
 
     set({ selectedItems: [] });
-
-    // Сообщаем кэшу, что данные в истории устарели
     queryClient.invalidateQueries({ queryKey: ["meals-history"] });
 
     return { success: true, error: null };
-  },
-
-  getTotal: (): Totals => {
-    return get().selectedItems.reduce(
-      (acc, item) => {
-        const factor = item.weight / 100;
-        return {
-          kcal: acc.kcal + item.kcal * factor,
-          p: acc.p + item.proteins * factor,
-          f: acc.f + item.fat * factor,
-          c: acc.c + item.carbs * factor,
-        };
-      },
-      { kcal: 0, p: 0, f: 0, c: 0 },
-    );
   },
 }));

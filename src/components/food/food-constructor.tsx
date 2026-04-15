@@ -5,7 +5,6 @@ import { useProductSearch } from "@/hooks/use-product-search";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase";
 import { useMealStore } from "@/store/useMealStore";
-
 import {
   Plus,
   Trash2,
@@ -15,6 +14,7 @@ import {
   Save,
   Search,
   Utensils,
+  Tag,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -24,9 +24,9 @@ export default function FoodConstructor({
   serverToday: string;
 }) {
   const [query, setQuery] = useState<string>("");
+  const [mealName, setMealName] = useState<string>("");
   const queryClient = useQueryClient();
 
-  // 1. Поиск через React Query (с кэшированием и дебаунсом внутри хука)
   const { data: results = [], isLoading: isSearching } =
     useProductSearch(query);
 
@@ -42,7 +42,6 @@ export default function FoodConstructor({
 
   const totals = getTotal();
 
-  // 2. Мутация сохранения блюда
   const saveMutation = useMutation({
     mutationFn: async () => {
       const {
@@ -50,14 +49,13 @@ export default function FoodConstructor({
       } = await supabase.auth.getUser();
       if (!user) throw new Error("Пожалуйста, войдите в систему");
 
-      // 1. Сохраняем само блюдо (ваша текущая логика)
-      const result = await saveMeal(supabase, user.id);
+      // Сохраняем блюдо с названием
+      const result = await saveMeal(supabase, user.id, mealName);
       if (!result.success) throw new Error(result.error || "Ошибка сохранения");
 
-      // 2. ПОЛУЧАЕМ ОБЩУЮ СУММУ: Считаем все калории пользователя за СЕГОДНЯ
-      // (включая только что добавленное блюдо)
       const today = serverToday;
 
+      // Синхронизация с daily_logs
       const { data: allMeals } = await supabase
         .from("user_meals")
         .select("total_kcal")
@@ -70,7 +68,6 @@ export default function FoodConstructor({
         0,
       );
 
-      // 3. ОБНОВЛЯЕМ DAILY_LOGS: Синхронизируем итоговое число
       await supabase.from("daily_logs").upsert(
         {
           user_id: user.id,
@@ -83,35 +80,31 @@ export default function FoodConstructor({
       return result;
     },
     onSuccess: () => {
-      // Инвалидируем оба ключа, чтобы все части приложения обновились
       queryClient.invalidateQueries({ queryKey: ["meals-history"] });
-      queryClient.invalidateQueries({ queryKey: ["student-logs"] }); // Чтобы дашборд узнал об изменениях
-
-      toast.success("Блюдо добавлено и калории обновлены! ✨");
+      queryClient.invalidateQueries({ queryKey: ["student-logs"] });
+      toast.success("Блюдо сохранено в историю! ✨");
       clearItems();
+      setMealName("");
       setQuery("");
     },
-    onError: (err: unknown) => {
-      const message =
-        err instanceof Error ? err.message : "Произошла неизвестная ошибка";
-      toast.error(message);
+    onError: (err: Error) => {
+      toast.error(err.message || "Ошибка сохранения");
     },
   });
 
   return (
     <div className="mt-24 max-w-6xl mx-auto p-6 grid grid-cols-1 lg:grid-cols-12 gap-10 items-start">
-      {/* ЛЕВАЯ ПАНЕЛЬ: ПОИСК ИНГРЕДИЕНТОВ */}
+      {/* ЛЕВАЯ ПАНЕЛЬ: ПОИСК */}
       <div className="lg:col-span-5 space-y-6">
-        <div className="space-y-2">
+        <div className="space-y-2 text-left">
           <h1 className="text-3xl font-black text-slate-800 tracking-tight">
             Конструктор
           </h1>
           <p className="text-slate-400 text-sm font-medium">
-            Соберите блюдо из продуктов нашей базы
+            Найдите продукты в базе данных
           </p>
         </div>
 
-        {/* Поле поиска */}
         <div className="relative group">
           <Search
             className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-blue-500 transition-colors"
@@ -120,7 +113,7 @@ export default function FoodConstructor({
           <input
             type="text"
             className="w-full pl-12 pr-12 py-5 bg-white border border-slate-100 rounded-[28px] shadow-sm focus:ring-4 focus:ring-blue-50 focus:border-blue-200 outline-none transition-all font-bold text-slate-700 placeholder:text-slate-300"
-            placeholder="Начните вводить продукт..."
+            placeholder="Начните вводить название..."
             value={query}
             onChange={(e) => setQuery(e.target.value)}
           />
@@ -132,14 +125,13 @@ export default function FoodConstructor({
           )}
         </div>
 
-        {/* Результаты поиска */}
         <div className="space-y-3 max-h-[500px] overflow-y-auto pr-2 custom-scrollbar">
           {results.map((product) => (
             <div
               key={product.id}
               className="flex items-center justify-between p-5 bg-white border border-slate-100 rounded-[24px] hover:border-blue-200 hover:shadow-md transition-all group"
             >
-              <div className="flex-1">
+              <div className="flex-1 text-left">
                 <div className="flex items-center gap-2 mb-1">
                   <p className="font-black text-slate-700 leading-tight">
                     {product.name}
@@ -147,8 +139,7 @@ export default function FoodConstructor({
                   <Database size={12} className="text-blue-300" />
                 </div>
                 <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">
-                  {product.kcal} ккал <span className="mx-1 opacity-30">/</span>{" "}
-                  100г
+                  {product.kcal} ккал / 100г
                 </p>
               </div>
               <button
@@ -162,12 +153,11 @@ export default function FoodConstructor({
               </button>
             </div>
           ))}
-
           {query.length >= 2 && results.length === 0 && !isSearching && (
             <div className="text-center py-10 bg-slate-50 rounded-[32px] border-2 border-dashed border-slate-100">
               <Utensils className="mx-auto text-slate-200 mb-2" size={32} />
               <p className="text-slate-400 text-sm italic">
-                Ничего не нашли... попробуйте другое слово
+                Ничего не нашли...
               </p>
             </div>
           )}
@@ -183,10 +173,10 @@ export default function FoodConstructor({
           </span>
         </div>
 
-        {/* Список выбранных продуктов */}
         <div className="space-y-4 mb-10 min-h-[100px]">
           {selectedItems.length === 0 ? (
             <div className="py-16 text-center">
+              <Utensils className="mx-auto text-slate-100 mb-4" size={64} />
               <p className="text-slate-300 font-medium italic">
                 Ваше блюдо пока пусто...
               </p>
@@ -197,21 +187,20 @@ export default function FoodConstructor({
                 key={item.id}
                 className="bg-slate-50/50 p-5 rounded-3xl flex items-center gap-5 border border-slate-50 hover:bg-white hover:border-slate-100 transition-all"
               >
-                <div className="flex-1">
+                <div className="flex-1 text-left">
                   <p className="font-black text-slate-700 mb-1">{item.name}</p>
                   <div className="flex gap-4">
-                    <span className="text-[10px] font-black text-orange-400 uppercase tracking-tighter">
+                    <span className="text-[10px] font-black text-orange-400 uppercase">
                       Б: {(item.proteins * (item.weight / 100)).toFixed(1)}
                     </span>
-                    <span className="text-[10px] font-black text-rose-400 uppercase tracking-tighter">
+                    <span className="text-[10px] font-black text-rose-400 uppercase">
                       Ж: {(item.fat * (item.weight / 100)).toFixed(1)}
                     </span>
-                    <span className="text-[10px] font-black text-indigo-400 uppercase tracking-tighter">
+                    <span className="text-[10px] font-black text-indigo-400 uppercase">
                       У: {(item.carbs * (item.weight / 100)).toFixed(1)}
                     </span>
                   </div>
                 </div>
-
                 <div className="flex items-center bg-white shadow-sm border border-slate-100 rounded-2xl px-4 py-2">
                   <Scale size={14} className="text-slate-300 mr-2" />
                   <input
@@ -229,7 +218,6 @@ export default function FoodConstructor({
                     г
                   </span>
                 </div>
-
                 <button
                   onClick={() => removeItem(item.id)}
                   className="p-2 text-slate-300 hover:text-rose-500 transition-colors"
@@ -243,24 +231,36 @@ export default function FoodConstructor({
 
         {selectedItems.length > 0 && (
           <div className="space-y-6">
-            {/* ИТОГОВЫЙ БАННЕР */}
-            <div className="bg-slate-900 rounded-[35px] p-8 text-white shadow-2xl relative overflow-hidden">
-              <div className="relative z-10">
-                <div className="flex justify-between items-end mb-8">
-                  <div className="space-y-1">
-                    <span className="text-[10px] font-black uppercase tracking-[0.3em] text-blue-400">
-                      Общая ценность
-                    </span>
-                    <div className="text-6xl font-black italic">
-                      {Math.round(totals.kcal)}
-                      <span className="text-xl opacity-30 ml-2">ккал</span>
-                    </div>
-                  </div>
-                </div>
+            {/* ПОЛЕ НАЗВАНИЯ */}
+            <div className="relative group">
+              <Tag
+                className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-blue-500 transition-colors"
+                size={18}
+              />
+              <input
+                type="text"
+                placeholder="Название (Обед, Смузи и т.д.)"
+                value={mealName}
+                onChange={(e) => setMealName(e.target.value)}
+                className="w-full pl-12 pr-6 py-5 bg-slate-50 border border-slate-100 rounded-[28px] focus:bg-white focus:ring-4 focus:ring-blue-50 focus:border-blue-200 outline-none transition-all font-bold text-slate-700"
+              />
+            </div>
 
-                <div className="grid grid-cols-3 gap-4 pt-8 border-t border-white/10">
+            {/* ИТОГОВЫЙ БАННЕР */}
+            <div className="bg-slate-900 rounded-[35px] p-8 text-white shadow-2xl relative overflow-hidden text-left">
+              <div className="relative z-10">
+                <span className="text-[10px] font-black uppercase tracking-[0.3em] text-blue-400">
+                  Общая ценность
+                </span>
+                <div className="text-6xl font-black italic mt-1">
+                  {Math.round(totals.kcal)}
+                  <span className="text-xl opacity-30 ml-2 not-italic font-bold">
+                    ккал
+                  </span>
+                </div>
+                <div className="grid grid-cols-3 gap-4 pt-8 mt-8 border-t border-white/10">
                   <div className="text-center">
-                    <p className="text-[9px] font-black opacity-40 uppercase tracking-widest mb-2">
+                    <p className="text-[9px] font-black opacity-40 uppercase mb-2">
                       Белки
                     </p>
                     <p className="text-xl font-black text-orange-400">
@@ -268,7 +268,7 @@ export default function FoodConstructor({
                     </p>
                   </div>
                   <div className="text-center border-x border-white/5">
-                    <p className="text-[9px] font-black opacity-40 uppercase tracking-widest mb-2">
+                    <p className="text-[9px] font-black opacity-40 uppercase mb-2">
                       Жиры
                     </p>
                     <p className="text-xl font-black text-rose-400">
@@ -276,7 +276,7 @@ export default function FoodConstructor({
                     </p>
                   </div>
                   <div className="text-center">
-                    <p className="text-[9px] font-black opacity-40 uppercase tracking-widest mb-2">
+                    <p className="text-[9px] font-black opacity-40 uppercase mb-2">
                       Углеводы
                     </p>
                     <p className="text-xl font-black text-indigo-400">
@@ -291,7 +291,7 @@ export default function FoodConstructor({
             <button
               onClick={() => saveMutation.mutate()}
               disabled={saveMutation.isPending}
-              className="w-full py-6 bg-blue-600 hover:bg-blue-700 text-white font-black rounded-3xl shadow-xl shadow-blue-100 transition-all active:scale-[0.98] disabled:bg-slate-100 disabled:text-slate-400 disabled:shadow-none flex items-center justify-center gap-3 uppercase text-xs tracking-[0.2em]"
+              className="w-full py-6 bg-blue-600 hover:bg-blue-700 text-white font-black rounded-[30px] shadow-xl shadow-blue-100 transition-all active:scale-[0.98] disabled:bg-slate-100 disabled:text-slate-400 flex items-center justify-center gap-3 uppercase text-xs tracking-[0.2em]"
             >
               {saveMutation.isPending ? (
                 <Loader2 className="animate-spin" size={20} />

@@ -64,10 +64,10 @@ export default async function Home() {
         </Link>
 
         <Link
-          href="/products"
+          href="/diary"
           className="flex items-center justify-center p-4 bg-white text-slate-700 font-bold rounded-2xl shadow-sm border border-slate-200 hover:shadow-md hover:bg-indigo-50 hover:text-indigo-600 transition-all"
         >
-          Конструктор блюд
+          Дневник питания
         </Link>
       </div>
     </div>
