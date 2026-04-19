@@ -1,12 +1,5 @@
 import { create } from "zustand";
 import { Product, SelectedProduct, Totals } from "@/types/food";
-import { SupabaseClient } from "@supabase/supabase-js";
-import { queryClient } from "@/lib/query-client";
-
-interface SaveMealResponse {
-  success: boolean;
-  error: string | null;
-}
 
 interface MealState {
   selectedItems: SelectedProduct[];
@@ -15,16 +8,12 @@ interface MealState {
   removeItem: (id: string) => void;
   updateWeight: (id: string, weight: number) => void;
   getTotal: () => Totals;
-  saveMeal: (
-    supabase: SupabaseClient,
-    userId: string,
-    mealName?: string,
-  ) => Promise<SaveMealResponse>;
 }
 
 export const useMealStore = create<MealState>((set, get) => ({
   selectedItems: [],
 
+  // Добавление продукта (по умолчанию 100г)
   addItem: (product: Product) => {
     const exists = get().selectedItems.find((item) => item.id === product.id);
     if (!exists) {
@@ -34,13 +23,16 @@ export const useMealStore = create<MealState>((set, get) => ({
     }
   },
 
+  // Очистка всей корзины
   clearItems: () => set({ selectedItems: [] }),
 
+  // Удаление одной позиции
   removeItem: (id: string) =>
     set((state) => ({
       selectedItems: state.selectedItems.filter((item) => item.id !== id),
     })),
 
+  // Обновление веса конкретного продукта
   updateWeight: (id: string, weight: number) =>
     set((state) => ({
       selectedItems: state.selectedItems.map((item) =>
@@ -48,6 +40,7 @@ export const useMealStore = create<MealState>((set, get) => ({
       ),
     })),
 
+  // Расчет итогов БЖУ и калорий на лету
   getTotal: (): Totals => {
     return get().selectedItems.reduce(
       (acc, item) => {
@@ -61,37 +54,5 @@ export const useMealStore = create<MealState>((set, get) => ({
       },
       { kcal: 0, p: 0, f: 0, c: 0 },
     );
-  },
-
-  saveMeal: async (
-    supabase: SupabaseClient,
-    userId: string,
-    mealName: string = "Прием пищи",
-  ): Promise<SaveMealResponse> => {
-    const { selectedItems, getTotal } = get();
-    const totals = getTotal();
-
-    if (selectedItems.length === 0) {
-      return { success: false, error: "Блюдо пустое" };
-    }
-
-    const { error } = await supabase.from("user_meals").insert({
-      user_id: userId,
-      meal_name: mealName.trim() || "Прием пищи",
-      items: selectedItems,
-      total_kcal: Math.round(totals.kcal),
-      total_p: totals.p,
-      total_f: totals.f,
-      total_c: totals.c,
-    });
-
-    if (error) {
-      return { success: false, error: error.message };
-    }
-
-    set({ selectedItems: [] });
-    queryClient.invalidateQueries({ queryKey: ["meals-history"] });
-
-    return { success: true, error: null };
   },
 }));

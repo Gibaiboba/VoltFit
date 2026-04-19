@@ -29,3 +29,9 @@ export interface SavedMeal {
   items: SelectedProduct[];
   created_at: string;
 }
+
+export interface SaveMealResponse {
+  success: boolean;
+  data?: SavedMeal; // Объект из БД (с id, калориями и т.д.)
+  error: string | null;
+}
