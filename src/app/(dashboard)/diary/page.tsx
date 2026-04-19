@@ -13,6 +13,16 @@ import { DateFilter } from "@/components/history/date-filter";
 import FoodConstructor from "@/components/food/food-constructor";
 import { HistorySkeleton } from "@/components/history/history-skeleton";
 import { Utensils, AlertCircle, Calendar as CalendarIcon } from "lucide-react";
+import { SavedMeal } from "@/types/food";
+
+// 1. Описываем структуру того, что хотим получить на выходе
+type Stats = { kcal: number; p: number; f: number; c: number };
+
+interface DiaryData {
+  consumed: Stats;
+  progress: number;
+  displayMeals: SavedMeal[];
+}
 
 export default function DiaryPage() {
   const { meals, isLoading, error, deleteMeal, refetch } = useMealHistory();
@@ -42,35 +52,32 @@ export default function DiaryPage() {
   }, []);
 
   // Основная логика фильтрации и статистики
-  const diaryData = useMemo(() => {
-    // 1. Фильтруем приемы пищи для списка (если null — показываем все)
-    const displayMeals = selectedDate
-      ? meals.filter((m) => toISODate(new Date(m.created_at)) === selectedDate)
-      : meals;
+  const diaryData = useMemo((): DiaryData => {
+    // Указываем возвращаемый тип функции
+    const stats: Stats = { kcal: 0, p: 0, f: 0, c: 0 };
+    const mealsForDisplay: SavedMeal[] = [];
 
-    // 2. Считаем статистику для баннеров
-    // Если выбрано "Все", баннеры показывают статистику за СЕГОДНЯ
-    const statsDate = selectedDate || toISODate(new Date());
-    const mealsForStats = meals.filter(
-      (m) => toISODate(new Date(m.created_at)) === statsDate,
-    );
+    meals.forEach((m) => {
+      const isSameDate =
+        toISODate(new Date(m.created_at)) ===
+        (selectedDate || toISODate(new Date()));
 
-    const consumed = mealsForStats.reduce(
-      (acc, m) => ({
-        kcal: acc.kcal + (m.total_kcal || 0),
-        p: acc.p + (m.total_p || 0),
-        f: acc.f + (m.total_f || 0),
-        c: acc.c + (m.total_c || 0),
-      }),
-      { kcal: 0, p: 0, f: 0, c: 0 },
-    );
+      if (isSameDate) {
+        stats.kcal += m.total_kcal || 0;
+        stats.p += m.total_p || 0;
+        stats.f += m.total_f || 0;
+        stats.c += m.total_c || 0;
+      }
 
-    const progress = Math.min((consumed.kcal / goals.kcal) * 100, 100);
+      if (!selectedDate || isSameDate) {
+        mealsForDisplay.push(m);
+      }
+    });
 
     return {
-      consumed,
-      progress,
-      displayMeals: displayMeals.sort(
+      consumed: stats,
+      progress: Math.min((stats.kcal / goals.kcal) * 100, 100),
+      displayMeals: mealsForDisplay.sort(
         (a, b) =>
           new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
       ),

@@ -34,6 +34,9 @@ export const mealService = {
         total_p: Number(totals.p.toFixed(1)),
         total_f: Number(totals.f.toFixed(1)),
         total_c: Number(totals.c.toFixed(1)),
+        created_at: new Date(
+          `${date}T${new Date().toLocaleTimeString("en-GB")}`,
+        ).toISOString(),
       })
       .select()
       .single();
