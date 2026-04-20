@@ -59,6 +59,8 @@ export async function middleware(request: NextRequest) {
     path === "/" ||
     path === "/login" ||
     path === "/register" ||
+    path === "/forgot-password" ||
+    path === "/update-password" ||
     path.startsWith("/products");
 
   /**

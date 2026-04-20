@@ -1,39 +1,63 @@
 "use client";
 
 import { useState } from "react";
-import { supabase } from "@/lib/supabase";
 import { useRouter } from "next/navigation";
+import { useForm, SubmitHandler } from "react-hook-form";
 import { toast } from "sonner";
+import { authService, getErrorMessage } from "@/services/auth";
+import { Eye, EyeOff } from "lucide-react";
+import Link from "next/link";
+
+interface LoginFormValues {
+  email: string;
+  password: string;
+}
 
 export default function LoginPage() {
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
   const router = useRouter();
 
-  const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const {
+    register,
+    handleSubmit,
+    formState: { errors },
+  } = useForm<LoginFormValues>({
+    defaultValues: {
+      email: "",
+      password: "",
+    },
+  });
+
+  const onSubmit: SubmitHandler<LoginFormValues> = async (values) => {
     setLoading(true);
+    try {
+      const data = await authService.signIn(values.email, values.password);
 
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
-
-    if (error) {
-      toast.error("Неверный логин или пользователь не зарегистрирован!");
-      setLoading(false);
-      return;
-    }
-
-    if (data?.user) {
-      const role = data.user.user_metadata?.role;
-
-      if (role === "coach") {
-        router.push("/coach");
-      } else {
-        router.push("/student");
+      if (!data?.user) {
+        throw new Error(
+          "Не удалось получить данные пользователя. Попробуйте еще раз.",
+        );
       }
+
+      const role = data.user.user_metadata?.role as
+        | "coach"
+        | "student"
+        | undefined;
+      toast.success("Добро пожаловать!");
+      // Используем replace вместо push для чистой истории браузера
+      if (role === "coach") {
+        router.replace("/coach");
+      } else {
+        router.replace("/student");
+      }
+    } catch (error: unknown) {
+      console.error("Login error:", error);
+      // Используем обработчик ошибок из сервиса
+      const message = getErrorMessage(error);
+      toast.error(message);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -49,21 +73,71 @@ export default function LoginPage() {
           </p>
         </div>
 
-        <form onSubmit={handleLogin} className="space-y-4">
-          <input
-            type="email"
-            placeholder="Email"
-            required
-            className="w-full p-4 bg-slate-50 rounded-2xl outline-none focus:border-blue-500 border-2 border-transparent transition-all text-slate-800"
-            onChange={(e) => setEmail(e.target.value)}
-          />
-          <input
-            type="password"
-            placeholder="Пароль"
-            required
-            className="w-full p-4 bg-slate-50 rounded-2xl outline-none focus:border-blue-500 border-2 border-transparent transition-all text-slate-800"
-            onChange={(e) => setPassword(e.target.value)}
-          />
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+          {/* Поле Email */}
+          <div className="relative">
+            <input
+              {...register("email", {
+                required: "Введите Email",
+                pattern: {
+                  value: /\S+@\S+\.\S+/,
+                  message: "Некорректный формат почты",
+                },
+              })}
+              type="email"
+              placeholder="Email"
+              className={`w-full p-4 bg-slate-50 rounded-2xl outline-none border-2 transition-all text-slate-800 ${
+                errors.email
+                  ? "border-red-400"
+                  : "border-transparent focus:border-blue-500"
+              }`}
+            />
+            {errors.email && (
+              <span className="text-red-500 text-xs ml-2 mt-1 block font-medium">
+                {errors.email.message}
+              </span>
+            )}
+          </div>
+
+          {/* Поле Пароль */}
+          <div className="relative">
+            <input
+              {...register("password", {
+                required: "Введите пароль",
+                minLength: { value: 6, message: "Минимум 6 символов" },
+              })}
+              type={showPassword ? "text" : "password"}
+              placeholder="Пароль"
+              className={`w-full p-4 bg-slate-50 rounded-2xl outline-none border-2 transition-all text-slate-800 ${
+                errors.password
+                  ? "border-red-400"
+                  : "border-transparent focus:border-blue-500"
+              }`}
+            />
+            {/* Кнопка "Глазик" */}
+            <button
+              type="button"
+              onClick={() => setShowPassword(!showPassword)}
+              className="absolute right-4 top-4 text-slate-400 hover:text-blue-600 transition-colors"
+            >
+              {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+            </button>
+            {errors.password && (
+              <span className="text-red-500 text-xs ml-2 mt-1 block font-medium">
+                {errors.password.message}
+              </span>
+            )}
+          </div>
+
+          {/* Ссылка "Забыли пароль" */}
+          <div className="flex justify-end px-2">
+            <Link
+              href="/forgot-password"
+              className="text-xs font-semibold text-slate-400 hover:text-blue-600 transition-colors"
+            >
+              Забыли пароль?
+            </Link>
+          </div>
 
           <button
             type="submit"
@@ -76,13 +150,13 @@ export default function LoginPage() {
 
         <div className="mt-8 text-center">
           <p className="text-slate-500 text-sm">
-            Нет аккаунта?
-            <button
-              onClick={() => router.push("/register")}
+            Нет аккаунта?{" "}
+            <Link
+              href="/register"
               className="text-blue-600 font-bold hover:underline"
             >
               Зарегистрироваться
-            </button>
+            </Link>
           </p>
         </div>
       </div>
