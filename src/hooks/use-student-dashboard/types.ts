@@ -49,6 +49,7 @@ export interface StudentDashboardHook {
     todayStr: string;
     profile: UserProfile | null; // Ссылка на общий тип!
     isSaving: boolean;
+    error: string | null;
   };
   actions: {
     handleDateChange: (date: string) => void;

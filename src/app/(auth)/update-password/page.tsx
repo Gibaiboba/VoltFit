@@ -4,8 +4,9 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useForm, SubmitHandler } from "react-hook-form";
 import { toast } from "sonner";
-import { authService, getErrorMessage } from "@/services/auth";
+import { authService } from "@/services/auth";
 import { Eye, EyeOff, Lock } from "lucide-react";
+import { getErrorMessage } from "@/lib/utils/error-helper";
 
 interface UpdatePasswordValues {
   password: string;

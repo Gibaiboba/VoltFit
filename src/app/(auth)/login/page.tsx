@@ -4,9 +4,10 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useForm, SubmitHandler } from "react-hook-form";
 import { toast } from "sonner";
-import { authService, getErrorMessage } from "@/services/auth";
+import { authService } from "@/services/auth";
 import { Eye, EyeOff } from "lucide-react";
 import Link from "next/link";
+import { getErrorMessage } from "@/lib/utils/error-helper";
 
 interface LoginFormValues {
   email: string;

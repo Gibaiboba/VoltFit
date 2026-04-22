@@ -1,7 +1,9 @@
 "use client";
 
+import { useMemo, useEffect } from "react";
 import Link from "next/link";
 import { Calendar, Scale, Footprints, Moon, Utensils } from "lucide-react";
+import { toast } from "sonner";
 import { MacroCard } from "@/components/student/macro-card";
 import LogHistory from "@/components/shared/LogHistory";
 import PersonalTip from "@/components/shared/PersonalTip";
@@ -25,12 +27,10 @@ export default function StudentClient({
 }: StudentClientProps) {
   const { state, actions } = useStudentDashboard(userId, serverToday);
 
-  if (state.loading) {
-    return <DashboardSkeleton />;
-  }
-
-  // Деструктуризация стейта (уже типизировано через StudentDashboardHook)
+  // 1. Деструктуризация стейта
   const {
+    loading,
+    error,
     formData,
     selectedDate,
     isToday,
@@ -44,43 +44,60 @@ export default function StudentClient({
     profile,
     isSaving,
     todayStr,
+    previousWeight,
   } = state;
 
-  const { handleDateChange, handleSave, setFormData } = actions;
+  const { handleDateChange, handleSave, setFormData, addWater, removeWater } =
+    actions;
 
-  // Типизированный массив макросов
-  const macroStats = [
-    {
-      label: "Белки",
-      target: profile?.protein || 0,
-      current: Math.round(consumedFromHistory.p),
-      colors: {
-        color: "bg-orange-500",
-        light: "bg-orange-50",
-        text: "text-orange-600",
+  // 2. Обработка ошибок (Toast уведомление)
+  useEffect(() => {
+    if (error) {
+      toast.error(error);
+    }
+  }, [error]);
+
+  // 3. Мемоизация макросов для предотвращения лишних ререндеров
+  const macroStats = useMemo(
+    () => [
+      {
+        label: "Белки",
+        target: profile?.protein || 0,
+        current: Math.round(consumedFromHistory.p),
+        colors: {
+          color: "bg-orange-500",
+          light: "bg-orange-50",
+          text: "text-orange-600",
+        },
       },
-    },
-    {
-      label: "Жиры",
-      target: profile?.fat || 0,
-      current: Math.round(consumedFromHistory.f),
-      colors: {
-        color: "bg-rose-500",
-        light: "bg-rose-50",
-        text: "text-rose-600",
+      {
+        label: "Жиры",
+        target: profile?.fat || 0,
+        current: Math.round(consumedFromHistory.f),
+        colors: {
+          color: "bg-rose-500",
+          light: "bg-rose-50",
+          text: "text-rose-600",
+        },
       },
-    },
-    {
-      label: "Углеводы",
-      target: profile?.carbs || 0,
-      current: Math.round(consumedFromHistory.c),
-      colors: {
-        color: "bg-indigo-500",
-        light: "bg-indigo-50",
-        text: "text-indigo-600",
+      {
+        label: "Углеводы",
+        target: profile?.carbs || 0,
+        current: Math.round(consumedFromHistory.c),
+        colors: {
+          color: "bg-indigo-500",
+          light: "bg-indigo-50",
+          text: "text-indigo-600",
+        },
       },
-    },
-  ];
+    ],
+    [profile?.protein, profile?.fat, profile?.carbs, consumedFromHistory],
+  );
+
+  // Early return: если загрузка, дальше код не идет
+  if (loading) {
+    return <DashboardSkeleton />;
+  }
 
   return (
     <div className="p-6 bg-slate-50 min-h-screen pt-24 pb-12 text-slate-900">
@@ -96,6 +113,7 @@ export default function StudentClient({
                 type="date"
                 value={selectedDate}
                 onChange={(e) => handleDateChange(e.target.value)}
+                aria-label="Выберите дату"
                 className="bg-transparent text-xs font-black text-slate-600 outline-none cursor-pointer"
               />
             </div>
@@ -123,33 +141,36 @@ export default function StudentClient({
             target={targetCalories}
             progress={calProgress}
           />
-          <Link
-            href="/diary"
-            className="flex items-center justify-center p-4 bg-slate-100 text-slate-600 font-bold rounded-2xl hover:bg-slate-200 transition-all mb-4"
-          >
-            <Utensils className="w-4 h-4 mr-2" />
-            Посмотреть историю за {isToday ? "сегодня" : "этот день"}
-          </Link>
-          <Link
-            href="/diary"
-            className="flex items-center mb-8 justify-center p-4 bg-white text-slate-700 font-bold rounded-2xl shadow-sm border border-slate-200 hover:shadow-md hover:bg-indigo-50 hover:text-indigo-600 transition-all"
-          >
-            + Добавить еду
-          </Link>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-8">
+            <Link
+              href="/diary"
+              className="flex items-center justify-center p-4 bg-slate-100 text-slate-600 font-bold rounded-2xl hover:bg-slate-200 transition-all"
+            >
+              <Utensils className="w-4 h-4 mr-2" />
+              История за {isToday ? "сегодня" : "этот день"}
+            </Link>
+            <Link
+              href="/diary"
+              className="flex items-center justify-center p-4 bg-indigo-600 text-white font-bold rounded-2xl shadow-md hover:bg-indigo-700 transition-all"
+            >
+              + Добавить еду
+            </Link>
+          </div>
 
           <div className="space-y-6">
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
               <MetricWater
                 value={formData.water}
-                onAdd={actions.addWater}
-                onRemove={actions.removeWater}
+                onAdd={addWater}
+                onRemove={removeWater}
               />
               <MetricInput
                 title="Вес"
                 icon={Scale}
                 color="orange"
                 value={formData.weight}
-                footer={`Пред: ${state.previousWeight}`}
+                footer={`Пред: ${previousWeight || "—"}`}
                 onChange={(v) => setFormData({ weight: v })}
               />
               <MetricInput
@@ -157,7 +178,7 @@ export default function StudentClient({
                 icon={Footprints}
                 color="emerald"
                 value={formData.steps}
-                footer="Цель: 10 000"
+                footer={`Цель: ${profile?.steps_goal || "10 000"}`}
                 onChange={(v) => setFormData({ steps: v })}
               />
               <MetricInput
@@ -199,7 +220,6 @@ export default function StudentClient({
 
         <LogHistory
           logs={history}
-          loading={state.loading}
           title="📊 Последние отчеты"
           onLogClick={handleDateChange}
         />

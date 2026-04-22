@@ -3,9 +3,10 @@
 import { useState, useEffect } from "react";
 import { useForm, SubmitHandler } from "react-hook-form";
 import { toast } from "sonner";
-import { authService, getErrorMessage } from "@/services/auth";
+import { authService } from "@/services/auth";
 import { ChevronLeft } from "lucide-react";
 import Link from "next/link";
+import { getErrorMessage } from "@/lib/utils/error-helper";
 
 interface ForgotPasswordValues {
   email: string;

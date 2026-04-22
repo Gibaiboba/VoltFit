@@ -4,6 +4,7 @@ import { useDashboardQueries } from "./use-queries";
 import { useDashboardMutations } from "./use-mutations";
 import { useDashboardCalculations } from "./use-calculations";
 import { FormDataType, StudentDashboardHook, FormUpdater } from "./types";
+import { getErrorMessage } from "@/lib/utils/error-helper";
 
 export const useStudentDashboard = (
   userId: string,
@@ -86,6 +87,8 @@ export const useStudentDashboard = (
       // Умный лоадер: показываем загрузку только если данных еще нет совсем
       loading:
         (logsQuery.isLoading || profileQuery.isLoading) && history.length === 0,
+
+      error: saveMutation.error ? getErrorMessage(saveMutation.error) : null,
       history,
       profile,
       isSaving: saveMutation.isPending,
