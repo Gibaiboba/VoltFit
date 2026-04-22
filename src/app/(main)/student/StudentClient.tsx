@@ -12,7 +12,6 @@ import MetricInput from "@/components/student/metric-input";
 import ActivitySelector from "@/components/student/activity-selector";
 import ChartsSection from "@/components/student/chart-section";
 import { DashboardSkeleton } from "@/components/student/dashboard-skeleton";
-// Импортируем тип из хука
 import { useStudentDashboard } from "@/hooks/use-student-dashboard/index";
 
 interface StudentClientProps {
@@ -86,10 +85,7 @@ export default function StudentClient({
   return (
     <div className="p-6 bg-slate-50 min-h-screen pt-24 pb-12 text-slate-900">
       <div className="max-w-4xl mx-auto space-y-8">
-        <div
-          key={selectedDate}
-          className="bg-white rounded-[40px] p-8 border border-slate-100 shadow-xl relative overflow-hidden"
-        >
+        <div className="bg-white rounded-[40px] p-8 border border-slate-100 shadow-xl relative overflow-hidden">
           <ProgressBar hasLog={hasLog} />
 
           {/* Навигация */}

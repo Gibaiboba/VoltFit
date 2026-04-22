@@ -74,6 +74,30 @@ export const authService = {
     return data;
   },
 
+  // регистрация
+
+  async signUp(
+    email: string,
+    password: string,
+    fullName: string,
+    role: "coach" | "student",
+  ) {
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        data: {
+          full_name: fullName,
+          role: role,
+          onboarding_completed: false, // для Middleware
+        },
+      },
+    });
+
+    if (error) throw error;
+    return data;
+  },
+
   // Шаг 1: Отправка ссылки на почту
   async resetPassword(email: string) {
     const { data, error } = await supabase.auth.resetPasswordForEmail(email, {
