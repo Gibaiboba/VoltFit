@@ -1,12 +1,12 @@
 "use client";
 import { MealCard } from "@/components/history/meal-card";
 import { SavedMeal } from "@/types/food";
-import { StudentLog } from "@/store/useCoachStore";
+import { DailyLog } from "@/types/shared";
 import { Footprints, Moon, Weight, Pizza, Droplets } from "lucide-react";
 
 interface StudentDayRowProps {
   date: string;
-  log?: StudentLog;
+  log?: DailyLog;
   meals: SavedMeal[];
 }
 
@@ -17,10 +17,8 @@ export function StudentDayRow({ date, log, meals }: StudentDayRowProps) {
     weekday: "short",
   });
 
-  // Считаем калории только если есть приемы пищи
   const totalKcal = meals.reduce((sum, m) => sum + m.total_kcal, 0);
 
-  // Вспомогательная функция для отображения пустых значений
   const renderValue = (value: number | string | undefined | null) => {
     return value ? value : "--";
   };
@@ -43,8 +41,6 @@ export function StudentDayRow({ date, log, meals }: StudentDayRowProps) {
         {/* Блок показателей (Логи) */}
         {log && (
           <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
-            {" "}
-            {/* Сетка 5 колонок на больших экранах */}
             <div className="bg-orange-50 p-3 rounded-2xl text-center">
               <Weight size={14} className="mx-auto mb-1 text-orange-500" />
               <p className="text-[10px] font-bold text-slate-400 uppercase">
@@ -72,7 +68,6 @@ export function StudentDayRow({ date, log, meals }: StudentDayRowProps) {
                 {renderValue(log.sleep_hours)}
               </p>
             </div>
-            {/* НОВЫЙ БЛОК: ВОДА */}
             <div className="bg-cyan-50 p-3 rounded-2xl text-center">
               <Droplets size={14} className="mx-auto mb-1 text-cyan-500" />
               <p className="text-[10px] font-bold text-slate-400 uppercase">
@@ -94,6 +89,30 @@ export function StudentDayRow({ date, log, meals }: StudentDayRowProps) {
           </div>
         )}
 
+        {/* 2. НОВЫЙ БЛОК: СТАТИСТИКА БЖУ */}
+        {log && (
+          <div className="flex gap-2">
+            <MacroBox
+              label="Белки"
+              value={log.proteins}
+              color="text-blue-500"
+              bg="bg-blue-50/30"
+            />
+            <MacroBox
+              label="Жиры"
+              value={log.fats}
+              color="text-orange-500"
+              bg="bg-orange-50/30"
+            />
+            <MacroBox
+              label="Угли"
+              value={log.carbs}
+              color="text-emerald-500"
+              bg="bg-emerald-50/30"
+            />
+          </div>
+        )}
+
         {/* Блок приемов пищи */}
         <div className="space-y-3">
           <p className="text-[10px] font-black text-slate-300 uppercase tracking-widest px-1">
@@ -112,6 +131,34 @@ export function StudentDayRow({ date, log, meals }: StudentDayRowProps) {
           )}
         </div>
       </div>
+    </div>
+  );
+}
+
+// 3. Вспомогательный компонент для БЖУ (добавь в конец файла)
+function MacroBox({
+  label,
+  value,
+  color,
+  bg,
+}: {
+  label: string;
+  value?: number;
+  color: string;
+  bg: string;
+}) {
+  return (
+    <div
+      className={`flex-1 ${bg} px-4 py-2 rounded-2xl border border-slate-100/50`}
+    >
+      <p
+        className={`text-[8px] font-black uppercase tracking-widest ${color} mb-0.5`}
+      >
+        {label}
+      </p>
+      <p className="text-sm font-black text-slate-700">
+        {value ? `${Math.round(value)}г` : "--"}
+      </p>
     </div>
   );
 }

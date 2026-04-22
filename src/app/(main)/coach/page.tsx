@@ -37,7 +37,7 @@ export default function CoachDashboard() {
           </h1>
 
           <Link
-            href="/history"
+            href="/diary"
             className="text-xl font-bold text-blue-600 hover:underline inline-flex items-center gap-2"
           >
             📊 История питания тренера

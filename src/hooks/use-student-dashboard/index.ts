@@ -19,7 +19,7 @@ export const useStudentDashboard = (
   // 2. Запросы через новый слой сервисов (React Query)
   const { history, profile, logsQuery, profileQuery } =
     useDashboardQueries(userId);
-  const { meals } = useMealHistory(userId);
+  const { meals } = useMealHistory(userId, selectedDate);
 
   // 3. Математика (Расчеты на основе данных из кэша и ввода)
   const stats = useDashboardCalculations(
@@ -74,6 +74,9 @@ export const useStudentDashboard = (
       steps: parseInt(stats.formData.steps) || 0,
       weight: parseFloat(stats.formData.weight) || 0,
       calories: stats.currentCalories,
+      proteins: stats.currentProteins,
+      fats: stats.currentFats,
+      carbs: stats.currentCarbs,
       sleep_hours: parseFloat(stats.formData.sleep_hours) || 0,
       water: stats.formData.water,
       activity_level: stats.formData.activity_level,

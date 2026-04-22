@@ -9,6 +9,9 @@ interface Log {
   sleep_hours: number;
   activity_level: string;
   water: number;
+  proteins?: number;
+  fats?: number;
+  carbs?: number;
 }
 
 interface LogHistoryProps {
@@ -90,12 +93,17 @@ export default function LogHistory({
             <div className="flex gap-6 justify-between sm:justify-end">
               <Metric label="Вес" value={`${log.weight}кг`} />
               <Metric label="Шаги" value={formatNumber(log.steps)} />
-              <Metric label="Ккал" value={formatNumber(log.calories)} />
               <Metric
                 label="Вода"
                 value={`${(log.water / 1000).toFixed(1)}л`} // Переводим мл в литры (например, 2.5л)
               />
               <Metric label="Сон" value={`${log.sleep_hours}ч`} />
+              <Metric label="Ккал" value={formatNumber(log.calories)} />
+              <div className="hidden md:flex flex-wrap gap-4 border-r pr-4 border-slate-200">
+                <Metric label="Б" value={log.proteins || 0} />
+                <Metric label="Ж" value={log.fats || 0} />
+                <Metric label="У" value={log.carbs || 0} />
+              </div>
             </div>
           </div>
         </div>

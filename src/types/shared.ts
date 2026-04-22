@@ -13,4 +13,7 @@ export interface DailyLog {
   water: number;
   activity_level: string;
   created_at?: string;
+  proteins?: number;
+  fats?: number;
+  carbs?: number;
 }

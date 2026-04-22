@@ -15,7 +15,16 @@ export const coachService = {
           id,
           full_name,
           daily_logs ( 
-            weight, steps, calories, sleep_hours, activity_level, log_date, water
+          weight,
+          steps, 
+          calories, 
+          sleep_hours, 
+          activity_level, 
+          log_date, 
+          water,
+          proteins,  
+          fats,
+          carbs    
           )
         )
       `,

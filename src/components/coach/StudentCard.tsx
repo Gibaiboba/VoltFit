@@ -1,5 +1,5 @@
 "use client";
-import { StudentData } from "@/store/useCoachStore";
+import { StudentData } from "@/types/coach";
 
 function StudentCard({
   item,
@@ -59,6 +59,18 @@ function StudentCard({
           <p className="text-[10px] text-slate-400 uppercase mb-1">Ккал</p>🔥{" "}
           {lastLog?.calories || 0}
         </div>
+
+        <div className="border-l border-slate-100 pl-4 col-span-2 sm:col-span-1">
+          <p className="text-[10px] text-slate-400 uppercase mb-1">Б / Ж / У</p>
+          <div className="flex gap-1 text-[11px]">
+            <span className="text-blue-600">{lastLog?.proteins || 0}</span>
+            <span className="text-slate-300">/</span>
+            <span className="text-orange-500">{lastLog?.fats || 0}</span>
+            <span className="text-slate-300">/</span>
+            <span className="text-emerald-500">{lastLog?.carbs || 0}</span>
+          </div>
+        </div>
+
         <div className="border-l border-slate-100 pl-4">
           <p className="text-[10px] text-slate-400 uppercase mb-1">Сон</p>🌙{" "}
           {lastLog?.sleep_hours || 0}ч
