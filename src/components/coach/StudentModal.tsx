@@ -1,5 +1,5 @@
 "use client";
-import { useMemo } from "react";
+import { useMemo, useEffect } from "react";
 import { useCoachStore } from "@/store/useCoachStore";
 import { useMealHistory } from "@/hooks/use-meal-history";
 import { StudentDayRow } from "./StudentDayRow";
@@ -9,31 +9,57 @@ export default function StudentModal() {
   const { selectedStudent, setSelectedStudent } = useCoachStore();
   const { meals } = useMealHistory(selectedStudent?.student.id);
 
-  // Оптимизируем расчеты через useMemo
+  // Блокировка прокрутки фона
+  useEffect(() => {
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = "unset";
+    };
+  }, []);
+
   const timeline = useMemo(() => {
     if (!selectedStudent) return [];
 
-    // Создаем список уникальных дат
     const logs = selectedStudent.student.daily_logs || [];
-    const logDates = logs.map((l) => l.log_date);
-    const mealDates = meals.map((m) => toISODate(new Date(m.created_at)));
 
-    const uniqueDates = Array.from(new Set([...logDates, ...mealDates])).sort(
-      (a, b) => b.localeCompare(a),
-    );
+    // 1. Быстрая индексация логов O(1)
+    const logsMap = new Map(logs.map((l) => [l.log_date, l]));
 
-    // Предварительно подготавливаем данные для каждого дня
-    return uniqueDates.map((date) => ({
+    // 2. Группировка еды по датам (один проход)
+    const mealsByDate = new Map<string, typeof meals>();
+    meals.forEach((meal) => {
+      const dateKey = toISODate(new Date(meal.created_at));
+      if (!mealsByDate.has(dateKey)) {
+        mealsByDate.set(dateKey, []);
+      }
+      mealsByDate.get(dateKey)!.push(meal);
+    });
+
+    // 3. Уникальные даты, отсортированные от новых к старым
+    const allDates = Array.from(
+      new Set([...logsMap.keys(), ...mealsByDate.keys()]),
+    ).sort((a, b) => b.localeCompare(a));
+
+    // 4. Сборка ленты
+    return allDates.map((date) => ({
       date,
-      dayLog: logs.find((l) => l.log_date === date),
-      dayMeals: meals.filter((m) => toISODate(new Date(m.created_at)) === date),
+      dayLog: logsMap.get(date),
+      dayMeals: mealsByDate.get(date) || [],
     }));
   }, [selectedStudent, meals]);
 
   if (!selectedStudent) return null;
 
+  // Закрытие по клику на оверлей
+  const handleOverlayClick = (e: React.MouseEvent) => {
+    if (e.target === e.currentTarget) setSelectedStudent(null);
+  };
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm"
+      onClick={handleOverlayClick}
+    >
       <div className="bg-slate-50 w-full max-w-2xl max-h-[90vh] rounded-[40px] shadow-2xl overflow-hidden flex flex-col scale-in-center">
         {/* Шапка */}
         <div className="p-8 bg-white border-b border-slate-100 flex justify-between items-center shrink-0">
@@ -47,7 +73,7 @@ export default function StudentModal() {
           </div>
           <button
             onClick={() => setSelectedStudent(null)}
-            className="w-10 h-10 bg-slate-100 hover:bg-red-50 hover:text-red-500 rounded-full font-black transition-colors"
+            className="w-10 h-10 bg-slate-100 hover:bg-red-50 hover:text-red-500 rounded-full font-black transition-colors flex items-center justify-center"
           >
             ✕
           </button>

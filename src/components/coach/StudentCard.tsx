@@ -1,31 +1,35 @@
 "use client";
-import { StudentData } from "@/types/coach";
+import { memo } from "react";
+import { StudentView } from "@/types/coach";
 
-function StudentCard({
-  item,
-  weeklySteps,
-  onClick,
-}: {
-  item: StudentData;
+interface StudentCardProps {
+  item: StudentView;
   weeklySteps: number;
-  onClick: () => void;
-}) {
+  onClick: (student: StudentView) => void;
+}
+
+const getActivityStyle = (activity?: string) => {
+  const styles: Record<string, string> = {
+    "Силовая тренировка": "bg-red-100 text-red-600 border-red-200",
+    "Кардио тренировка": "bg-orange-100 text-orange-600 border-orange-200",
+    "Групповая тренировка": "bg-purple-100 text-purple-600 border-purple-200",
+  };
+  return (
+    styles[activity || ""] || "bg-slate-100 text-slate-500 border-slate-200"
+  );
+};
+
+function StudentCard({ item, weeklySteps, onClick }: StudentCardProps) {
   const lastLog = item.student.daily_logs?.[0];
 
-  const getActivityStyle = (activity?: string) => {
-    const styles: Record<string, string> = {
-      "Силовая тренировка": "bg-red-100 text-red-600 border-red-200",
-      "Кардио тренировка": "bg-orange-100 text-orange-600 border-orange-200",
-      "Групповая тренировка": "bg-purple-100 text-purple-600 border-purple-200",
-    };
-    return (
-      styles[activity || ""] || "bg-slate-100 text-slate-500 border-slate-200"
-    );
+  //стабильный обработчик внутри
+  const handleCardClick = () => {
+    onClick(item);
   };
 
   return (
     <div
-      onClick={onClick}
+      onClick={handleCardClick}
       className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 hover:shadow-xl hover:scale-[1.01] transition-all cursor-pointer group"
     >
       <div className="flex flex-col md:flex-row md:items-center justify-between mb-6 pb-4 border-b border-slate-50 gap-4">
@@ -49,15 +53,14 @@ function StudentCard({
         </div>
       </div>
 
-      {/* Изменили сетку на 6 колонок на десктопе */}
       <div className="grid grid-cols-2 sm:grid-cols-6 gap-6 text-sm font-bold text-slate-700">
         <div>
-          <p className="text-[10px] text-slate-400 uppercase mb-1">Вес</p>⚖️{" "}
-          {lastLog?.weight || "—"} кг
+          <p className="text-[10px] text-slate-400 uppercase mb-1">Вес</p>
+          ⚖️ {lastLog?.weight || "—"} кг
         </div>
         <div className="border-l border-slate-100 pl-4">
-          <p className="text-[10px] text-slate-400 uppercase mb-1">Ккал</p>🔥{" "}
-          {lastLog?.calories || 0}
+          <p className="text-[10px] text-slate-400 uppercase mb-1">Ккал</p>
+          🔥 {lastLog?.calories || 0}
         </div>
 
         <div className="border-l border-slate-100 pl-4 col-span-2 sm:col-span-1">
@@ -72,18 +75,18 @@ function StudentCard({
         </div>
 
         <div className="border-l border-slate-100 pl-4">
-          <p className="text-[10px] text-slate-400 uppercase mb-1">Сон</p>🌙{" "}
-          {lastLog?.sleep_hours || 0}ч
+          <p className="text-[10px] text-slate-400 uppercase mb-1">Сон</p>
+          🌙 {lastLog?.sleep_hours || 0}ч
         </div>
 
         <div className="border-l border-slate-100 pl-4">
-          <p className="text-[10px] text-slate-400 uppercase mb-1">Вода</p>💧{" "}
-          {lastLog?.water ? `${(lastLog.water / 1000).toFixed(1)}л` : "0л"}
+          <p className="text-[10px] text-slate-400 uppercase mb-1">Вода</p>
+          💧 {lastLog?.water ? `${(lastLog.water / 1000).toFixed(1)}л` : "0л"}
         </div>
 
         <div className="border-l border-slate-100 pl-4">
-          <p className="text-[10px] text-slate-400 uppercase mb-1">Шаги</p>👣{" "}
-          {lastLog?.steps?.toLocaleString() || 0}
+          <p className="text-[10px] text-slate-400 uppercase mb-1">Шаги</p>
+          👣 {lastLog?.steps?.toLocaleString() || 0}
         </div>
 
         <div className="bg-blue-50 p-3 rounded-2xl border border-blue-100">
@@ -98,4 +101,6 @@ function StudentCard({
     </div>
   );
 }
-export default StudentCard;
+
+// Экспортируем мемоизированный компонент
+export default memo(StudentCard);
