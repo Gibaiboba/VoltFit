@@ -1,4 +1,3 @@
-import { MetricCard } from "./metric-card";
 import { Droplets, Plus, Minus } from "lucide-react";
 
 interface MetricWaterProps {
@@ -13,39 +12,40 @@ export default function MetricWater({
   onRemove,
 }: MetricWaterProps) {
   return (
-    <MetricCard
-      title="Вода"
-      icon={Droplets}
-      colorClass={{
-        bg: "bg-blue-50/50",
-        border: "border-blue-100",
-        iconBg: "bg-blue-500",
-        text: "text-blue-400",
-      }}
-    >
-      <div className="text-2xl font-black italic text-blue-600 mb-2 leading-none">
-        {value} <span className="text-[10px] not-italic opacity-60">мл</span>
+    <div className="bg-slate-950 p-6 rounded-[2.5rem] border border-white/5 shadow-2xl flex flex-col items-center group">
+      {/* Иконка с водным акцентом */}
+      <div className="relative mb-4">
+        <div className="w-14 h-14 rounded-2xl bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center transition-all group-hover:shadow-[0_0_20px_rgba(6,182,212,0.2)]">
+          <Droplets className="w-7 h-7 text-cyan-400 fill-cyan-400/20 animate-[pulse_3s_infinite]" />
+        </div>
+        {/* Декоративный блик за иконкой */}
+        <div className="absolute inset-0 bg-cyan-400/5 blur-xl -z-10 rounded-full" />
       </div>
 
-      <div className="flex gap-2 w-full">
+      <div className="text-5xl font-black italic text-yellow-400 mb-6 tracking-tighter">
+        {value}
+        <span className="text-xs not-italic ml-1 text-slate-500">ML</span>
+      </div>
+
+      <div className="flex gap-3 w-full">
         {/* Кнопка Убавить */}
         <button
           onClick={onRemove}
           disabled={value <= 0}
-          className="flex-1 py-2 bg-white text-blue-600 rounded-xl font-black border border-blue-100 hover:bg-blue-50 transition-colors flex justify-center items-center disabled:opacity-30"
+          className="flex-1 py-4 bg-slate-900 text-slate-500 rounded-2xl border border-white/5 active:scale-95 transition-all font-black hover:text-yellow-400 hover:border-yellow-400/20 disabled:opacity-20"
         >
-          <Minus size={14} strokeWidth={3} />
+          <Minus size={20} strokeWidth={3} />
         </button>
 
         {/* Кнопка Прибавить */}
         <button
           onClick={onAdd}
-          className="flex-2 py-2 bg-blue-500 text-white rounded-xl font-black text-[10px] uppercase hover:bg-blue-600 transition-colors flex justify-center items-center gap-1 px-3"
+          className="flex-[2] py-4 bg-yellow-400 text-black rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-yellow-300 active:scale-95 shadow-[0_0_25px_rgba(250,204,21,0.25)] transition-all flex items-center justify-center gap-2"
         >
-          <Plus size={14} strokeWidth={3} />
-          <span>250</span>
+          <Plus size={16} strokeWidth={4} />
+          <span>Добавить 250</span>
         </button>
       </div>
-    </MetricCard>
+    </div>
   );
 }

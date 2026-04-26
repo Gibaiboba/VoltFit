@@ -3,7 +3,7 @@ import { ChartPoint } from "@/components/shared/ActivityVisualizer";
 
 interface ChartsSectionProps {
   chartData: {
-    steps: ChartPoint[]; // импортируемый интерфейс из ActivityVisualizer
+    steps: ChartPoint[];
     calories: ChartPoint[];
   };
 }
@@ -15,13 +15,13 @@ export default function ChartsSection({ chartData }: ChartsSectionProps) {
         title="👟 Активность"
         unit="шагов"
         data={chartData.steps}
-        color="blue"
+        color="yellow" // Volt Yellow
       />
       <ActivityVisualizer
         title="🔥 Калории"
         unit="ккал"
         data={chartData.calories}
-        color="rose"
+        color="cyan" // Volt Aqua/Cyan
       />
     </div>
   );

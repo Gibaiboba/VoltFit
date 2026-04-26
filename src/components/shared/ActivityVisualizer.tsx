@@ -1,5 +1,6 @@
 "use client";
-import { ResponsiveLine } from "@nivo/line";
+
+import { useMemo } from "react";
 
 export interface ChartPoint {
   x: string;
@@ -10,7 +11,7 @@ interface Props {
   title: string;
   unit: string;
   data: ChartPoint[];
-  color: "blue" | "rose";
+  color: "yellow" | "cyan";
 }
 
 export default function ActivityVisualizer({
@@ -19,85 +20,86 @@ export default function ActivityVisualizer({
   data,
   color,
 }: Props) {
-  const themeColor = color === "blue" ? "#3b82f6" : "#f43f5e";
+  const themeColor = color === "yellow" ? "#facc15" : "#22d3ee";
 
-  const nivoData = [
-    {
-      id: title,
-      data: data.map((p) => ({
-        // Форматируем дату для оси X
-        x: p.x.split("-").reverse().slice(0, 2).join("."),
-        y: p.y,
-      })),
-    },
-  ];
+  // Константы для построения графика
+  const chartHeight = 160;
+
+  const processedData = useMemo(() => {
+    if (!data.length) return [];
+
+    const maxValue = Math.max(...data.map((d) => d.y), 1); // Защита от 0
+
+    return data.map((p) => ({
+      date: p.x.split("-").reverse().slice(0, 2).join("."),
+      value: p.y,
+      // Рассчитываем высоту столбца относительно максимума
+      height: (p.y / maxValue) * chartHeight,
+    }));
+  }, [data]);
 
   return (
-    <div className="bg-white rounded-[32px] p-6 border border-slate-100 shadow-xl shadow-slate-200/50 h-[320px] flex flex-col">
-      <div className="flex justify-between items-center mb-2 px-2">
-        <h3 className="text-[11px] font-black uppercase tracking-widest text-slate-400">
-          {title}
-        </h3>
-        <span className="text-[10px] font-bold text-slate-400 bg-slate-50 px-2 py-1 rounded-lg">
+    <div className="bg-[#080808] rounded-[2.5rem] p-6 border border-white/5 shadow-2xl h-[320px] flex flex-col group transition-all hover:border-white/10">
+      {/* Header */}
+      <div className="flex justify-between items-center mb-8 px-2">
+        <div className="flex items-center gap-2">
+          <div
+            className="w-1.5 h-4 rounded-full"
+            style={{ backgroundColor: themeColor }}
+          />
+          <h3 className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-500">
+            {title}
+          </h3>
+        </div>
+        <span className="text-[10px] font-black text-slate-400 bg-white/5 px-3 py-1 rounded-full border border-white/5 uppercase italic">
           {unit}
         </span>
       </div>
 
-      <div className="flex-1 min-h-0 w-full">
-        <ResponsiveLine
-          data={nivoData}
-          margin={{ top: 20, right: 20, bottom: 40, left: 40 }}
-          xScale={{ type: "point" }}
-          yScale={{ type: "linear", min: "auto", max: "auto", stacked: false }}
-          curve="monotoneX"
-          axisTop={null}
-          axisRight={null}
-          axisBottom={{ tickSize: 0, tickPadding: 12 }}
-          axisLeft={{ tickSize: 0, tickValues: 4, tickPadding: 12 }}
-          enableGridX={false}
-          colors={[themeColor]}
-          lineWidth={4}
-          pointSize={10}
-          pointColor={themeColor}
-          pointBorderWidth={3}
-          pointBorderColor={{ from: "serieColor" }}
-          useMesh={true}
-          enableCrosshair={true}
-          crosshairType="cross"
-          tooltip={({ point }) => (
-            <div className="bg-white p-3 shadow-xl border border-slate-100 rounded-2xl flex flex-col gap-1">
-              <div className="text-[10px] font-black text-slate-400 uppercase tracking-tighter">
-                Дата:{" "}
-                <span className="text-slate-700">{point.data.xFormatted}</span>
-              </div>
-              <div className="text-sm font-black text-slate-800">
-                {title.includes("Активность") ? "Шаги" : "Калории"}:{" "}
-                <span style={{ color: themeColor }}>
-                  {point.data.yFormatted}
-                </span>{" "}
-              </div>
+      {/* SVG Chart Area */}
+      <div className="flex-1 flex items-end justify-between gap-1 px-2 relative">
+        {/* Горизонтальные линии сетки (BG) */}
+        <div className="absolute inset-0 flex flex-col justify-between pointer-events-none opacity-20">
+          {[...Array(4)].map((_, i) => (
+            <div key={i} className="w-full border-t border-white/10 h-0" />
+          ))}
+        </div>
+
+        {processedData.map((item, index) => (
+          <div
+            key={index}
+            className="flex flex-col items-center flex-1 group/bar relative"
+          >
+            {/* Тултип при наведении */}
+            <div className="absolute -top-12 left-1/2 -translate-x-1/2 bg-[#111113] border border-white/10 px-3 py-2 rounded-xl opacity-0 group-hover/bar:opacity-100 transition-opacity pointer-events-none z-10 whitespace-nowrap shadow-2xl">
+              <p className="text-[9px] font-black text-slate-500 uppercase">
+                {item.date}
+              </p>
+              <p
+                className="text-sm font-black italic"
+                style={{ color: themeColor }}
+              >
+                {item.value.toLocaleString()}{" "}
+                <span className="text-[10px] text-white/40">{unit}</span>
+              </p>
             </div>
-          )}
-          enableArea={true}
-          areaOpacity={0.08}
-          theme={{
-            axis: {
-              ticks: {
-                text: { fontSize: 10, fill: "#cbd5e1", fontWeight: 700 },
-              },
-            },
-            grid: {
-              line: { stroke: "#f1f5f9", strokeWidth: 1 },
-            },
-            crosshair: {
-              line: {
-                stroke: themeColor,
-                strokeWidth: 1,
-                strokeOpacity: 0.35,
-              },
-            },
-          }}
-        />
+
+            {/* Столбец */}
+            <div
+              className="w-full max-w-[32px] rounded-t-xl transition-all duration-500 ease-out group-hover/bar:brightness-125"
+              style={{
+                height: `${item.height}px`,
+                backgroundColor: themeColor,
+                boxShadow: `0 0 20px ${themeColor}15`, // Мягкое свечение
+              }}
+            />
+
+            {/* Подпись даты */}
+            <span className="text-[10px] font-black text-slate-600 mt-4 uppercase tracking-tighter">
+              {item.date}
+            </span>
+          </div>
+        ))}
       </div>
     </div>
   );

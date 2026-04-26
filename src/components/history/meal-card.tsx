@@ -16,7 +16,7 @@ import {
 
 interface MealCardProps {
   meal: SavedMeal;
-  onDelete: (id: string) => Promise<void>;
+  onDelete: (id: string) => void;
 }
 
 export function MealCard({ meal, onDelete }: MealCardProps) {

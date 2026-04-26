@@ -1,4 +1,3 @@
-// components/student/dashboard-skeleton.tsx
 import { Calendar, Scale, Footprints, Moon, Droplets } from "lucide-react";
 
 export function DashboardSkeleton() {

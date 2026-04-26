@@ -13,43 +13,51 @@ export default function CaloriesBanner({
 }: CaloriesBannerProps) {
   const caloriesLeft = Math.max(0, target - Math.round(current));
 
-  // Ограничиваем прогресс для полоски до 100%, чтобы она не вылетала за края
-  const barWidth = Math.min(100, progress);
-
   return (
-    <div className="bg-slate-900 rounded-[45px] p-8 text-white shadow-2xl relative overflow-hidden mb-8">
-      <div className="flex justify-between items-center relative z-10 mb-6">
-        <div className="space-y-1">
-          <span className="text-[10px] font-black uppercase tracking-[0.3em] text-blue-400">
-            Сегодня съедено
-          </span>
-          <div className="text-5xl font-black italic">
-            {Math.round(current)}
-            <span className="text-xl opacity-30 ml-2">/ {target}</span>
+    <div className="bg-slate-950 rounded-[2.5rem] p-8 text-white shadow-2xl relative overflow-hidden mb-8 border border-white/5">
+      <div className="grid grid-cols-3 items-center relative z-10">
+        {/* Левая часть: Как тебе нравилось */}
+        <div className="space-y-3">
+          <div className="flex items-center gap-2">
+            <span className="w-1.5 h-1.5 rounded-full bg-yellow-400 animate-pulse" />
+            <span className="text-[10px] font-black uppercase tracking-[0.2em] text-yellow-400/80">
+              Энергия дня
+            </span>
           </div>
-          <div className="text-lg font-black italic text-emerald-400">
-            Осталось: {caloriesLeft} ккал
+
+          <div className="flex flex-col">
+            <div className="text-5xl font-black tracking-tighter leading-none flex items-baseline">
+              {Math.round(current)}
+              <span className="text-lg font-bold text-slate-500 ml-2 tracking-normal">
+                / {target}
+              </span>
+            </div>
+            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-tight mt-1">
+              ккал употреблено
+            </span>
           </div>
         </div>
-        <ProgressCircle progress={progress} />
+
+        {/* Центр: Круг идеально по середине */}
+        <div className="flex justify-center">
+          <div className="scale-125 origin-center">
+            <ProgressCircle progress={progress} />
+          </div>
+        </div>
+
+        {/* Правая часть: Только "Осталось" */}
+        <div className="flex justify-end">
+          <div className="inline-flex items-center px-4 py-2 bg-white/5 rounded-full border border-white/10">
+            <span className="text-xs font-black uppercase tracking-tight text-slate-300">
+              Осталось:{" "}
+              <span className="text-yellow-400">{caloriesLeft} ккал</span>
+            </span>
+          </div>
+        </div>
       </div>
 
-      <div className="relative z-10 space-y-2">
-        <div className="h-3 w-full bg-white/10 rounded-full overflow-hidden">
-          <div
-            className="h-full bg-gradient-to-r from-blue-500 to-emerald-400 transition-all duration-1000 ease-out rounded-full"
-            style={{ width: `${barWidth}%` }}
-          />
-        </div>
-        <div className="flex justify-between text-[9px] font-black uppercase tracking-widest opacity-40">
-          <span>0%</span>
-          <span>{Math.round(progress)}% выполнено</span>
-          <span>100%</span>
-        </div>
-      </div>
-
-      {/* Декоративный элемент фонового свечения */}
-      <div className="absolute -right-10 -bottom-10 w-40 h-40 bg-blue-500/10 rounded-full blur-3xl" />
+      {/* Фоновое свечение за кругом */}
+      <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-64 h-64 bg-yellow-400/5 rounded-full blur-[100px]" />
     </div>
   );
 }

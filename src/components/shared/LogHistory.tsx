@@ -27,27 +27,30 @@ export default function LogHistory({
   title,
   onLogClick,
 }: LogHistoryProps) {
+  // Обновленные стили под VoltFit (темная тема + акценты)
   const getActivityStyle = (activity?: string) => {
     const styles: Record<string, string> = {
-      "Силовая тренировка": "bg-red-100 text-red-600 border-red-200",
-      "Кардио тренировка": "bg-orange-100 text-orange-600 border-orange-200",
-      "Групповая тренировка": "bg-purple-100 text-purple-600 border-purple-200",
+      "Силовая тренировка":
+        "border-yellow-400/30 text-yellow-400 bg-yellow-400/5",
+      "Кардио тренировка": "border-cyan-400/30 text-cyan-400 bg-cyan-400/5",
+      "Групповая тренировка":
+        "border-purple-400/30 text-purple-400 bg-purple-400/5",
     };
     return (
-      styles[activity || ""] || "bg-slate-100 text-slate-500 border-slate-200"
+      styles[activity || ""] || "border-white/10 text-slate-400 bg-white/5"
     );
   };
 
   if (loading)
     return (
-      <p className="text-slate-400 animate-pulse font-bold p-4 text-center">
+      <p className="text-slate-500 animate-pulse font-black p-4 text-center uppercase tracking-widest italic">
         Загрузка истории...
       </p>
     );
 
   if (logs.length === 0)
     return (
-      <p className="text-slate-400 italic text-center py-8 text-sm">
+      <p className="text-slate-600 italic text-center py-8 text-sm font-bold uppercase tracking-tighter">
         Записей пока нет
       </p>
     );
@@ -55,54 +58,74 @@ export default function LogHistory({
   return (
     <div className="space-y-4">
       {title && (
-        <h2 className="text-xl font-black text-slate-800 mb-6">{title}</h2>
+        <div className="flex items-center gap-3 mb-6">
+          <div className="w-1.5 h-5 bg-yellow-400 rounded-full" />
+          <h2 className="text-sm font-black text-slate-400 uppercase tracking-[0.2em] italic">
+            {title}
+          </h2>
+        </div>
       )}
+
       {logs.map((log, idx) => (
         <div
           key={idx}
-          // Добавляем обработчик клика и курсор
           onClick={() => onLogClick?.(log.log_date)}
           className={`
-            group p-5 rounded-3xl bg-slate-50 border border-slate-100 
-            hover:bg-white hover:shadow-md hover:border-blue-200 
-            transition-all duration-200 relative overflow-hidden
+            group p-5 rounded-[2rem] bg-[#080808] border border-white/5 
+            hover:border-white/20 hover:shadow-[0_0_30px_rgba(0,0,0,0.5)]
+            transition-all duration-300 relative overflow-hidden
             ${onLogClick ? "cursor-pointer active:scale-[0.98]" : ""}
           `}
         >
-          {/* Маленький индикатор кликабельности (синяя полоска сбоку при наведении) */}
-          {onLogClick && (
-            <div className="absolute left-0 top-0 bottom-0 w-1 bg-blue-500 opacity-0 group-hover:opacity-100 transition-opacity" />
-          )}
+          {/* Акцентная полоска при наведении */}
+          <div className="absolute left-0 top-0 bottom-0 w-1 bg-yellow-400 opacity-0 group-hover:opacity-100 transition-opacity" />
 
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
             <div className="flex items-center gap-4">
-              <div className="bg-white text-blue-600 w-12 h-12 rounded-2xl flex items-center justify-center font-black text-xs border border-slate-100 shadow-sm group-hover:border-blue-100">
-                {log.log_date.split("-")[2]}.{log.log_date.split("-")[1]}
+              {/* Дата в стиле вольтфит */}
+              <div className="bg-white/5 text-white w-14 h-14 rounded-2xl flex flex-col items-center justify-center border border-white/10 group-hover:border-yellow-400/50 transition-colors">
+                <span className="text-[10px] font-black text-slate-500 uppercase tracking-tighter leading-none mb-1">
+                  Дата
+                </span>
+                <span className="font-black italic text-sm">
+                  {log.log_date.split("-")[2]}.{log.log_date.split("-")[1]}
+                </span>
               </div>
+
               <div>
-                <p className="text-sm font-black text-slate-700 leading-tight group-hover:text-blue-600 transition-colors">
-                  {log.activity_level}
+                <p className="text-xs font-black text-slate-300 uppercase tracking-wider group-hover:text-yellow-400 transition-colors italic">
+                  {log.activity_level || "Без активности"}
                 </p>
                 <span
-                  className={`inline-block px-2 py-0.5 mt-1 text-[9px] uppercase font-bold rounded-md border ${getActivityStyle(log.activity_level)}`}
+                  className={`inline-block px-2 py-0.5 mt-1.5 text-[8px] uppercase font-black rounded border italic tracking-widest ${getActivityStyle(log.activity_level)}`}
                 >
-                  {log.activity_level}
+                  Status: Logged
                 </span>
               </div>
             </div>
-            <div className="flex gap-6 justify-between sm:justify-end">
-              <Metric label="Вес" value={`${log.weight}кг`} />
-              <Metric label="Шаги" value={formatNumber(log.steps)} />
+
+            {/* Метрики */}
+            <div className="grid grid-cols-3 sm:flex sm:flex-wrap gap-4 md:gap-8 flex-1 justify-between md:justify-end">
+              <Metric label="Weight" value={`${log.weight}`} unit="kg" />
+              <Metric label="Steps" value={formatNumber(log.steps)} />
               <Metric
-                label="Вода"
-                value={`${(log.water / 1000).toFixed(1)}л`} // Переводим мл в литры (например, 2.5л)
+                label="Water"
+                value={(log.water / 1000).toFixed(1)}
+                unit="L"
               />
-              <Metric label="Сон" value={`${log.sleep_hours}ч`} />
-              <Metric label="Ккал" value={formatNumber(log.calories)} />
-              <div className="hidden md:flex flex-wrap gap-4 border-r pr-4 border-slate-200">
-                <Metric label="Б" value={log.proteins || 0} />
-                <Metric label="Ж" value={log.fats || 0} />
-                <Metric label="У" value={log.carbs || 0} />
+              <Metric label="Sleep" value={log.sleep_hours} unit="h" />
+              <Metric
+                label="Energy"
+                value={formatNumber(log.calories)}
+                unit="kcal"
+                color="yellow"
+              />
+
+              {/* Макросы (скрыты на мобилках для чистоты) */}
+              <div className="hidden lg:flex gap-6 pl-6 border-l border-white/5">
+                <Metric label="P" value={log.proteins || 0} color="cyan" />
+                <Metric label="F" value={log.fats || 0} color="cyan" />
+                <Metric label="C" value={log.carbs || 0} color="cyan" />
               </div>
             </div>
           </div>
@@ -112,13 +135,40 @@ export default function LogHistory({
   );
 }
 
-function Metric({ label, value }: { label: string; value: string | number }) {
+function Metric({
+  label,
+  value,
+  unit,
+  color = "default",
+}: {
+  label: string;
+  value: string | number;
+  unit?: string;
+  color?: "default" | "yellow" | "cyan";
+}) {
+  const valueColors = {
+    default: "text-slate-100",
+    yellow: "text-yellow-400",
+    cyan: "text-cyan-400",
+  };
+
   return (
-    <div className="text-center min-w-[50px]">
-      <p className="text-[9px] text-slate-400 font-bold uppercase mb-0.5 tracking-tighter">
+    <div className="flex flex-col">
+      <span className="text-[8px] text-slate-500 font-black uppercase tracking-[0.15em] mb-1">
         {label}
-      </p>
-      <p className="text-sm font-black text-slate-800">{value}</p>
+      </span>
+      <div className="flex items-baseline gap-0.5">
+        <span
+          className={`text-sm font-black italic tracking-tight ${valueColors[color]}`}
+        >
+          {value}
+        </span>
+        {unit && (
+          <span className="text-[8px] font-black text-slate-600 uppercase italic">
+            {unit}
+          </span>
+        )}
+      </div>
     </div>
   );
 }
