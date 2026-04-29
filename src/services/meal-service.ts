@@ -1,5 +1,19 @@
-import { SupabaseClient } from "@supabase/supabase-js";
-import { SelectedProduct } from "@/types/food";
+import { SupabaseClient, PostgrestError } from "@supabase/supabase-js";
+import { SelectedProduct, MealType } from "@/types/food";
+
+// Интерфейс для строки из таблицы user_meals
+interface UserMealRow {
+  id: string;
+  user_id: string;
+  meal_name: string;
+  meal_type: MealType;
+  items: SelectedProduct[]; // Типизируем наше JSON-поле
+  total_kcal: number;
+  total_p: number;
+  total_f: number;
+  total_c: number;
+  created_at: string;
+}
 
 export const mealService = {
   async saveMealWithLog(
@@ -8,9 +22,40 @@ export const mealService = {
     mealName: string,
     items: SelectedProduct[],
     date: string,
-  ) {
-    // 1. Считаем итоги перед сохранением
-    const totals = items.reduce(
+    mealType: MealType,
+    mealId?: string | null,
+  ): Promise<{ success: boolean; data: UserMealRow }> {
+    const totals = this.calculateTotals(items);
+
+    const { data: meal, error: mealError } = await supabase
+      .from("user_meals")
+      .upsert({
+        ...(mealId ? { id: mealId } : {}),
+        user_id: userId,
+        meal_name: mealName.trim() || "Прием пищи",
+        meal_type: mealType,
+        items: items,
+        total_kcal: Math.round(totals.kcal),
+        total_p: Number(totals.p.toFixed(1)),
+        total_f: Number(totals.f.toFixed(1)),
+        total_c: Number(totals.c.toFixed(1)),
+        created_at: mealId
+          ? undefined
+          : new Date(
+              `${date}T${new Date().toLocaleTimeString("en-GB")}`,
+            ).toISOString(),
+      })
+      .select()
+      .single();
+
+    if (mealError) throw new Error(`Ошибка сохранения: ${mealError.message}`);
+
+    await this.updateDailyLog(supabase, userId, date);
+    return { success: true, data: meal as UserMealRow };
+  },
+
+  calculateTotals(items: SelectedProduct[]) {
+    return items.reduce(
       (acc, item) => {
         const factor = item.weight / 100;
         return {
@@ -22,50 +67,109 @@ export const mealService = {
       },
       { kcal: 0, p: 0, f: 0, c: 0 },
     );
+  },
 
-    // 2. Сохраняем само блюдо
-    const { data: meal, error: mealError } = await supabase
+  async updateDailyLog(
+    supabase: SupabaseClient,
+    userId: string,
+    date: string,
+  ): Promise<void> {
+    const { data: allDayMeals, error: fetchError } = await supabase
       .from("user_meals")
-      .insert({
-        user_id: userId,
-        meal_name: mealName.trim() || "Прием пищи",
-        items: items,
-        total_kcal: Math.round(totals.kcal),
-        total_p: Number(totals.p.toFixed(1)),
-        total_f: Number(totals.f.toFixed(1)),
-        total_c: Number(totals.c.toFixed(1)),
-        created_at: new Date(
-          `${date}T${new Date().toLocaleTimeString("en-GB")}`,
-        ).toISOString(),
-      })
-      .select()
-      .single();
-
-    if (mealError) throw new Error(mealError.message);
-
-    // 3. Обновляем суточный лог (daily_logs)
-    const { data: dailyLog } = await supabase
-      .from("daily_logs")
-      .select("calories")
+      .select("total_kcal, total_p, total_f, total_c")
       .eq("user_id", userId)
-      .eq("log_date", date)
-      .maybeSingle();
+      .gte("created_at", `${date}T00:00:00`)
+      .lte("created_at", `${date}T23:59:59`);
 
-    const newTotalKcal = Math.round(
-      (dailyLog?.calories || 0) + meal.total_kcal,
+    if (fetchError) {
+      const err = fetchError as PostgrestError;
+      console.error("Ошибка Supabase:", err.message);
+      throw err;
+    }
+    const dailyTotals = (allDayMeals || []).reduce(
+      (acc, m) => ({
+        kcal: acc.kcal + (m.total_kcal || 0),
+        p: acc.p + (m.total_p || 0),
+        f: acc.f + (m.total_f || 0),
+        c: acc.c + (m.total_c || 0),
+      }),
+      { kcal: 0, p: 0, f: 0, c: 0 },
     );
 
     const { error: upsertError } = await supabase.from("daily_logs").upsert(
       {
         user_id: userId,
         log_date: date,
-        calories: newTotalKcal,
+        calories: Math.round(dailyTotals.kcal),
+        proteins: Math.round(dailyTotals.p),
+        fats: Math.round(dailyTotals.f),
+        carbs: Math.round(dailyTotals.c),
       },
       { onConflict: "user_id,log_date" },
     );
 
     if (upsertError) throw upsertError;
+  },
 
-    return { success: true, data: meal };
+  async removeItemFromMeal(
+    supabase: SupabaseClient,
+    mealId: string,
+    productId: string,
+    userId: string,
+    date: string,
+  ): Promise<{ success: boolean }> {
+    const { data, error: fetchError } = await supabase
+      .from("user_meals")
+      .select("*")
+      .eq("id", mealId)
+      .single();
+
+    if (fetchError || !data) throw new Error("Прием пищи не найден");
+
+    const meal = data as UserMealRow;
+
+    // Типизированная фильтрация без any
+    const updatedItems = meal.items.filter(
+      (item) => (item.id || item.food_id) !== productId,
+    );
+
+    if (updatedItems.length === 0) {
+      return await this.deleteMealWithLog(supabase, mealId, userId, date);
+    }
+
+    const totals = this.calculateTotals(updatedItems);
+
+    const { error: updateError } = await supabase
+      .from("user_meals")
+      .update({
+        items: updatedItems,
+        total_kcal: Math.round(totals.kcal),
+        total_p: Number(totals.p.toFixed(1)),
+        total_f: Number(totals.f.toFixed(1)),
+        total_c: Number(totals.c.toFixed(1)),
+      })
+      .eq("id", mealId);
+
+    if (updateError) throw updateError;
+
+    await this.updateDailyLog(supabase, userId, date);
+    return { success: true };
+  },
+
+  async deleteMealWithLog(
+    supabase: SupabaseClient,
+    mealId: string,
+    userId: string,
+    date: string,
+  ): Promise<{ success: boolean }> {
+    const { error: deleteError } = await supabase
+      .from("user_meals")
+      .delete()
+      .eq("id", mealId);
+
+    if (deleteError) throw deleteError;
+
+    await this.updateDailyLog(supabase, userId, date);
+    return { success: true };
   },
 };

@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useRef, useState, useMemo } from "react";
 import { supabase } from "@/lib/supabase";
-import { useUserStore, UserProfile } from "@/store/useUserStore";
+import { useUserStore } from "@/store/useUserStore";
 import { toast } from "sonner";
 import {
   Camera,
@@ -13,6 +13,7 @@ import {
 import Image from "next/image";
 import imageCompression from "browser-image-compression";
 import Input from "@/components/shared/input";
+import { UserProfile } from "@/types/user";
 
 export default function SettingsForm({
   initialProfile,

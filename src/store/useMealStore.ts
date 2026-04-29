@@ -1,19 +1,38 @@
 import { create } from "zustand";
-import { Product, SelectedProduct, Totals } from "@/types/food";
+import { Product, SelectedProduct, Totals, MealType } from "@/types/food";
 
 interface MealState {
   selectedItems: SelectedProduct[];
+  activeMealType: MealType | null;
+  activeMealId: string | null; // ID записи из базы для редактирования
+
   addItem: (product: Product) => void;
   clearItems: () => void;
   removeItem: (id: string) => void;
   updateWeight: (id: string, weight: number) => void;
+  setMealType: (type: MealType | null) => void;
+
+  // Новый метод: загружает существующую еду из базы в конструктор
+  loadItems: (items: SelectedProduct[], type: MealType, id: string) => void;
+
   getTotal: () => Totals;
 }
 
 export const useMealStore = create<MealState>((set, get) => ({
   selectedItems: [],
+  activeMealType: null,
+  activeMealId: null,
 
-  // Добавление продукта (по умолчанию 100г)
+  setMealType: (type) => set({ activeMealType: type }),
+
+  // Загружаем данные из БД для редактирования/дополнения
+  loadItems: (items, type, id) =>
+    set({
+      selectedItems: items,
+      activeMealType: type,
+      activeMealId: id,
+    }),
+
   addItem: (product: Product) => {
     const exists = get().selectedItems.find((item) => item.id === product.id);
     if (!exists) {
@@ -23,24 +42,26 @@ export const useMealStore = create<MealState>((set, get) => ({
     }
   },
 
-  // Очистка всей корзины
-  clearItems: () => set({ selectedItems: [] }),
+  // Сбрасываем всё: и продукты, и тип, и ID сессии
+  clearItems: () =>
+    set({
+      selectedItems: [],
+      activeMealType: null,
+      activeMealId: null,
+    }),
 
-  // Удаление одной позиции
   removeItem: (id: string) =>
     set((state) => ({
       selectedItems: state.selectedItems.filter((item) => item.id !== id),
     })),
 
-  // Обновление веса конкретного продукта
   updateWeight: (id: string, weight: number) =>
     set((state) => ({
       selectedItems: state.selectedItems.map((item) =>
-        item.id === id ? { ...item, weight: Math.max(0, weight) } : item,
+        item.id === id ? { ...item, weight: Math.max(1, weight) } : item,
       ),
     })),
 
-  // Расчет итогов БЖУ и калорий на лету
   getTotal: (): Totals => {
     return get().selectedItems.reduce(
       (acc, item) => {

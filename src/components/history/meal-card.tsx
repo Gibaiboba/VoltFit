@@ -1,8 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { SavedMeal } from "@/types/food";
-import { getMealType, formatMealTime } from "@/lib/utils/date-utils";
+import { SavedMeal, SelectedProduct } from "@/types/food"; // Импортируем типы
+import { formatMealTime } from "@/lib/utils/date-utils";
 import {
   Calendar,
   Trash2,
@@ -12,22 +12,34 @@ import {
   Scale,
   ChevronUp,
   ChevronDown,
+  Utensils,
 } from "lucide-react";
 
 interface MealCardProps {
   meal: SavedMeal;
   onDelete: (id: string) => void;
+  onRemoveItem?: (data: { mealId: string; productId: string }) => void;
 }
 
-export function MealCard({ meal, onDelete }: MealCardProps) {
+const MEAL_LABELS: Record<string, string> = {
+  breakfast: "Завтрак",
+  lunch: "Обед",
+  dinner: "Ужин",
+  snack: "Перекус",
+};
+
+export function MealCard({ meal, onDelete, onRemoveItem }: MealCardProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [isConfirming, setIsConfirming] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
 
+  const typeLabel = MEAL_LABELS[meal.meal_type as string] || "Прием пищи";
+  const hasComment = meal.meal_name && meal.meal_name.trim().length > 0;
+
   const handleDelete = async () => {
     setIsDeleting(true);
     try {
-      await onDelete(meal.id);
+      onDelete(meal.id);
     } finally {
       setIsDeleting(false);
       setIsConfirming(false);
@@ -42,7 +54,6 @@ export function MealCard({ meal, onDelete }: MealCardProps) {
           : "border-gray-100 shadow-sm hover:border-blue-200"
       }`}
     >
-      {/* Шапка карточки */}
       <div
         onClick={() => setIsExpanded(!isExpanded)}
         className="p-6 cursor-pointer select-none"
@@ -85,17 +96,23 @@ export function MealCard({ meal, onDelete }: MealCardProps) {
           </div>
         </div>
 
-        <div className="flex justify-between items-end">
+        <div className="flex justify-between items-start">
           <div className="text-left">
-            {/* ИЗМЕНЕНИЕ: Используем meal_name или фоллбек на тип приема пищи */}
-            <h3 className="font-black text-xl text-gray-800 leading-tight">
-              {meal.meal_name || getMealType(meal.created_at)}
+            <h3 className="font-black text-xl text-gray-900 leading-tight uppercase tracking-tighter">
+              {typeLabel}
             </h3>
-            <p className="text-[10px] font-bold text-gray-400 uppercase mt-1">
+            {hasComment && (
+              <p className="text-sm font-bold text-gray-400 mt-1 flex items-center gap-1.5">
+                <Utensils size={12} className="text-gray-300" />
+                {meal.meal_name}
+              </p>
+            )}
+            <p className="text-[10px] font-bold text-blue-400/60 uppercase mt-2 tracking-widest">
               {meal.items.length} ингредиентов
             </p>
           </div>
-          <div className="text-right leading-none">
+
+          <div className="text-right leading-none pt-1">
             <span className="text-3xl font-black text-gray-900 italic">
               {Math.round(meal.total_kcal)}
             </span>
@@ -123,24 +140,43 @@ export function MealCard({ meal, onDelete }: MealCardProps) {
         </div>
       </div>
 
-      {/* Выпадающий список продуктов */}
       {isExpanded && (
         <div className="px-6 pb-6 bg-slate-50/50 border-t border-gray-50 animate-in slide-in-from-top-2 duration-300">
           <p className="text-[9px] text-gray-400 font-black uppercase tracking-[0.2em] py-4 text-left">
             Детальный состав:
           </p>
           <div className="space-y-2">
-            {meal.items.map((item, idx) => (
+            {(meal.items as SelectedProduct[]).map((item, idx) => (
               <div
-                key={idx}
-                className="flex justify-between items-center text-sm bg-white p-4 rounded-[20px] border border-gray-100 shadow-sm"
+                key={item.id || item.food_id || idx}
+                className="flex justify-between items-center text-sm bg-white p-4 rounded-[20px] border border-gray-100 shadow-sm group"
               >
-                <div className="text-left">
-                  <p className="font-bold text-gray-700">{item.name}</p>
-                  <p className="text-[10px] text-gray-400 font-medium flex items-center gap-1">
-                    <Scale size={10} /> {item.weight}г
-                  </p>
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      // Теперь обращаемся без any
+                      const productId = item.id || item.food_id;
+                      if (productId) {
+                        onRemoveItem?.({
+                          mealId: meal.id,
+                          productId: productId,
+                        });
+                      }
+                    }}
+                    className="w-6 h-6 flex items-center justify-center rounded-full bg-red-50 text-red-400 opacity-0 group-hover:opacity-100 transition-all hover:bg-red-500 hover:text-white"
+                  >
+                    <X size={12} />
+                  </button>
+
+                  <div className="text-left">
+                    <p className="font-bold text-gray-700">{item.name}</p>
+                    <p className="text-[10px] text-gray-400 font-medium flex items-center gap-1">
+                      <Scale size={10} /> {item.weight}г
+                    </p>
+                  </div>
                 </div>
+
                 <div className="font-black text-gray-900 text-right">
                   {Math.round((item.kcal / 100) * item.weight)}{" "}
                   <span className="text-[9px] text-gray-400 uppercase">

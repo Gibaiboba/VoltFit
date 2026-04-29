@@ -1,13 +1,14 @@
 "use client";
 
 import { useEffect } from "react";
-import { useUserStore, UserProfile } from "@/store/useUserStore";
+import { useUserStore } from "@/store/useUserStore";
 import { supabase } from "@/lib/supabase";
 import Image from "next/image";
 import { LogOut, User as UserIcon, Zap, LogIn } from "lucide-react";
 import Link from "next/link";
 import { User } from "@supabase/supabase-js";
 import { useQueryClient } from "@tanstack/react-query";
+import { UserProfile } from "@/types/user";
 
 interface HeaderProps {
   initialUser: User | null;

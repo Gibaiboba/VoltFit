@@ -4,8 +4,6 @@ import { useState, useMemo, useRef } from "react";
 import { useMealHistory } from "@/hooks/use-meal-history";
 import { useUserProfile } from "@/hooks/use-user-profile";
 import { toISODate } from "@/lib/utils/date-utils";
-
-// Компоненты
 import CaloriesBanner from "@/components/student/calories-banner";
 import { MacroCard } from "@/components/student/macro-card";
 import { MealCard } from "@/components/history/meal-card";
@@ -30,8 +28,16 @@ interface DiaryData {
   displayMeals: SavedMeal[];
 }
 
+const MEAL_ORDER: Record<string, number> = {
+  breakfast: 1,
+  lunch: 2,
+  dinner: 3,
+  snack: 4,
+};
+
 export default function DiaryPage() {
-  const { meals, isLoading, error, deleteMeal, refetch } = useMealHistory();
+  const { meals, isLoading, error, deleteMeal, refetch, removeItem } =
+    useMealHistory();
   const { data: profile, isLoading: profileLoading } = useUserProfile();
   const dateInputRef = useRef<HTMLInputElement>(null);
 
@@ -84,10 +90,27 @@ export default function DiaryPage() {
     return {
       consumed: stats,
       progress: Math.min((stats.kcal / goals.kcal) * 100, 100),
-      displayMeals: mealsForDisplay.sort(
-        (a, b) =>
-          new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
-      ),
+      displayMeals: mealsForDisplay.sort((a, b) => {
+        // 1. Получаем приоритет типа (Завтрак=1, Обед=2 и т.д.)
+        // Используем String() и as keyof, чтобы TypeScript не ругался на undefined
+        const orderA =
+          MEAL_ORDER[
+            String(a.meal_type).toLowerCase() as keyof typeof MEAL_ORDER
+          ] || 99;
+        const orderB =
+          MEAL_ORDER[
+            String(b.meal_type).toLowerCase() as keyof typeof MEAL_ORDER
+          ] || 99;
+
+        if (orderA !== orderB) {
+          return orderA - orderB; // Сначала меньший порядок (Завтрак)
+        }
+
+        // 2. Если типы одинаковые (например, два перекуса), сортируем по времени создания
+        return (
+          new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+        );
+      }),
     };
   }, [meals, selectedDate, goals]);
 
@@ -254,7 +277,12 @@ export default function DiaryPage() {
                 </div>
               ) : (
                 diaryData.displayMeals.map((meal) => (
-                  <MealCard key={meal.id} meal={meal} onDelete={deleteMeal} />
+                  <MealCard
+                    key={meal.id}
+                    meal={meal}
+                    onDelete={deleteMeal}
+                    onRemoveItem={removeItem}
+                  />
                 ))
               )}
             </div>

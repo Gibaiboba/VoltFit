@@ -27,5 +27,8 @@ export interface UserProfile {
   carbs?: number;
   onboarding_completed?: boolean;
   onboarding_metadata?: OnboardingMetadata | null;
+  chest?: number;
+  waist?: number;
+  hips?: number;
   steps_goal?: number; // пока нет в таблице на supabase
 }

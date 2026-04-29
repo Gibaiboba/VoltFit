@@ -7,7 +7,10 @@ export interface Product {
   carbs: number;
   category?: string;
   is_common?: boolean;
+  food_id: string;
 }
+
+export type MealType = "breakfast" | "lunch" | "dinner" | "snack";
 
 export interface SelectedProduct extends Product {
   weight: number; // Вес в граммах, добавляется только при выборе
@@ -28,6 +31,7 @@ export interface SavedMeal {
   total_c: number;
   items: SelectedProduct[];
   created_at: string;
+  meal_type: string;
 }
 
 export interface SaveMealResponse {
