@@ -1,13 +1,13 @@
 import { SupabaseClient, PostgrestError } from "@supabase/supabase-js";
 import { SelectedProduct, MealType } from "@/types/food";
+import { toISODate } from "@/lib/utils/date-utils";
 
-// Интерфейс для строки из таблицы user_meals
 interface UserMealRow {
   id: string;
   user_id: string;
   meal_name: string;
   meal_type: MealType;
-  items: SelectedProduct[]; // Типизируем наше JSON-поле
+  items: SelectedProduct[];
   total_kcal: number;
   total_p: number;
   total_f: number;
@@ -39,6 +39,7 @@ export const mealService = {
         total_p: Number(totals.p.toFixed(1)),
         total_f: Number(totals.f.toFixed(1)),
         total_c: Number(totals.c.toFixed(1)),
+        // Гарантируем сохранение за нужную дату с текущим временем
         created_at: mealId
           ? undefined
           : new Date(
@@ -74,19 +75,24 @@ export const mealService = {
     userId: string,
     date: string,
   ): Promise<void> {
-    const { data: allDayMeals, error: fetchError } = await supabase
+    // 1. Запрашиваем ВСЕ записи пользователя (без жестких рамок времени, чтобы не потерять из-за часовых поясов)
+    const { data: allMeals, error: fetchError } = await supabase
       .from("user_meals")
-      .select("total_kcal, total_p, total_f, total_c")
-      .eq("user_id", userId)
-      .gte("created_at", `${date}T00:00:00`)
-      .lte("created_at", `${date}T23:59:59`);
+      .select("total_kcal, total_p, total_f, total_c, created_at")
+      .eq("user_id", userId);
 
     if (fetchError) {
       const err = fetchError as PostgrestError;
       console.error("Ошибка Supabase:", err.message);
       throw err;
     }
-    const dailyTotals = (allDayMeals || []).reduce(
+
+    // 2. Фильтруем записи строго по выбранной дате, используя функцию toISODate
+    const dailyMeals = (allMeals || []).filter(
+      (m) => toISODate(new Date(m.created_at)) === date,
+    );
+
+    const dailyTotals = dailyMeals.reduce(
       (acc, m) => ({
         kcal: acc.kcal + (m.total_kcal || 0),
         p: acc.p + (m.total_p || 0),
@@ -96,6 +102,7 @@ export const mealService = {
       { kcal: 0, p: 0, f: 0, c: 0 },
     );
 
+    // 3. Обновляем лог
     const { error: upsertError } = await supabase.from("daily_logs").upsert(
       {
         user_id: userId,
@@ -128,7 +135,6 @@ export const mealService = {
 
     const meal = data as UserMealRow;
 
-    // Типизированная фильтрация без any
     const updatedItems = meal.items.filter(
       (item) => (item.id || item.food_id) !== productId,
     );

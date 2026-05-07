@@ -3,8 +3,8 @@
 import { useMemo } from "react";
 import { Log, FormDataType } from "./types";
 import { SavedMeal } from "@/types/food";
-import { toISODate } from "@/lib/utils/date-utils";
 import { UserProfile } from "@/types/user";
+import { calculateTotalStats, calculateProgress } from "@/lib/utils/meal-utils";
 
 export const useDashboardCalculations = (
   history: Log[],
@@ -20,23 +20,14 @@ export const useDashboardCalculations = (
     [history, selectedDate],
   );
 
-  // 2. Расчет БЖУ и Калорий из реальных приемов пищи (Meals)
+  // 2.  Расчет БЖУ через единую утилиту
   const consumedFromHistory = useMemo(() => {
-    const dayMeals = meals.filter(
-      (m) => toISODate(new Date(m.created_at)) === selectedDate,
-    );
-    return dayMeals.reduce(
-      (acc, m) => ({
-        kcal: acc.kcal + (m.total_kcal || 0),
-        p: acc.p + (m.total_p || 0),
-        f: acc.f + (m.total_f || 0),
-        c: acc.c + (m.total_c || 0),
-      }),
-      { kcal: 0, p: 0, f: 0, c: 0 },
-    );
+    // Фильтруем по дате (быстрый способ через startsWith)
+    const dayMeals = meals.filter((m) => m.created_at.startsWith(selectedDate));
+    return calculateTotalStats(dayMeals);
   }, [meals, selectedDate]);
 
-  // 3. Исправленный поиск предыдущего веса (точный и надежный)
+  // 3. Исправленный поиск предыдущего веса
   const previousWeight = useMemo(() => {
     const prevLogs = history
       .filter((l) => l.log_date < selectedDate && l.weight != null)
@@ -45,7 +36,7 @@ export const useDashboardCalculations = (
     return prevLogs[0]?.weight ? prevLogs[0].weight.toString() : "--";
   }, [history, selectedDate]);
 
-  // 4. Формирование данных для формы (Приоритет: ввод юзера > база > дефолт)
+  // 4. Формирование данных для формы
   const formData = useMemo<FormDataType>(() => {
     return {
       steps: (userInput.steps ?? currentLog?.steps ?? "").toString(),
@@ -65,7 +56,7 @@ export const useDashboardCalculations = (
     };
   }, [userInput, currentLog]);
 
-  // 5. Данные для графиков (последние 7 дней истории)
+  // 5. Данные для графиков
   const chartData = useMemo(() => {
     const sorted = [...history]
       .sort((a, b) => a.log_date.localeCompare(b.log_date))
@@ -77,17 +68,21 @@ export const useDashboardCalculations = (
     };
   }, [history]);
 
-  // 6. Итоговые показатели и прогресс (Мемоизировано для стабильности ссылок)
+  // 6. Итоговые показатели и прогресс
   const targetCalories = useMemo(() => profile?.daily_calories || 0, [profile]);
 
   const currentCalories = useMemo(() => {
-    return consumedFromHistory.kcal > 0
-      ? Math.round(consumedFromHistory.kcal)
-      : parseInt(formData.calories) || 0;
+    // Если есть приемы пищи — берем их, если нет — берем ручной ввод из лога
+    const kcal =
+      consumedFromHistory.kcal > 0
+        ? consumedFromHistory.kcal
+        : parseInt(formData.calories) || 0;
+    return Math.round(kcal);
   }, [consumedFromHistory.kcal, formData.calories]);
 
   const calProgress = useMemo(() => {
-    return targetCalories > 0 ? (currentCalories / targetCalories) * 100 : 0;
+    // Используем единую утилиту прогресса
+    return calculateProgress(currentCalories, targetCalories);
   }, [currentCalories, targetCalories]);
 
   const isToday = useMemo(
@@ -102,9 +97,9 @@ export const useDashboardCalculations = (
     consumedFromHistory,
     previousWeight,
     formData,
-    currentProteins: Math.round(consumedFromHistory.p || 0),
-    currentFats: Math.round(consumedFromHistory.f || 0),
-    currentCarbs: Math.round(consumedFromHistory.c || 0),
+    currentProteins: Math.round(consumedFromHistory.p),
+    currentFats: Math.round(consumedFromHistory.f),
+    currentCarbs: Math.round(consumedFromHistory.c),
     chartData,
     targetCalories,
     currentCalories,

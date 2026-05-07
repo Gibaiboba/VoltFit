@@ -10,7 +10,7 @@ import { ConstructorList } from "@/components/food/constructor-list";
 import { SummaryCard } from "@/components/food/summary-card";
 import { MealType } from "@/types/food";
 import { ChevronLeft, Plus } from "lucide-react";
-
+import { toISODate } from "@/lib/utils/date-utils";
 export default function FoodConstructor({
   serverToday,
 }: {
@@ -19,7 +19,7 @@ export default function FoodConstructor({
   const [query, setQuery] = useState<string>("");
   const [comment, setComment] = useState<string>("");
 
-  // 1. Подгружаем историю
+  // 1. Подгружаем историю за выбранный день
   const { meals: history } = useMealHistory(undefined, serverToday);
 
   const { data: results = [], isLoading: isSearching } =
@@ -34,12 +34,11 @@ export default function FoodConstructor({
     activeMealType,
     setMealType,
     loadItems,
-    clearItems, // Достали метод очистки
+    clearItems,
   } = useMealStore();
 
   const { saveMeal, isPending } = useSaveMeal(serverToday);
 
-  // Очистка при монтировании компонента (когда заходим на страницу)
   useEffect(() => {
     clearItems();
   }, [clearItems]);
@@ -51,22 +50,21 @@ export default function FoodConstructor({
     { id: "snack", label: "Перекус" },
   ];
 
-  // Исправленная логика выбора слота
+  // логика выбора слота через toISODate
   const handleSelectSlot = (slotId: MealType) => {
-    // ВАЖНО: Сначала всегда очищаем текущий стейт
     clearItems();
     setComment("");
 
-    const existing = history.find(
-      (m) => m.meal_type === slotId && m.created_at.startsWith(serverToday),
-    );
+    const existing = history.find((m) => {
+      // Используем функцию для корректного сравнения дат с учетом часового пояса
+      const mealDate = toISODate(new Date(m.created_at));
+      return m.meal_type === slotId && mealDate === serverToday;
+    });
 
     if (existing) {
-      // Если завтрак уже есть в БД — загружаем его продукты
       loadItems(existing.items, slotId, existing.id);
       setComment(existing.meal_name || "");
     } else {
-      // Если нет — открываем пустой слот (он уже пустой после clearItems)
       setMealType(slotId);
     }
   };
@@ -79,10 +77,11 @@ export default function FoodConstructor({
         </h2>
         <div className="grid grid-cols-1 gap-4">
           {mealSlots.map((slot) => {
-            const saved = history.find(
-              (m) =>
-                m.meal_type === slot.id && m.created_at.startsWith(serverToday),
-            );
+            // Исправленный поиск для отображения калорий на кнопках
+            const saved = history.find((m) => {
+              const mealDate = toISODate(new Date(m.created_at));
+              return m.meal_type === slot.id && mealDate === serverToday;
+            });
 
             return (
               <button
@@ -119,7 +118,7 @@ export default function FoodConstructor({
       <button
         onClick={() => {
           setMealType(null);
-          clearItems(); // Очищаем и при выходе назад
+          clearItems();
           setQuery("");
         }}
         className="flex items-center gap-2 text-slate-400 hover:text-slate-900 mb-6 font-bold text-xs transition-colors uppercase tracking-widest"

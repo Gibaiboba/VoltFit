@@ -3,63 +3,47 @@
 import { useState, useMemo } from "react";
 import Link from "next/link";
 import { Utensils, AlertCircle, Plus } from "lucide-react";
-import { useMealHistory } from "@/hooks/use-meal-history";
-import { useUserProfile } from "@/hooks/use-user-profile";
-import { toISODate } from "@/lib/utils/date-utils";
+import { useDiaryLogic } from "@/hooks/use-diary-logic";
+import { sortMeals } from "@/lib/utils/meal-utils";
 import CaloriesBanner from "@/components/student/calories-banner";
 import { MacroCard } from "@/components/student/macro-card";
 import { MealCard } from "@/components/history/meal-card";
 import { DateFilter } from "@/components/history/date-filter";
 import { HistorySkeleton } from "@/components/history/history-skeleton";
 
-const MEAL_ORDER: Record<string, number> = {
-  breakfast: 1,
-  lunch: 2,
-  dinner: 3,
-  snack: 4,
-};
-
 export default function HistoryPage() {
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
-  // Получаем данные
+
+  // Используем хук. Он даст все приемы пищи (allMeals) для группировки
+  // и статистику (consumed, progress) для баннера по выбранной дате.
   const {
-    meals,
-    isLoading: mealsLoading,
+    allMeals,
+    consumed,
+    goals,
+    progress,
+    isLoading,
     error,
     refetch,
     deleteMeal,
-  } = useMealHistory(undefined, selectedDate || undefined);
-  const { data: profile, isLoading: profileLoading } = useUserProfile();
+  } = useDiaryLogic(selectedDate);
 
-  // 1. Цели (с защитой от пустых данных)
-  const goals = useMemo(
-    () => ({
-      kcal: profile?.daily_calories || 2000,
-      p: profile?.protein || 0,
-      f: profile?.fat || 0,
-      c: profile?.carbs || 0,
-    }),
-    [profile],
-  );
-
-  // 2. Группировка и СОРТИРОВКА (основная логика тут)
+  // Группировка всех дней для списка истории
   const groupedMeals = useMemo(() => {
-    // Если данных еще нет, возвращаем пустой массив
-    if (!meals || meals.length === 0) return [];
+    if (!allMeals?.length) return [];
 
-    const groups: Record<string, { displayDate: string; meals: typeof meals }> =
-      {};
+    const groups: Record<
+      string,
+      { displayDate: string; meals: typeof allMeals }
+    > = {};
 
-    meals.forEach((meal) => {
-      const dateObj = new Date(meal.created_at);
-      const isoKey = toISODate(dateObj);
+    allMeals.forEach((meal) => {
+      const dateKey = meal.created_at.split("T")[0];
+      // Если в DateFilter выбрана дата, показываем только её
+      if (selectedDate && dateKey !== selectedDate) return;
 
-      // Фильтр по выбранной дате (если она выбрана)
-      if (selectedDate && isoKey !== selectedDate) return;
-
-      if (!groups[isoKey]) {
-        groups[isoKey] = {
-          displayDate: dateObj.toLocaleDateString("ru-RU", {
+      if (!groups[dateKey]) {
+        groups[dateKey] = {
+          displayDate: new Date(meal.created_at).toLocaleDateString("ru-RU", {
             day: "numeric",
             month: "long",
             year: "numeric",
@@ -67,53 +51,17 @@ export default function HistoryPage() {
           meals: [],
         };
       }
-      groups[isoKey].meals.push(meal);
+      groups[dateKey].meals.push(meal);
     });
 
-    // Сортируем приемы пищи внутри каждого дня
+    // Сортируем еду внутри каждого дня
     Object.values(groups).forEach((group) => {
-      group.meals.sort((a, b) => {
-        const orderA = MEAL_ORDER[a.meal_type] || 99;
-        const orderB = MEAL_ORDER[b.meal_type] || 99;
-
-        if (orderA !== orderB) {
-          return orderA - orderB; // Сначала Завтрак, потом Обед
-        }
-
-        // Если типы одинаковые (два перекуса), сортируем по времени создания
-        return (
-          new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
-        );
-      });
+      group.meals = sortMeals(group.meals);
     });
 
-    // Сортируем сами дни (от новых к старым)
     return Object.entries(groups).sort((a, b) => b[0].localeCompare(a[0]));
-  }, [meals, selectedDate]);
+  }, [allMeals, selectedDate]);
 
-  // 3. Статистика за выбранный день для баннера
-  const dailyStats = useMemo(() => {
-    const targetDate = selectedDate || toISODate(new Date());
-    const dayGroup = groupedMeals.find(([date]) => date === targetDate);
-    const dayMeals = dayGroup ? dayGroup[1].meals : [];
-
-    const consumed = dayMeals.reduce(
-      (acc, m) => ({
-        kcal: acc.kcal + (m.total_kcal || 0),
-        p: acc.p + (m.total_p || 0),
-        f: acc.f + (m.total_f || 0),
-        c: acc.c + (m.total_c || 0),
-      }),
-      { kcal: 0, p: 0, f: 0, c: 0 },
-    );
-
-    return {
-      consumed,
-      progress: Math.min((consumed.kcal / goals.kcal) * 100, 100),
-    };
-  }, [groupedMeals, selectedDate, goals]);
-
-  // Список последних 14 дней
   const last14Days = useMemo(
     () =>
       Array.from({ length: 14 }, (_, i) => {
@@ -124,8 +72,7 @@ export default function HistoryPage() {
     [],
   );
 
-  // Если идет первичная загрузка
-  if (mealsLoading || profileLoading) return <HistorySkeleton />;
+  if (isLoading) return <HistorySkeleton />;
 
   if (error)
     return (
@@ -142,27 +89,30 @@ export default function HistoryPage() {
     );
 
   return (
-    <div className="mt-20 max-w-3xl mx-auto p-6 pb-20">
+    <div className="mt-20 max-w-3xl mx-auto p-6 pb-20 animate-in fade-in duration-500">
       <div className="flex justify-between items-center mb-8">
-        <h1 className="text-3xl font-black text-gray-900">История</h1>
+        <h1 className="text-3xl font-black text-gray-900 italic uppercase">
+          История
+        </h1>
         <Link
-          href="/products"
-          className="flex items-center gap-1 px-4 py-2 bg-blue-50 text-blue-600 rounded-full font-bold"
+          href="/diary"
+          className="flex items-center gap-1 px-4 py-2 bg-slate-900 text-white rounded-full font-bold text-xs uppercase shadow-lg hover:scale-105 transition-transform"
         >
-          <Plus size={16} /> Новый расчет
+          <Plus size={16} /> В дневник
         </Link>
       </div>
 
-      <div className="mb-10">
+      <div className="mb-10 space-y-6">
         <CaloriesBanner
-          current={dailyStats.consumed.kcal}
+          current={consumed.kcal}
           target={goals.kcal}
-          progress={dailyStats.progress}
+          progress={progress}
         />
+
         <div className="grid grid-cols-3 gap-3">
           <MacroCard
             label="Белки"
-            current={Math.round(dailyStats.consumed.p)}
+            current={Math.round(consumed.p)}
             target={goals.p}
             colors={{
               stroke: "bg-orange-500",
@@ -172,7 +122,7 @@ export default function HistoryPage() {
           />
           <MacroCard
             label="Жиры"
-            current={Math.round(dailyStats.consumed.f)}
+            current={Math.round(consumed.f)}
             target={goals.f}
             colors={{
               stroke: "bg-rose-500",
@@ -182,7 +132,7 @@ export default function HistoryPage() {
           />
           <MacroCard
             label="Углеводы"
-            current={Math.round(dailyStats.consumed.c)}
+            current={Math.round(consumed.c)}
             target={goals.c}
             colors={{
               stroke: "bg-indigo-500",
@@ -195,7 +145,7 @@ export default function HistoryPage() {
 
       <DateFilter
         days={last14Days}
-        meals={meals}
+        meals={allMeals}
         selectedDate={selectedDate}
         onSelect={setSelectedDate}
       />
@@ -203,18 +153,20 @@ export default function HistoryPage() {
       {groupedMeals.length === 0 ? (
         <div className="text-center py-20 bg-gray-50 rounded-[40px] border-2 border-dashed border-gray-200 mt-8">
           <Utensils className="mx-auto text-gray-300 mb-4" size={48} />
-          <p className="text-gray-500 font-medium">История пуста</p>
+          <p className="text-gray-500 font-bold italic uppercase text-xs tracking-widest">
+            История пуста
+          </p>
         </div>
       ) : (
         <div className="space-y-10 mt-10">
           {groupedMeals.map(([isoKey, group]) => (
             <div key={isoKey} className="space-y-4">
-              <div className="flex justify-between items-end px-4 border-b pb-2">
-                <h2 className="text-xs font-black text-gray-400 uppercase">
+              <div className="flex justify-between items-end px-4 border-b border-gray-100 pb-2">
+                <h2 className="text-[10px] font-black text-gray-400 uppercase tracking-tighter">
                   {group.displayDate}
                 </h2>
-                <div className="text-[10px] font-black text-blue-500 bg-blue-50 px-3 py-1 rounded-full">
-                  Всего:{" "}
+                <div className="text-[10px] font-black text-slate-900 bg-slate-100 px-3 py-1 rounded-full uppercase">
+                  Итого:{" "}
                   {Math.round(
                     group.meals.reduce(
                       (sum, m) => sum + (m.total_kcal || 0),
