@@ -1,5 +1,8 @@
 "use client";
-import { formatNumber } from "@/lib/utils/format-number";
+
+import { formatNumber, formatWater } from "@/lib/utils/format-number";
+import { formatToShortDate } from "@/lib/utils/date-utils";
+import { ACTIVITY_OPTIONS } from "@/constants/activityOptions";
 
 interface Log {
   log_date: string;
@@ -21,26 +24,20 @@ interface LogHistoryProps {
   onLogClick?: (date: string) => void;
 }
 
+// Маппинг стилей на основе твоих ACTIVITY_OPTIONS
+const ACTIVITY_STYLES: Record<string, string> = {
+  [ACTIVITY_OPTIONS[0]]: "border-yellow-400/30 text-yellow-400 bg-yellow-400/5",
+  [ACTIVITY_OPTIONS[1]]: "border-cyan-400/30 text-cyan-400 bg-cyan-400/5",
+  [ACTIVITY_OPTIONS[2]]: "border-purple-400/30 text-purple-400 bg-purple-400/5",
+  default: "border-white/10 text-slate-400 bg-white/5",
+};
+
 export default function LogHistory({
   logs,
   loading,
   title,
   onLogClick,
 }: LogHistoryProps) {
-  // Обновленные стили под VoltFit (темная тема + акценты)
-  const getActivityStyle = (activity?: string) => {
-    const styles: Record<string, string> = {
-      "Силовая тренировка":
-        "border-yellow-400/30 text-yellow-400 bg-yellow-400/5",
-      "Кардио тренировка": "border-cyan-400/30 text-cyan-400 bg-cyan-400/5",
-      "Групповая тренировка":
-        "border-purple-400/30 text-purple-400 bg-purple-400/5",
-    };
-    return (
-      styles[activity || ""] || "border-white/10 text-slate-400 bg-white/5"
-    );
-  };
-
   if (loading)
     return (
       <p className="text-slate-500 animate-pulse font-black p-4 text-center uppercase tracking-widest italic">
@@ -66,71 +63,84 @@ export default function LogHistory({
         </div>
       )}
 
-      {logs.map((log, idx) => (
-        <div
-          key={idx}
-          onClick={() => onLogClick?.(log.log_date)}
-          className={`
-            group p-5 rounded-[2rem] bg-[#080808] border border-white/5 
-            hover:border-white/20 hover:shadow-[0_0_30px_rgba(0,0,0,0.5)]
-            transition-all duration-300 relative overflow-hidden
-            ${onLogClick ? "cursor-pointer active:scale-[0.98]" : ""}
-          `}
-        >
-          {/* Акцентная полоска при наведении */}
-          <div className="absolute left-0 top-0 bottom-0 w-1 bg-yellow-400 opacity-0 group-hover:opacity-100 transition-opacity" />
+      {logs.map((log, idx) => {
+        // Получаем стиль из конфига или дефолтный
+        const activityStyle =
+          ACTIVITY_STYLES[log.activity_level] || ACTIVITY_STYLES.default;
 
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-            <div className="flex items-center gap-4">
-              {/* Дата в стиле вольтфит */}
-              <div className="bg-white/5 text-white w-14 h-14 rounded-2xl flex flex-col items-center justify-center border border-white/10 group-hover:border-yellow-400/50 transition-colors">
-                <span className="text-[10px] font-black text-slate-500 uppercase tracking-tighter leading-none mb-1">
-                  Дата
-                </span>
-                <span className="font-black italic text-sm">
-                  {log.log_date.split("-")[2]}.{log.log_date.split("-")[1]}
-                </span>
+        return (
+          <div
+            key={idx}
+            onClick={() => onLogClick?.(log.log_date)}
+            className={`
+              group p-5 rounded-[2rem] bg-[#080808] border border-white/5 
+              hover:border-white/20 hover:shadow-[0_0_30px_rgba(0,0,0,0.5)]
+              transition-all duration-300 relative overflow-hidden
+              ${onLogClick ? "cursor-pointer active:scale-[0.98]" : ""}
+            `}
+          >
+            <div className="absolute left-0 top-0 bottom-0 w-1 bg-yellow-400 opacity-0 group-hover:opacity-100 transition-opacity" />
+
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+              <div className="flex items-center gap-4">
+                {/* Дата через утилиту (выводит ДД.ММ) */}
+                <div className="bg-white/5 text-white w-14 h-14 rounded-2xl flex flex-col items-center justify-center border border-white/10 group-hover:border-yellow-400/50 transition-colors">
+                  <span className="text-[10px] font-black text-slate-500 uppercase tracking-tighter leading-none mb-1">
+                    Дата
+                  </span>
+                  <span className="font-black italic text-sm">
+                    {formatToShortDate(log.log_date)}
+                  </span>
+                </div>
+
+                <div>
+                  <p className="text-xs font-black text-slate-300 uppercase tracking-wider group-hover:text-yellow-400 transition-colors italic">
+                    {log.activity_level || "Без активности"}
+                  </p>
+                  <span
+                    className={`inline-block px-2 py-0.5 mt-1.5 text-[8px] uppercase font-black rounded border italic tracking-widest ${activityStyle}`}
+                  >
+                    Status: Logged
+                  </span>
+                </div>
               </div>
 
-              <div>
-                <p className="text-xs font-black text-slate-300 uppercase tracking-wider group-hover:text-yellow-400 transition-colors italic">
-                  {log.activity_level || "Без активности"}
-                </p>
-                <span
-                  className={`inline-block px-2 py-0.5 mt-1.5 text-[8px] uppercase font-black rounded border italic tracking-widest ${getActivityStyle(log.activity_level)}`}
-                >
-                  Status: Logged
-                </span>
-              </div>
-            </div>
+              {/* Метрики с использованием новых утилит */}
+              <div className="grid grid-cols-3 sm:flex sm:flex-wrap gap-4 md:gap-8 flex-1 justify-between md:justify-end">
+                <Metric label="Weight" value={log.weight || "--"} unit="kg" />
+                <Metric label="Steps" value={formatNumber(log.steps)} />
+                <Metric label="Water" value={formatWater(log.water)} unit="L" />
+                <Metric label="Sleep" value={log.sleep_hours} unit="h" />
+                <Metric
+                  label="Energy"
+                  value={formatNumber(log.calories)}
+                  unit="kcal"
+                  color="yellow"
+                />
 
-            {/* Метрики */}
-            <div className="grid grid-cols-3 sm:flex sm:flex-wrap gap-4 md:gap-8 flex-1 justify-between md:justify-end">
-              <Metric label="Weight" value={`${log.weight}`} unit="kg" />
-              <Metric label="Steps" value={formatNumber(log.steps)} />
-              <Metric
-                label="Water"
-                value={(log.water / 1000).toFixed(1)}
-                unit="L"
-              />
-              <Metric label="Sleep" value={log.sleep_hours} unit="h" />
-              <Metric
-                label="Energy"
-                value={formatNumber(log.calories)}
-                unit="kcal"
-                color="yellow"
-              />
-
-              {/* Макросы (скрыты на мобилках для чистоты) */}
-              <div className="hidden lg:flex gap-6 pl-6 border-l border-white/5">
-                <Metric label="P" value={log.proteins || 0} color="cyan" />
-                <Metric label="F" value={log.fats || 0} color="cyan" />
-                <Metric label="C" value={log.carbs || 0} color="cyan" />
+                {/* Макросы (Desktop only) */}
+                <div className="hidden lg:flex gap-6 pl-6 border-l border-white/5">
+                  <Metric
+                    label="P"
+                    value={Math.round(log.proteins || 0)}
+                    color="cyan"
+                  />
+                  <Metric
+                    label="F"
+                    value={Math.round(log.fats || 0)}
+                    color="cyan"
+                  />
+                  <Metric
+                    label="C"
+                    value={Math.round(log.carbs || 0)}
+                    color="cyan"
+                  />
+                </div>
               </div>
             </div>
           </div>
-        </div>
-      ))}
+        );
+      })}
     </div>
   );
 }

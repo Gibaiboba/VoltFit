@@ -13,7 +13,6 @@ import { mealService } from "@/services/meal-service";
 import { toast } from "sonner";
 import { PostgrestError } from "@supabase/supabase-js";
 
-// Интерфейс для результата хука (помогает IDE и делает код чище)
 interface UseMealHistoryReturn {
   meals: SavedMeal[];
   isLoading: boolean;
@@ -29,22 +28,19 @@ interface UseMealHistoryReturn {
   isProcessing: boolean;
 }
 
-export function useMealHistory(
-  studentId?: string,
-  selectedDate?: string,
-): UseMealHistoryReturn {
+export function useMealHistory(studentId?: string): UseMealHistoryReturn {
   const queryClient = useQueryClient();
   const currentUser = useUserStore((state) => state.user);
   const targetUserId = studentId || currentUser?.id;
 
-  // 1. Получаем данные
+  // 1. Получаем полные данные (без фильтрации по дате в ключе)
   const {
     data: meals = [],
     isLoading,
     error,
     refetch,
   } = useQuery<SavedMeal[], Error | PostgrestError>({
-    queryKey: ["meals-history", targetUserId, selectedDate?.substring(0, 7)],
+    queryKey: ["meals-history", targetUserId],
     queryFn: async () => {
       const { data, error: dbError } = await supabase
         .from("user_meals")
@@ -58,21 +54,23 @@ export function useMealHistory(
     enabled: !!targetUserId,
   });
 
-  const getEffectiveDate = (mealId: string): string | null => {
-    if (selectedDate) return selectedDate;
+  // Вспомогательная функция для получения даты напрямую из данных объекта
+  const getMealDate = (mealId: string): string | null => {
     const meal = meals.find((m) => m.id === mealId);
     return meal?.created_at ? meal.created_at.split("T")[0] : null;
   };
 
-  // 2. Удаление приема пищи
+  // 2. Удаление приема пищи целиком
   const deleteMutation = useMutation<void, Error, string>({
     mutationFn: async (id: string) => {
-      const date = getEffectiveDate(id);
-      if (!targetUserId || !date) throw new Error("Дата не определена");
+      const date = getMealDate(id);
+      if (!targetUserId || !date)
+        throw new Error("Не удалось определить дату записи");
 
       await mealService.deleteMealWithLog(supabase, id, targetUserId, date);
     },
     onSuccess: () => {
+      // Инвалидируем все связанные данные
       queryClient.invalidateQueries({
         queryKey: ["meals-history", targetUserId],
       });
@@ -89,15 +87,16 @@ export function useMealHistory(
     },
   });
 
-  // 3. Удаление одного продукта
+  // 3. Удаление одного продукта из приема пищи
   const removeItemMutation = useMutation<
     void,
     Error,
     { mealId: string; productId: string }
   >({
     mutationFn: async ({ mealId, productId }) => {
-      const date = getEffectiveDate(mealId);
-      if (!targetUserId || !date) throw new Error("Дата не определена");
+      const date = getMealDate(mealId);
+      if (!targetUserId || !date)
+        throw new Error("Не удалось определить дату записи");
 
       await mealService.removeItemFromMeal(
         supabase,

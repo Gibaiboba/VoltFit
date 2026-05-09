@@ -36,25 +36,19 @@ export default function LoginPage() {
       const data = await authService.signIn(values.email, values.password);
 
       if (!data?.user) {
-        throw new Error(
-          "Не удалось получить данные пользователя. Попробуйте еще раз.",
-        );
+        throw new Error("Не удалось получить данные пользователя.");
       }
 
-      const role = data.user.user_metadata?.role as
-        | "coach"
-        | "student"
-        | undefined;
       toast.success("Добро пожаловать!");
-      // Используем replace вместо push для чистой истории браузера
-      if (role === "coach") {
-        router.replace("/coach");
-      } else {
-        router.replace("/student");
-      }
+
+      // 1. Сначала обновляем роутер, чтобы он "увидел" куки сессии
+      router.refresh();
+
+      // 2. Просто делаем редирект на базовый роут.
+      // Middleware сам решит: на /onboarding или в кабинет по роли.
+      const role = data.user.user_metadata?.role;
+      router.replace(role === "coach" ? "/coach" : "/student");
     } catch (error: unknown) {
-      console.error("Login error:", error);
-      // Используем обработчик ошибок из сервиса
       const message = getErrorMessage(error);
       toast.error(message);
     } finally {

@@ -1,26 +1,20 @@
 import { create } from "zustand";
 import { User } from "@supabase/supabase-js";
-import { UserProfile } from "@/types/user";
+import { toISODate } from "@/lib/utils/date-utils";
 
 interface UserState {
   user: User | null;
-  profile: UserProfile | null;
+  selectedDate: string;
   setUser: (user: User | null) => void;
-  setProfile: (profile: UserProfile | null) => void;
-  updateProfile: (updates: Partial<UserProfile>) => void;
+  setSelectedDate: (date: string) => void;
   clearUser: () => void;
 }
 
 export const useUserStore = create<UserState>((set) => ({
   user: null,
-  profile: null,
+  selectedDate: toISODate(new Date()),
+
   setUser: (user) => set({ user }),
-  setProfile: (profile) => set({ profile }),
-  updateProfile: (updates) =>
-    set((state) => ({
-      profile: state.profile
-        ? { ...state.profile, ...updates }
-        : (updates as UserProfile),
-    })),
-  clearUser: () => set({ user: null, profile: null }),
+  setSelectedDate: (date) => set({ selectedDate: date }),
+  clearUser: () => set({ user: null }),
 }));

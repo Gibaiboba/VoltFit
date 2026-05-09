@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useUserStore } from "@/store/useUserStore";
 import { useMealHistory } from "@/hooks/use-meal-history";
 import { useDashboardQueries } from "./use-queries";
 import { useDashboardMutations } from "./use-mutations";
@@ -10,18 +11,20 @@ export const useStudentDashboard = (
   userId: string,
   serverToday: string,
 ): StudentDashboardHook => {
-  // 1. Локальное состояние (Дата и Ввод)
-  const [selectedDate, setSelectedDate] = useState<string>(serverToday);
+  // 1. Глобальное состояние даты из Zustand
+  const { selectedDate, setSelectedDate } = useUserStore();
 
-  // Частичный ввод пользователя (то, что он успел напечатать)
+  // Локальное состояние для черновика ввода
   const [userInput, setUserInput] = useState<Partial<FormDataType>>({});
 
-  // 2. Запросы через новый слой сервисов (React Query)
+  // 2. Запросы через React Query
   const { history, profile, logsQuery, profileQuery } =
     useDashboardQueries(userId);
-  const { meals } = useMealHistory(userId, selectedDate);
 
-  // 3. Математика (Расчеты на основе данных из кэша и ввода)
+  // Вызываем без selectedDate, как договорились в рамках оптимизации кэша
+  const { meals } = useMealHistory(userId);
+
+  // 3. Математика (Расчеты на основе данных из кэша, еды и ввода)
   const stats = useDashboardCalculations(
     history,
     profile,
@@ -31,22 +34,26 @@ export const useStudentDashboard = (
     serverToday,
   );
 
-  // 4. Мутации (Сохранение через studentService)
+  // 4. Мутации (Сохранение)
   const { saveMutation } = useDashboardMutations(
     userId,
-    () => setUserInput({}), // Очистка локального ввода при успехе
+    () => setUserInput({}), // Очистка локального ввода при успехе сохранения
   );
 
   // 5. Обработчики действий (Actions)
   const handleDateChange = (date: string): void => {
-    setSelectedDate(date);
-    setUserInput({}); // Сброс ввода при переключении даты
+    setSelectedDate(date); // Меняем дату в глобальном сторе
+    setUserInput({}); // Сбрасываем черновик ввода при переходе на другой день
+  };
+
+  // Функция для одновременного перезапуска всех тяжелых запросов дашборда
+  const handleRefetchAll = async (): Promise<void> => {
+    await Promise.all([logsQuery.refetch(), profileQuery.refetch()]);
   };
 
   const setFormData = (updater: FormUpdater): void => {
     if (typeof updater === "function") {
       setUserInput((prev) => {
-        // Берем текущие данные (из базы или ввода) и применяем апдейтер
         const next = updater(stats.formData);
         return { ...prev, ...next };
       });
@@ -68,7 +75,6 @@ export const useStudentDashboard = (
   };
 
   const handleSave = (): void => {
-    // Конвертируем строковые данные формы в числа для сервиса (DailyLog)
     saveMutation.mutate({
       log_date: selectedDate,
       steps: parseInt(stats.formData.steps) || 0,
@@ -86,12 +92,14 @@ export const useStudentDashboard = (
   return {
     state: {
       ...stats,
-      selectedDate,
-      // Умный лоадер: показываем загрузку только если данных еще нет совсем
       loading:
         (logsQuery.isLoading || profileQuery.isLoading) && history.length === 0,
-
-      error: saveMutation.error ? getErrorMessage(saveMutation.error) : null,
+      // Приоритизация ошибок: мутация -> запросы
+      error: saveMutation.error
+        ? getErrorMessage(saveMutation.error)
+        : logsQuery.error || profileQuery.error
+          ? getErrorMessage(logsQuery.error || profileQuery.error)
+          : null,
       history,
       profile,
       isSaving: saveMutation.isPending,
@@ -103,6 +111,7 @@ export const useStudentDashboard = (
       setFormData,
       addWater,
       removeWater,
+      refetch: handleRefetchAll, // Передаем экшен перезапуска в компонент
     },
   };
 };

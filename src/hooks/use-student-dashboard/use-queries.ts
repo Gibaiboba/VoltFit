@@ -1,31 +1,35 @@
+// hooks/use-student-dashboard/use-queries.ts
+import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { studentService } from "@/services/student.service";
-import { DailyLog } from "@/types/shared"; // Наш новый единый тип
-import { UserProfile } from "@/types/user";
+import { DailyLog } from "@/types/shared";
+import { useUserProfile } from "@/hooks/use-user-profile";
 
 export const useDashboardQueries = (userId: string) => {
-  // 1. Загрузка истории логов через сервис
+  // 1. Загрузка истории логов
   const logsQuery = useQuery<DailyLog[]>({
     queryKey: ["student-logs", userId],
     queryFn: () => studentService.getLogs(userId),
     enabled: !!userId,
-    staleTime: 1000 * 60 * 5, // Данные считаются свежими 5 минут
+    staleTime: 1000 * 60 * 5,
   });
 
-  // 2. Загрузка профиля через сервис
-  const profileQuery = useQuery<UserProfile | null>({
-    queryKey: ["user-profile", userId],
-    queryFn: () => studentService.getProfile(userId),
-    enabled: !!userId,
-    staleTime: 1000 * 60 * 30, // Профиль меняется редко, можно кэшировать дольше
-  });
+  // 2. Передаем userId явно, чтобы React Query точно знал, чей профиль кэшировать
+  const profileQuery = useUserProfile(userId);
+
+  // 3. Сортировка истории
+  const history = useMemo(() => {
+    const data = logsQuery.data || [];
+    // Используем localeCompare для надежной сортировки строк YYYY-MM-DD
+    return [...data].sort((a, b) => b.log_date.localeCompare(a.log_date));
+  }, [logsQuery.data]);
 
   return {
     logsQuery,
     profileQuery,
-    history: logsQuery.data || [],
-    profile: profileQuery.data || null,
-    // Используем status для более точного определения загрузки первого раза
+    history,
+    profile: profileQuery.data ?? null, // Используем ?? для чистоты
+    // Используем isPending вместо isLoading, если хочешь ловить самое первое состояние загрузки
     isLoading: logsQuery.isLoading || profileQuery.isLoading,
   };
 };

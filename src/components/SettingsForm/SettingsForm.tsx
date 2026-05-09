@@ -1,7 +1,8 @@
 "use client";
-import { useEffect, useRef, useState, useMemo } from "react";
+
+import { useRef, useState, useMemo } from "react";
 import { supabase } from "@/lib/supabase";
-import { useUserStore } from "@/store/useUserStore";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
   Camera,
@@ -22,18 +23,10 @@ export default function SettingsForm({
   initialProfile: UserProfile | null;
   userId: string;
 }) {
-  const { setProfile, profile } = useUserStore();
-  const [isUpdating, setIsUpdating] = useState(false);
+  const queryClient = useQueryClient();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Инициализируем Zustand, если он пуст (при прямой загрузке страницы)
-  useEffect(() => {
-    if (initialProfile && !profile) {
-      setProfile(initialProfile);
-    }
-  }, [initialProfile, profile, setProfile]);
-
-  // Единое состояние для всех текстовых полей
+  // Локальное состояние формы
   const [formData, setFormData] = useState({
     full_name: initialProfile?.full_name || "",
     weight: initialProfile?.weight?.toString() || "",
@@ -41,9 +34,40 @@ export default function SettingsForm({
     chest: initialProfile?.chest?.toString() || "",
     waist: initialProfile?.waist?.toString() || "",
     hips: initialProfile?.hips?.toString() || "",
+    avatar_url: initialProfile?.avatar_url || "",
   });
 
-  // Расчет ИМТ через useMemo (пересчитывается только при изменении веса/роста)
+  // 1. МУТАЦИЯ ДЛЯ ОБНОВЛЕНИЯ ПРОФИЛЯ
+  const { mutate: updateProfile, isPending: isUpdating } = useMutation({
+    mutationFn: async (updates: Partial<UserProfile>) => {
+      const { data, error } = await supabase
+        .from("profiles")
+        .update(updates)
+        .eq("id", userId)
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: (updatedData) => {
+      // Обновляем кэш React Query (все компоненты, включая Header, увидят изменения)
+      queryClient.setQueryData(["user-profile", userId], updatedData);
+      toast.success("Данные успешно сохранены!");
+
+      // Синхронизируем локальную форму (для фото)
+      if (updatedData.avatar_url) {
+        setFormData((prev) => ({
+          ...prev,
+          avatar_url: updatedData.avatar_url!,
+        }));
+      }
+    },
+    onError: () => {
+      toast.error("Ошибка при сохранении");
+    },
+  });
+
   const bmi = useMemo(() => {
     const w = parseFloat(formData.weight);
     const h = parseFloat(formData.height) / 100;
@@ -51,11 +75,11 @@ export default function SettingsForm({
     return null;
   }, [formData.weight, formData.height]);
 
-  // каррированный обработчик для всех полей
   const updateField = (field: keyof typeof formData) => (value: string) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
   };
 
+  // 2. ЗАГРУЗКА ФОТО
   const handleUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -69,7 +93,6 @@ export default function SettingsForm({
       const compressedFile = await imageCompression(file, options);
       const filePath = `${userId}/avatar.png`;
 
-      // Загрузка
       const { error: uploadError } = await supabase.storage
         .from("avatars")
         .upload(filePath, compressedFile, { upsert: true });
@@ -81,68 +104,44 @@ export default function SettingsForm({
       } = supabase.storage.from("avatars").getPublicUrl(filePath);
       const urlWithTimestamp = `${publicUrl}?t=${Date.now()}`;
 
-      // Обновляем профиль в БД
-      const { data: updated, error: updateError } = await supabase
-        .from("profiles")
-        .update({ avatar_url: urlWithTimestamp })
-        .eq("id", userId)
-        .select()
-        .single();
-
-      if (updateError) throw updateError;
-      setProfile(updated); // Обновляем глобальный стор (Header подхватит фото)
+      // Просто вызываем нашу мутацию для обновления avatar_url
+      updateProfile({ avatar_url: urlWithTimestamp });
       return "Фото обновлено!";
     };
 
     toast.promise(uploadPromise(), {
-      loading: "Сжимаем и загружаем...",
+      loading: "Загружаем фото...",
       success: (msg) => msg,
-      error: "Ошибка при загрузке",
+      error: "Ошибка загрузки",
     });
   };
 
-  const handleUpdateProfile = async () => {
-    setIsUpdating(true);
-    const { data, error } = await supabase
-      .from("profiles")
-      .update({
-        full_name: formData.full_name,
-        weight: parseFloat(formData.weight) || null,
-        height: parseFloat(formData.height) || null,
-        chest: parseFloat(formData.chest) || null,
-        waist: parseFloat(formData.waist) || null,
-        hips: parseFloat(formData.hips) || null,
-      })
-      .eq("id", userId)
-      .select()
-      .single();
-
-    if (!error && data) {
-      setProfile(data);
-      toast.success("Данные успешно сохранены!");
-    } else {
-      toast.error("Ошибка при сохранении");
-    }
-    setIsUpdating(false);
+  const handleSaveAll = () => {
+    updateProfile({
+      full_name: formData.full_name || undefined,
+      weight: parseFloat(formData.weight) || undefined,
+      height: parseFloat(formData.height) || undefined,
+      chest: parseFloat(formData.chest) || undefined,
+      waist: parseFloat(formData.waist) || undefined,
+      hips: parseFloat(formData.hips) || undefined,
+    });
   };
 
   return (
     <div className="max-w-2xl mx-auto">
       <div className="bg-white rounded-[40px] p-8 shadow-sm border border-slate-100">
-        {/* Аватар */}
         <div className="flex flex-col items-center mb-10">
           <div
             className="relative group cursor-pointer"
             onClick={() => fileInputRef.current?.click()}
           >
             <div className="w-32 h-32 rounded-full overflow-hidden border-4 border-slate-50 bg-slate-100 relative">
-              {profile?.avatar_url ? (
+              {formData.avatar_url ? (
                 <Image
-                  src={profile.avatar_url}
+                  src={formData.avatar_url}
                   alt="Avatar"
                   fill
                   className="object-cover"
-                  sizes="(max-width: 768px) 128px, 150px"
                 />
               ) : (
                 <div className="w-full h-full flex items-center justify-center">
@@ -166,7 +165,6 @@ export default function SettingsForm({
           </p>
         </div>
 
-        {/* Форма */}
         <div className="space-y-6">
           <Input
             label="Полное имя"
@@ -189,7 +187,6 @@ export default function SettingsForm({
             />
           </div>
 
-          {/* ИМТ Виджет */}
           {bmi && (
             <div className="bg-blue-50 p-5 rounded-3xl flex items-center justify-between border border-blue-100">
               <div className="flex items-center gap-3 text-blue-800">
@@ -200,7 +197,6 @@ export default function SettingsForm({
             </div>
           )}
 
-          {/* Объемы */}
           <div className="pt-4 space-y-4">
             <p className="text-[10px] font-black uppercase text-slate-400 tracking-[0.2em] ml-2">
               Обмеры тела (см)
@@ -225,7 +221,7 @@ export default function SettingsForm({
           </div>
 
           <button
-            onClick={handleUpdateProfile}
+            onClick={handleSaveAll}
             disabled={isUpdating}
             className="w-full py-5 bg-blue-600 text-white font-black rounded-[24px] hover:bg-blue-700 transition-all shadow-xl shadow-blue-100 flex items-center justify-center gap-3 active:scale-[0.98] disabled:opacity-50"
           >

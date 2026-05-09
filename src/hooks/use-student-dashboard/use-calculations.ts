@@ -1,10 +1,9 @@
-"use client";
-
 import { useMemo } from "react";
 import { Log, FormDataType } from "./types";
 import { SavedMeal } from "@/types/food";
 import { UserProfile } from "@/types/user";
-import { calculateTotalStats, calculateProgress } from "@/lib/utils/meal-utils";
+import { useNutritionStats } from "../use-nutrition-stats";
+import { getPreviousWeight } from "@/lib/utils/weight-utils";
 
 export const useDashboardCalculations = (
   history: Log[],
@@ -14,29 +13,31 @@ export const useDashboardCalculations = (
   userInput: Record<string, string | number>,
   serverToday: string,
 ) => {
-  // 1. Текущий лог из истории
+  // 1. Целевые калории из профиля (с fallback значением)
+  const targetCalories = useMemo(
+    () => profile?.daily_calories || 2000,
+    [profile],
+  );
+
+  // 2. Использование единого хука для расчетов БЖУ и калорий из еды
+  const { roundedStats } = useNutritionStats(
+    meals,
+    selectedDate,
+    targetCalories,
+  );
+
+  // 3. Поиск текущего лога в истории для выбранной даты
   const currentLog = useMemo(
     () => history.find((l) => l.log_date === selectedDate),
     [history, selectedDate],
   );
 
-  // 2.  Расчет БЖУ через единую утилиту
-  const consumedFromHistory = useMemo(() => {
-    // Фильтруем по дате (быстрый способ через startsWith)
-    const dayMeals = meals.filter((m) => m.created_at.startsWith(selectedDate));
-    return calculateTotalStats(dayMeals);
-  }, [meals, selectedDate]);
-
-  // 3. Исправленный поиск предыдущего веса
+  // 4. Поиск предыдущего записанного веса через изолированную утилиту
   const previousWeight = useMemo(() => {
-    const prevLogs = history
-      .filter((l) => l.log_date < selectedDate && l.weight != null)
-      .sort((a, b) => b.log_date.localeCompare(a.log_date));
-
-    return prevLogs[0]?.weight ? prevLogs[0].weight.toString() : "--";
+    return getPreviousWeight(history, selectedDate);
   }, [history, selectedDate]);
 
-  // 4. Формирование данных для формы
+  // 5. Формирование данных для формы ввода (черновик пользователя > лог из БД > пустая строка)
   const formData = useMemo<FormDataType>(() => {
     return {
       steps: (userInput.steps ?? currentLog?.steps ?? "").toString(),
@@ -56,7 +57,22 @@ export const useDashboardCalculations = (
     };
   }, [userInput, currentLog]);
 
-  // 5. Данные для графиков
+  // 6. Итоговые калории (Приоритет: Записи еды из дневника > Ручной ввод в лог)
+  const currentCalories = useMemo(() => {
+    const kcal =
+      roundedStats.kcal > 0
+        ? roundedStats.kcal
+        : parseInt(formData.calories) || 0;
+    return Math.round(kcal);
+  }, [roundedStats.kcal, formData.calories]);
+
+  // 7. Расчет прогресса по калориям для шкалы
+  const calProgress = useMemo(() => {
+    if (!targetCalories || targetCalories <= 0) return 0;
+    return Math.min((currentCalories / targetCalories) * 100, 100);
+  }, [currentCalories, targetCalories]);
+
+  // 8. Подготовка исторических данных для графиков (последние 7 отчетов)
   const chartData = useMemo(() => {
     const sorted = [...history]
       .sort((a, b) => a.log_date.localeCompare(b.log_date))
@@ -68,23 +84,7 @@ export const useDashboardCalculations = (
     };
   }, [history]);
 
-  // 6. Итоговые показатели и прогресс
-  const targetCalories = useMemo(() => profile?.daily_calories || 0, [profile]);
-
-  const currentCalories = useMemo(() => {
-    // Если есть приемы пищи — берем их, если нет — берем ручной ввод из лога
-    const kcal =
-      consumedFromHistory.kcal > 0
-        ? consumedFromHistory.kcal
-        : parseInt(formData.calories) || 0;
-    return Math.round(kcal);
-  }, [consumedFromHistory.kcal, formData.calories]);
-
-  const calProgress = useMemo(() => {
-    // Используем единую утилиту прогресса
-    return calculateProgress(currentCalories, targetCalories);
-  }, [currentCalories, targetCalories]);
-
+  // 9. Вспомогательные флаги
   const isToday = useMemo(
     () => selectedDate === serverToday,
     [selectedDate, serverToday],
@@ -94,12 +94,12 @@ export const useDashboardCalculations = (
 
   return {
     currentLog,
-    consumedFromHistory,
     previousWeight,
     formData,
-    currentProteins: Math.round(consumedFromHistory.p),
-    currentFats: Math.round(consumedFromHistory.f),
-    currentCarbs: Math.round(consumedFromHistory.c),
+    // Данные макросов берутся в округленном виде из общего хука расчетов
+    currentProteins: roundedStats.p,
+    currentFats: roundedStats.f,
+    currentCarbs: roundedStats.c,
     chartData,
     targetCalories,
     currentCalories,

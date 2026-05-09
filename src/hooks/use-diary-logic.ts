@@ -1,19 +1,17 @@
+// hooks/use-diary-logic.ts
 import { useMemo } from "react";
 import { useMealHistory } from "@/hooks/use-meal-history";
 import { useUserProfile } from "@/hooks/use-user-profile";
-import { toISODate } from "@/lib/utils/date-utils";
-import {
-  sortMeals,
-  calculateTotalStats,
-  calculateProgress,
-} from "@/lib/utils/meal-utils";
+import { sortMeals } from "@/lib/utils/meal-utils";
+import { useNutritionStats } from "./use-nutrition-stats";
+import { getErrorMessage } from "@/lib/utils/error-helper"; // Наш обработчик ошибок
 
-export function useDiaryLogic(selectedDate: string | null) {
-  // Загружаем данные из существующих хуков
+export function useDiaryLogic(selectedDate: string) {
+  // 1. Загружаем сырые данные из существующих хуков
   const {
     meals,
     isLoading: mealsLoading,
-    error,
+    error: mealsError, // Переименовали для удобства трансформации
     refetch,
     deleteMeal,
     removeItem,
@@ -21,7 +19,7 @@ export function useDiaryLogic(selectedDate: string | null) {
 
   const { data: profile, isLoading: profileLoading } = useUserProfile();
 
-  // 1. Формируем цели на основе профиля
+  // 2. Формируем цели на основе профиля
   const goals = useMemo(
     () => ({
       kcal: profile?.daily_calories || 2000,
@@ -32,31 +30,27 @@ export function useDiaryLogic(selectedDate: string | null) {
     [profile],
   );
 
-  // 2. Основная обработка данных для конкретной даты
-  const diaryData = useMemo(() => {
-    const targetDate = selectedDate || toISODate(new Date());
-
-    // Фильтруем приемы пищи за нужный день
-    // Используем startsWith для безопасности ISO строк
-    const dayMeals = meals.filter((m) => m.created_at.startsWith(targetDate));
-
-    // Используем наши утилиты для расчетов
-    const consumed = calculateTotalStats(dayMeals);
-    const progress = calculateProgress(consumed.kcal, goals.kcal);
-
-    return {
-      consumed,
-      progress,
-      displayMeals: sortMeals(dayMeals), // Сортируем через утилиту
-    };
-  }, [meals, selectedDate, goals]);
+  // 3. Используем общий хук для расчетов
+  const { dayMeals, progress, roundedStats } = useNutritionStats(
+    meals,
+    selectedDate,
+    goals.kcal,
+  );
 
   return {
-    ...diaryData,
+    // Данные для отображения
+    displayMeals: sortMeals(dayMeals),
+    allMeals: meals,
+    consumed: roundedStats, // Округленные БЖУ (p, f, c, kcal)
     goals,
-    allMeals: meals, // Пригодится для группировки в истории
+    progress,
+
+    // Статусы
     isLoading: mealsLoading || profileLoading,
-    error,
+    // Трансформируем техническую ошибку в понятную строку на русском языке
+    error: mealsError ? getErrorMessage(mealsError) : null,
+
+    // Методы управления
     refetch,
     deleteMeal,
     removeItem,

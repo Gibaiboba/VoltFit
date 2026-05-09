@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import { AlertTriangle, RefreshCw } from "lucide-react";
 
 export default function StudentError({
   error,
@@ -10,25 +11,35 @@ export default function StudentError({
   reset: () => void;
 }) {
   useEffect(() => {
-    // Тут можно отправить ошибку в логгер
-    console.error("Ошибка на странице студента:", error);
+    // Логирование критического сбоя самого интерфейса (а не сети)
+    console.error("Критический сбой JS-кода в VoltFit:", error);
   }, [error]);
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-[60vh] p-6 text-center">
-      <div className="bg-white p-8 rounded-[32px] shadow-xl border border-slate-100 max-w-md">
-        <h2 className="text-2xl font-black text-slate-800 mb-4">
-          Упс! Данные не подгрузились
+    <div className="flex flex-col items-center justify-center min-h-screen bg-[#F4F4F5] p-6 text-center pt-24 pb-44 animate-in fade-in duration-300">
+      <div className="bg-[#080808] border border-white/5 p-10 rounded-[2.5rem] shadow-[0_0_50px_rgba(0,0,0,0.8)] max-w-md w-full relative overflow-hidden">
+        {/* Верхняя акцентная полоса бренда */}
+        <div className="absolute top-0 left-0 right-0 h-1 bg-yellow-400" />
+
+        <AlertTriangle
+          className="mx-auto text-yellow-400 mb-6 animate-pulse"
+          size={56}
+        />
+
+        <h2 className="text-xl font-black text-slate-100 uppercase tracking-wider italic mb-3">
+          Сбой интерфейса
         </h2>
-        <p className="text-slate-500 mb-8 font-medium">
-          Скорее всего, это временная проблема со связью. Попробуйте обновить
-          страницу.
+
+        <p className="text-slate-400 text-[10px] font-black uppercase tracking-widest mb-8 leading-relaxed">
+          Произошла критическая ошибка приложения. Данные сессии повреждены. Мы
+          уже зафиксировали сбой.
         </p>
+
         <button
           onClick={() => reset()}
-          className="w-full py-4 bg-indigo-600 text-white font-bold rounded-2xl shadow-lg hover:bg-indigo-700 transition-all active:scale-95"
+          className="w-full py-4 bg-yellow-400 hover:bg-yellow-500 text-slate-950 font-black uppercase text-xs tracking-widest rounded-2xl transition-all shadow-lg shadow-yellow-400/10 flex items-center justify-center gap-2 active:scale-95"
         >
-          🔄 Повторить попытку
+          <RefreshCw size={14} /> Перезапустить сессию
         </button>
       </div>
     </div>

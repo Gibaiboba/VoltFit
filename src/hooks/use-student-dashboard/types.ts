@@ -32,7 +32,6 @@ export type FormUpdater =
 export interface StudentDashboardHook {
   state: {
     loading: boolean;
-    selectedDate: string;
     formData: FormDataType;
     previousWeight: string;
     isToday: boolean;
@@ -43,11 +42,13 @@ export interface StudentDashboardHook {
     };
     targetCalories: number;
     currentCalories: number;
+    currentProteins: number;
+    currentFats: number;
+    currentCarbs: number;
     calProgress: number;
     history: Log[];
-    consumedFromHistory: { kcal: number; p: number; f: number; c: number };
     todayStr: string;
-    profile: UserProfile | null; // Ссылка на общий тип!
+    profile: UserProfile | null;
     isSaving: boolean;
     error: string | null;
   };
@@ -57,5 +58,6 @@ export interface StudentDashboardHook {
     setFormData: (updater: FormUpdater) => void;
     addWater: () => void;
     removeWater: () => void;
+    refetch: () => Promise<void>;
   };
 }

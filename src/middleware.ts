@@ -108,6 +108,12 @@ export async function middleware(request: NextRequest) {
     return createRedirect("/onboarding");
   }
 
+  // А это защитит от возврата на onboarding, если он пройден
+  if (user && onboardingDone && path.startsWith("/onboarding")) {
+    const target = userRole === "coach" ? "/coach" : "/student";
+    return createRedirect(target);
+  }
+
   // 5. Если опрос пройден, но юзер пытается зайти на страницу опроса
   if (user && onboardingDone && path.startsWith("/onboarding")) {
     const target = userRole === "coach" ? "/coach" : "/student";
