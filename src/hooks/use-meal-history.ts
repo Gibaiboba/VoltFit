@@ -12,6 +12,7 @@ import { useUserStore } from "@/store/useUserStore";
 import { mealService } from "@/services/meal-service";
 import { toast } from "sonner";
 import { PostgrestError } from "@supabase/supabase-js";
+import { toISODate } from "@/lib/utils/date-utils";
 
 interface UseMealHistoryReturn {
   meals: SavedMeal[];
@@ -55,9 +56,10 @@ export function useMealHistory(studentId?: string): UseMealHistoryReturn {
   });
 
   // Вспомогательная функция для получения даты напрямую из данных объекта
+
   const getMealDate = (mealId: string): string | null => {
     const meal = meals.find((m) => m.id === mealId);
-    return meal?.created_at ? meal.created_at.split("T")[0] : null;
+    return meal?.created_at ? toISODate(new Date(meal.created_at)) : null;
   };
 
   // 2. Удаление приема пищи целиком

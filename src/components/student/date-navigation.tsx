@@ -2,6 +2,7 @@
 
 import { Calendar, RotateCcw } from "lucide-react";
 import { useMemo, useRef } from "react";
+import { toISODate } from "@/lib/utils/date-utils";
 
 interface DateNavigationProps {
   selectedDate: string;
@@ -38,8 +39,12 @@ export function DateNavigation({
     for (let i = 0; i < 7; i++) {
       const date = new Date(baseDate);
       date.setDate(baseDate.getDate() - i);
+
+      // Используем утилиту toISODate для безопасного форматирования
+      const isoString = toISODate(date);
+
       days.push({
-        full: date.toISOString().split("T")[0],
+        full: isoString,
         dayName: date.toLocaleDateString("ru-RU", { weekday: "short" }),
         dayNum: date.getDate(),
       });
@@ -49,12 +54,7 @@ export function DateNavigation({
 
   return (
     <div className="flex flex-col gap-6 mb-8 w-full max-w-md mx-auto">
-      {/* Верхняя панель: анимация срабатывает при любой смене даты */}
-      <div
-        key={`panel-${selectedDate}`}
-        className="flex justify-between items-center bg-white p-2 pl-5 rounded-2xl border border-slate-100 shadow-sm 
-                   animate-[charge_0.5s_ease-in-out]"
-      >
+      <div className="flex justify-between items-center bg-white p-2 pl-5 rounded-2xl border border-slate-100 shadow-sm transition-all">
         <div className="flex items-center gap-3">
           <button
             type="button"
@@ -69,8 +69,7 @@ export function DateNavigation({
             type="date"
             value={selectedDate}
             onChange={(e) => onDateChange(e.target.value)}
-            className="bg-transparent text-sm font-black text-slate-700 outline-none cursor-pointer 
-                       appearance-none [&::-webkit-calendar-picker-indicator]:hidden"
+            className="bg-transparent text-sm font-black text-slate-700 outline-none cursor-pointer appearance-none [&::-webkit-calendar-picker-indicator]:hidden"
           />
         </div>
 
@@ -92,7 +91,7 @@ export function DateNavigation({
         </button>
       </div>
 
-      {/* Лента дат: теперь статичная, меняется только активное состояние */}
+      {/* Лента дат */}
       <div className="flex justify-between items-center gap-1">
         {historyDays.map((day) => {
           const isActive = day.full === selectedDate;
@@ -114,15 +113,11 @@ export function DateNavigation({
               </span>
 
               <div
-                className={`
-                  relative flex items-center justify-center w-11 h-11 rounded-full font-black text-sm transition-all duration-300
-                  ${
-                    isActive
-                      ? "bg-yellow-400 text-black shadow-lg scale-110 ring-4 ring-yellow-400/10 animate-[bolt_0.4s_ease-in-out]"
-                      : "bg-transparent text-slate-600 border border-slate-100 hover:border-yellow-400"
-                  }
-                  ${hasData && !isActive ? "border-green-500 border-2" : ""}
-                `}
+                className={`relative flex items-center justify-center w-11 h-11 rounded-full font-black text-sm transition-all duration-300 ${
+                  isActive
+                    ? "bg-yellow-400 text-black shadow-lg scale-110 ring-4 ring-yellow-400/10"
+                    : "bg-transparent text-slate-600 border border-slate-100 hover:border-yellow-400"
+                } ${hasData && !isActive ? "border-green-500 border-2" : ""}`}
               >
                 {day.dayNum}
                 {hasData && (

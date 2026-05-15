@@ -24,7 +24,6 @@ interface LogHistoryProps {
   onLogClick?: (date: string) => void;
 }
 
-// Маппинг стилей на основе твоих ACTIVITY_OPTIONS
 const ACTIVITY_STYLES: Record<string, string> = {
   [ACTIVITY_OPTIONS[0]]: "border-yellow-400/30 text-yellow-400 bg-yellow-400/5",
   [ACTIVITY_OPTIONS[1]]: "border-cyan-400/30 text-cyan-400 bg-cyan-400/5",
@@ -51,7 +50,6 @@ export default function LogHistory({
         Записей пока нет
       </p>
     );
-
   return (
     <div className="space-y-4">
       {title && (
@@ -63,14 +61,14 @@ export default function LogHistory({
         </div>
       )}
 
-      {logs.map((log, idx) => {
-        // Получаем стиль из конфига или дефолтный
+      {/* используем log.log_date как уникальный key */}
+      {logs.map((log) => {
         const activityStyle =
           ACTIVITY_STYLES[log.activity_level] || ACTIVITY_STYLES.default;
 
         return (
           <div
-            key={idx}
+            key={log.log_date} // <-- ЖЕСТКИЙ УНИКАЛЬНЫЙ ИДЕНТИФИКАТОР ДЛЯ REACT
             onClick={() => onLogClick?.(log.log_date)}
             className={`
               group p-5 rounded-[2rem] bg-[#080808] border border-white/5 
@@ -79,11 +77,12 @@ export default function LogHistory({
               ${onLogClick ? "cursor-pointer active:scale-[0.98]" : ""}
             `}
           >
+            {/* Декоративная полоска */}
             <div className="absolute left-0 top-0 bottom-0 w-1 bg-yellow-400 opacity-0 group-hover:opacity-100 transition-opacity" />
 
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
               <div className="flex items-center gap-4">
-                {/* Дата через утилиту (выводит ДД.ММ) */}
+                {/* Блок даты */}
                 <div className="bg-white/5 text-white w-14 h-14 rounded-2xl flex flex-col items-center justify-center border border-white/10 group-hover:border-yellow-400/50 transition-colors">
                   <span className="text-[10px] font-black text-slate-500 uppercase tracking-tighter leading-none mb-1">
                     Дата
@@ -105,7 +104,7 @@ export default function LogHistory({
                 </div>
               </div>
 
-              {/* Метрики с использованием новых утилит */}
+              {/* Метрики */}
               <div className="grid grid-cols-3 sm:flex sm:flex-wrap gap-4 md:gap-8 flex-1 justify-between md:justify-end">
                 <Metric label="Weight" value={log.weight || "--"} unit="kg" />
                 <Metric label="Steps" value={formatNumber(log.steps)} />

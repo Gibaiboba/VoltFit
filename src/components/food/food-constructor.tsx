@@ -20,7 +20,7 @@ export default function FoodConstructor({
   const [comment, setComment] = useState<string>("");
 
   // 1. Подгружаем историю за выбранный день
-  const { meals: history } = useMealHistory(undefined, serverToday);
+  const { meals: history = [] } = useMealHistory(undefined);
 
   const { data: results = [], isLoading: isSearching } =
     useProductSearch(query);

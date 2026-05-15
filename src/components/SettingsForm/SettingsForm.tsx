@@ -141,6 +141,7 @@ export default function SettingsForm({
                   src={formData.avatar_url}
                   alt="Avatar"
                   fill
+                  sizes="128px"
                   className="object-cover"
                 />
               ) : (

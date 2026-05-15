@@ -16,12 +16,12 @@ interface HeaderProps {
 }
 
 export default function Header({ initialUser, initialProfile }: HeaderProps) {
-  const { user, profile, setUser, clearUser } = useUserStore();
+  const { user, setUser, clearUser } = useUserStore();
   const queryClient = useQueryClient();
 
   // Приоритет отдаем стору (клиенту), если там пусто — берем данные с сервера
   const displayUser = user || initialUser;
-  const displayProfile = profile || initialProfile;
+  const displayProfile = initialProfile;
 
   useEffect(() => {
     const {
@@ -66,7 +66,10 @@ export default function Header({ initialUser, initialProfile }: HeaderProps) {
 
         {displayUser ? (
           <div className="flex items-center gap-6">
-            <Link href="/settings" className="flex items-center gap-3 group">
+            <Link
+              href="/student/settings"
+              className="flex items-center gap-3 group"
+            >
               <div className="w-9 h-9 rounded-full overflow-hidden border border-slate-200 bg-slate-100 relative">
                 {displayProfile?.avatar_url ? (
                   <Image

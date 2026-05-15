@@ -1,6 +1,8 @@
 "use client";
 
 import { useMemo } from "react";
+import { formatToShortDate } from "@/lib/utils/date-utils"; // Наша утилита дат
+import { formatNumber } from "@/lib/utils/format-number"; // Твоя утилита чисел
 
 export interface ChartPoint {
   x: string;
@@ -21,8 +23,6 @@ export default function ActivityVisualizer({
   color,
 }: Props) {
   const themeColor = color === "yellow" ? "#facc15" : "#22d3ee";
-
-  // Константы для построения графика
   const chartHeight = 160;
 
   const processedData = useMemo(() => {
@@ -31,9 +31,9 @@ export default function ActivityVisualizer({
     const maxValue = Math.max(...data.map((d) => d.y), 1); // Защита от 0
 
     return data.map((p) => ({
-      date: p.x.split("-").reverse().slice(0, 2).join("."),
+      // ИСПРАВЛЕНО: Безопасное форматирование даты через общую утилиту
+      date: formatToShortDate(p.x),
       value: p.y,
-      // Рассчитываем высоту столбца относительно максимума
       height: (p.y / maxValue) * chartHeight,
     }));
   }, [data]);
@@ -58,7 +58,6 @@ export default function ActivityVisualizer({
 
       {/* SVG Chart Area */}
       <div className="flex-1 flex items-end justify-between gap-1 px-2 relative">
-        {/* Горизонтальные линии сетки (BG) */}
         <div className="absolute inset-0 flex flex-col justify-between pointer-events-none opacity-20">
           {[...Array(4)].map((_, i) => (
             <div key={i} className="w-full border-t border-white/10 h-0" />
@@ -79,7 +78,8 @@ export default function ActivityVisualizer({
                 className="text-sm font-black italic"
                 style={{ color: themeColor }}
               >
-                {item.value.toLocaleString()}{" "}
+                {/* ИСПРАВЛЕНО: Единый формат чисел по всему приложению */}
+                {formatNumber(item.value)}{" "}
                 <span className="text-[10px] text-white/40">{unit}</span>
               </p>
             </div>
@@ -90,7 +90,7 @@ export default function ActivityVisualizer({
               style={{
                 height: `${item.height}px`,
                 backgroundColor: themeColor,
-                boxShadow: `0 0 20px ${themeColor}15`, // Мягкое свечение
+                boxShadow: `0 0 20px ${themeColor}15`,
               }}
             />
 
