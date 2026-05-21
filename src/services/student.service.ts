@@ -26,19 +26,34 @@ export const studentService = {
   },
 
   /**
-   * Получить логи студента за все время
+   * Получить логи студента порциями (пагинация для бесконечного скролла)
+   * @param userId - ID пользователя
+   * @param cursorDate - дата-курсор (запрашиваем логи строго СТАРШЕ этой даты)
+   * @param limit - сколько логов подтянуть за один раз
    */
-  async getLogs(userId: string): Promise<DailyLog[]> {
-    const { data, error } = await supabase
+  async getLogsPaged(
+    userId: string,
+    cursorDate?: string,
+    limit = 20,
+  ): Promise<DailyLog[]> {
+    let query = supabase
       .from("daily_logs")
       .select("*")
       .eq("user_id", userId)
-      .order("log_date", { ascending: false })
-      .limit(100); // Ограничиваем, чтобы не грузить лишнего
+      .order("log_date", { ascending: false }) // Сначала свежие, потом старые
+      .limit(limit);
+
+    // Если это не первая страница, запрашиваем логи строго ДО (меньше) даты-курсора
+    if (cursorDate) {
+      query = query.lt("log_date", cursorDate); // lt — Less Than (<)
+    }
+
+    const { data, error } = await query;
 
     if (error) throw error;
-    return data || []; // Гарантируем массив
+    return data || [];
   },
+
   /**
    * Сохранить или обновить лог за день
    */

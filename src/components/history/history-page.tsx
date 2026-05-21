@@ -7,7 +7,7 @@ import { useDiaryLogic } from "@/hooks/use-diary-logic";
 import { sortMeals } from "@/lib/utils/meal-utils";
 import { toISODate } from "@/lib/utils/date-utils"; // Импортируем утилиту дат
 import CaloriesBanner from "@/components/student/calories-banner";
-import { MacroCard } from "@/components/student/macro-card";
+import { MacroCard } from "@/components/student/macros-combo-card";
 import { MealCard } from "@/components/history/meal-card";
 import { DateFilter } from "@/components/history/date-filter";
 import { HistorySkeleton } from "@/components/history/history-skeleton";

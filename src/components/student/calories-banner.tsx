@@ -1,4 +1,4 @@
-import { ProgressCircle } from "./progress-circle";
+import { ProgressBar } from "@/components/student/progress-bar";
 
 interface CaloriesBannerProps {
   current: number;
@@ -11,53 +11,49 @@ export default function CaloriesBanner({
   target = 0,
   progress = 0,
 }: CaloriesBannerProps) {
-  const caloriesLeft = Math.max(0, target - Math.round(current));
+  const roundedCurrent = Math.round(current) || 0;
+  const validTarget = target > 0 ? target : 0;
+  const caloriesLeft = Math.max(0, validTarget - roundedCurrent);
 
   return (
-    <div className="bg-slate-950 rounded-[2.5rem] p-8 text-white shadow-2xl relative overflow-hidden mb-8 border border-white/5">
-      <div className="grid grid-cols-3 items-center relative z-10">
-        {/* Левая часть: Как тебе нравилось */}
-        <div className="space-y-3">
-          <div className="flex items-center gap-2">
-            <span className="w-1.5 h-1.5 rounded-full bg-yellow-400 animate-pulse" />
-            <span className="text-[10px] font-black uppercase tracking-[0.2em] text-yellow-400/80">
-              Энергия дня
+    <div className="bg-white rounded-3xl p-6 sm:p-8 text-slate-900 shadow-xl shadow-slate-100/50 relative overflow-hidden mb-8 border border-slate-100">
+      <div className="flex flex-col relative z-10">
+        {/* Верхняя строка: Калории и Остаток */}
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          {/* Левая часть: Употреблено */}
+          <div className="space-y-1 text-center sm:text-left">
+            <span className="text-[10px] font-black uppercase tracking-[0.2em] text-black">
+              Калории
             </span>
+            <div className="flex flex-col">
+              <div className="text-4xl sm:text-5xl font-black tracking-tighter leading-none flex items-baseline justify-center sm:justify-start">
+                {roundedCurrent}
+                <span className="text-base sm:text-lg font-bold text-slate-400 ml-2 tracking-normal">
+                  / {validTarget}
+                </span>
+              </div>
+            </div>
           </div>
 
-          <div className="flex flex-col">
-            <div className="text-5xl font-black tracking-tighter leading-none flex items-baseline">
-              {Math.round(current)}
-              <span className="text-lg font-bold text-slate-500 ml-2 tracking-normal">
-                / {target}
+          {/* Правая часть: Осталось */}
+          <div className="flex justify-center sm:justify-end">
+            <div className="inline-flex items-center px-4 py-2 bg-yellow-400 rounded-full border border-slate-100 heavy-shadow">
+              <span className="text-xs font-black uppercase tracking-tight ">
+                Осталось:{" "}
+                <span className="text-black">{caloriesLeft} ккал</span>
               </span>
             </div>
-            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-tight mt-1">
-              ккал употреблено
-            </span>
           </div>
         </div>
 
-        {/* Центр: Круг идеально по середине */}
-        <div className="flex justify-center">
-          <div className="scale-125 origin-center">
-            <ProgressCircle progress={progress} />
-          </div>
-        </div>
-
-        {/* Правая часть: Только "Осталось" */}
-        <div className="flex justify-end">
-          <div className="inline-flex items-center px-4 py-2 bg-white/5 rounded-full border border-white/10">
-            <span className="text-xs font-black uppercase tracking-tight text-slate-300">
-              Осталось:{" "}
-              <span className="text-yellow-400">{caloriesLeft} ккал</span>
-            </span>
-          </div>
+        {/* Нижняя часть: Прогресс-бар на всю ширину */}
+        <div className="w-full pt-2 border-t border-slate-50">
+          <ProgressBar progress={progress} />
         </div>
       </div>
 
-      {/* Фоновое свечение за кругом */}
-      <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-64 h-64 bg-yellow-400/5 rounded-full blur-[100px]" />
+      {/* Мягкое фоновое свечение (теперь синее) */}
+      <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-64 h-64 bg-blue-500/5 rounded-full blur-[80px] pointer-events-none" />
     </div>
   );
 }

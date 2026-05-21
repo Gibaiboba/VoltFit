@@ -3,16 +3,16 @@
 import { useState, useMemo } from "react";
 import { toISODate } from "@/lib/utils/date-utils";
 import { useDiaryLogic } from "@/hooks/use-diary-logic";
+import { useMacroStats } from "@/hooks/use-macro-stats";
 import { useUserStore } from "@/store/useUserStore";
 import { DateNavigation } from "@/components/student/date-navigation";
 import CaloriesBanner from "@/components/student/calories-banner";
-import { MacroCard } from "@/components/student/macro-card";
+import { MacrosComboCard } from "@/components/student/macros-combo-card";
 import { MealCard } from "@/components/history/meal-card";
 import FoodConstructor from "@/components/food/food-constructor";
 import { HistorySkeleton } from "@/components/history/history-skeleton";
-import AsyncBoundary from "@/components/shared/AsyncBoundary"; // Наш единый контейнер
+import AsyncBoundary from "@/components/shared/AsyncBoundary";
 import { Utensils, Plus, List } from "lucide-react";
-import { MACRO_CONFIG } from "@/constants/nutrition";
 
 export default function DiaryPage() {
   const { selectedDate, setSelectedDate } = useUserStore();
@@ -29,11 +29,15 @@ export default function DiaryPage() {
     goals,
     progress,
     isLoading,
+    isFetching,
     error,
     refetch,
     deleteMeal,
     removeItem,
-  } = useDiaryLogic(selectedDate);
+  } = useDiaryLogic(selectedDate, todayStr);
+
+  // Оптимизированный расчет макросов через вынесенный хук
+  const macroStats = useMacroStats(goals, consumed);
 
   // Вычисляем дни, в которых есть записи
   const daysWithData = useMemo(() => {
@@ -45,12 +49,21 @@ export default function DiaryPage() {
 
   return (
     <AsyncBoundary
-      isLoading={isLoading}
-      error={error} // Сюда прилетает уже переведенная строка ошибки
+      // Загрузка включается только если данных в памяти ЕЩЕ НЕТ.
+      // При фоновой дозагрузке архивного месяца страница больше не исчезает и не мерцает.
+      isLoading={isLoading && allMeals.length === 0}
+      error={error}
       onRetry={refetch}
       skeleton={<HistorySkeleton />}
     >
-      <div className="mt-24 max-w-4xl mx-auto p-6 lg:p-8 pb-32 space-y-8 animate-in fade-in duration-500">
+      <div className="mt-24 max-w-4xl mx-auto p-6 lg:p-8 pb-32 space-y-8 animate-in fade-in duration-500 relative text-slate-900">
+        {/* Легкий аккуратный индикатор фонового обновления в углу, чтобы юзер понимал, что данные подтягиваются */}
+        {isFetching && allMeals.length > 0 && (
+          <div className="absolute top-4 right-6 text-[10px] font-black text-slate-400 uppercase tracking-widest animate-pulse pointer-events-none">
+            ⏳ Обновление архива...
+          </div>
+        )}
+
         {/* ВЕРХНЯЯ СЕКЦИЯ */}
         <section className="space-y-6">
           <div className="flex flex-col md:flex-row md:items-start justify-between gap-6">
@@ -96,27 +109,8 @@ export default function DiaryPage() {
             progress={progress}
           />
 
-          {/* Макросы из единого конфига */}
-          <div className="grid grid-cols-3 gap-3">
-            <MacroCard
-              label={MACRO_CONFIG.p.label}
-              current={consumed.p}
-              target={goals.p}
-              colors={MACRO_CONFIG.p.colors}
-            />
-            <MacroCard
-              label={MACRO_CONFIG.f.label}
-              current={consumed.f}
-              target={goals.f}
-              colors={MACRO_CONFIG.f.colors}
-            />
-            <MacroCard
-              label={MACRO_CONFIG.c.label}
-              current={consumed.c}
-              target={goals.c}
-              colors={MACRO_CONFIG.c.colors}
-            />
-          </div>
+          {/* Наша новая объединенная плашка макросов */}
+          <MacrosComboCard macros={macroStats} />
         </section>
 
         {/* КОНТЕНТ ВКЛАДОК */}

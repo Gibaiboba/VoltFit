@@ -2,7 +2,7 @@ export const MACRO_CONFIG = {
   p: {
     label: "Белки",
     colors: {
-      stroke: "#ffbb54",
+      stroke: "#2B6CB0",
       bg: "bg-[#FFD700]/10",
       accent: "text-[#E6B800]",
     },
@@ -10,7 +10,7 @@ export const MACRO_CONFIG = {
   f: {
     label: "Жиры",
     colors: {
-      stroke: "#3ca593",
+      stroke: "#ffbb54",
       bg: "bg-[#4C9A2A]/10",
       accent: "text-[#2D5A1E]",
     },
@@ -18,7 +18,7 @@ export const MACRO_CONFIG = {
   c: {
     label: "Углеводы",
     colors: {
-      stroke: "#F8FAFC",
+      stroke: "#3ca593",
       bg: "bg-slate-100",
       accent: "text-slate-900",
     },

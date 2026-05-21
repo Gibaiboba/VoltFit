@@ -5,19 +5,41 @@ import { useUserProfile } from "@/hooks/use-user-profile";
 import { sortMeals } from "@/lib/utils/meal-utils";
 import { useNutritionStats } from "./use-nutrition-stats";
 import { getErrorMessage } from "@/lib/utils/error-helper";
+import { toISODate } from "@/lib/utils/date-utils";
 
-export function useDiaryLogic(selectedDate: string) {
-  // 1. Загружаем данные еды
+export function useDiaryLogic(selectedDate: string, serverToday: string) {
+  // УМНОЕ КВАНТОВАНИЕ: Округляем архивный хвост до начала месяца для стабильности кэша
+  const fromDateDynamic = useMemo(() => {
+    const today = new Date(serverToday);
+    const selected = new Date(selectedDate);
+
+    // Базовый порог: 30 дней назад от сегодняшнего дня
+    today.setDate(today.getDate() - 30);
+
+    // Если пользователь кликнул на дату глубже, чем 30 дней назад
+    if (selected < today) {
+      // Вырезаем год и месяц (из "2026-03-15" получаем "2026-03")
+      const yearMonth = selectedDate.slice(0, 7);
+      // Возвращаем строго первый день этого месяца для фиксации queryKey
+      return `${yearMonth}-01`;
+    }
+
+    // Если кликаем внутри последнего месяца — дата старта неподвижна
+    return toISODate(today);
+  }, [serverToday, selectedDate]);
+
+  // 1. Загружаем данные еды (теперь queryKey стабилен внутри любого архивного месяца)
   const {
     meals,
     isLoading: mealsLoading,
+    isFetching: mealsFetching,
     error: mealsError,
     refetch: refetchMeals,
     deleteMeal,
     removeItem,
-  } = useMealHistory();
+  } = useMealHistory(undefined, fromDateDynamic);
 
-  // 2. Загружаем данные профиля и вытаскиваем ошибку
+  // 2. Загружаем данные профиля
   const {
     data: profile,
     isLoading: profileLoading,
@@ -36,19 +58,19 @@ export function useDiaryLogic(selectedDate: string) {
     [profile],
   );
 
-  // 4. Используем общий хук для расчетов
+  // 4. Используем общий хук для расчетов БЖУ и калорий за выбранный день
   const { dayMeals, progress, roundedStats } = useNutritionStats(
     meals,
     selectedDate,
     goals.kcal,
   );
 
-  // Функция для одновременного перезапуска обоих запросов при клике на кнопку в AsyncBoundary
+  // Функция для одновременного перезапуска запросов в AsyncBoundary
   const handleRefetchAll = async (): Promise<void> => {
     await Promise.all([refetchMeals(), refetchProfile()]);
   };
 
-  // Комбинируем и приоритизируем ошибки через getErrorMessage
+  // Комбинируем и приоритизируем ошибки
   const combinedError = useMemo(() => {
     const activeError = mealsError || profileError;
     return activeError ? getErrorMessage(activeError) : null;
@@ -62,12 +84,13 @@ export function useDiaryLogic(selectedDate: string) {
     goals,
     progress,
 
-    // Статусы
+    // Статусы загрузки (разделяем первичную и фоновую дозагрузку)
     isLoading: mealsLoading || profileLoading,
-    error: combinedError, // перехватывает ЛЮБУЮ ошибку загрузки страницы
+    isFetching: mealsFetching,
+    error: combinedError,
 
     // Методы управления
-    refetch: handleRefetchAll, // Оживляем кнопку переотправки в AsyncBoundary
+    refetch: handleRefetchAll,
     deleteMeal,
     removeItem,
   };

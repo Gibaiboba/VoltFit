@@ -17,6 +17,7 @@ import { toISODate } from "@/lib/utils/date-utils";
 interface UseMealHistoryReturn {
   meals: SavedMeal[];
   isLoading: boolean;
+  isFetching: boolean;
   error: Error | PostgrestError | null;
   refetch: () => void;
   deleteMeal: UseMutateFunction<void, Error, string, unknown>;
@@ -29,33 +30,44 @@ interface UseMealHistoryReturn {
   isProcessing: boolean;
 }
 
-export function useMealHistory(studentId?: string): UseMealHistoryReturn {
+// ИСПРАВЛЕНО: Теперь хук принимает вторым аргументом необязательную дату фильтрации
+export function useMealHistory(
+  studentId?: string,
+  fromDate?: string,
+): UseMealHistoryReturn {
   const queryClient = useQueryClient();
   const currentUser = useUserStore((state) => state.user);
   const targetUserId = studentId || currentUser?.id;
 
-  // 1. Получаем полные данные (без фильтрации по дате в ключе)
+  // 1. Получаем данные с учетом временного окна
   const {
     data: meals = [],
     isLoading,
+    isFetching,
     error,
     refetch,
   } = useQuery<SavedMeal[], Error | PostgrestError>({
-    queryKey: ["meals-history", targetUserId],
+    // ИСПРАВЛЕНО: Добавили fromDate в queryKey, чтобы React Query знал о диапазоне кэша
+    queryKey: ["meals-history", targetUserId, fromDate],
     queryFn: async () => {
-      const { data, error: dbError } = await supabase
+      let query = supabase
         .from("user_meals")
         .select("*")
         .eq("user_id", targetUserId)
         .order("created_at", { ascending: true });
+
+      // ИСПРАВЛЕНО: Если дата передана, запрашиваем записи только ОТ этой даты (gte)
+      if (fromDate) {
+        query = query.gte("created_at", fromDate);
+      }
+
+      const { data, error: dbError } = await query;
 
       if (dbError) throw dbError;
       return data as SavedMeal[];
     },
     enabled: !!targetUserId,
   });
-
-  // Вспомогательная функция для получения даты напрямую из данных объекта
 
   const getMealDate = (mealId: string): string | null => {
     const meal = meals.find((m) => m.id === mealId);
@@ -72,7 +84,7 @@ export function useMealHistory(studentId?: string): UseMealHistoryReturn {
       await mealService.deleteMealWithLog(supabase, id, targetUserId, date);
     },
     onSuccess: () => {
-      // Инвалидируем все связанные данные
+      // ИСПРАВЛЕНО: Инвалидируем кэш с учетом переданной даты
       queryClient.invalidateQueries({
         queryKey: ["meals-history", targetUserId],
       });
@@ -128,6 +140,7 @@ export function useMealHistory(studentId?: string): UseMealHistoryReturn {
   return {
     meals,
     isLoading,
+    isFetching,
     error: (error as Error) || null,
     refetch,
     deleteMeal: deleteMutation.mutate,

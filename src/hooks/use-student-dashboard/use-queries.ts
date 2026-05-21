@@ -1,35 +1,66 @@
-// hooks/use-student-dashboard/use-queries.ts
 import { useMemo } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useInfiniteQuery } from "@tanstack/react-query";
 import { studentService } from "@/services/student.service";
-import { DailyLog } from "@/types/shared";
 import { useUserProfile } from "@/hooks/use-user-profile";
+import { Log } from "./types";
+import { toISODate } from "@/lib/utils/date-utils"; // Импортируем утилиту перевода дат
 
-export const useDashboardQueries = (userId: string) => {
-  // 1. Загрузка истории логов
-  const logsQuery = useQuery<DailyLog[]>({
-    queryKey: ["student-logs", userId],
-    queryFn: () => studentService.getLogs(userId),
+export const useDashboardQueries = (
+  userId: string,
+  serverToday: string,
+  selectedDate: string,
+) => {
+  // УМНОЕ РАСШИРЕНИЕ: Вычисляем динамическую дату старта
+  const fromDateDynamic = useMemo(() => {
+    const today = new Date(serverToday);
+    const selected = new Date(selectedDate);
+
+    // Базовый вариант: 30 дней назад от сегодняшнего дня
+    today.setDate(today.getDate() - 30);
+
+    // Если пользователь на календаре ушел глубже, чем базовые 30 дней назад
+    if (selected < today) {
+      // Сдвигаем границу кэша еще на 15 дней назад от ВЫБРАННОЙ даты (чтобы дать запас для кликов рядом)
+      selected.setDate(selected.getDate() - 15);
+      return toISODate(selected);
+    }
+
+    // Если кликаем внутри последнего месяца — дата старта стабильна (запросов в сеть нет)
+    return toISODate(today);
+  }, [serverToday, selectedDate]);
+
+  // 1. Бесконечная загрузка логов порциями (для страницы истории)
+  const logsInfiniteQuery = useInfiniteQuery<Log[], Error>({
+    queryKey: ["student-logs-infinite", userId],
+    queryFn: async ({ pageParam }) => {
+      const data = await studentService.getLogsPaged(
+        userId,
+        pageParam as string,
+        20,
+      );
+      return data as Log[];
+    },
+    initialPageParam: undefined,
+    getNextPageParam: (lastPage) => {
+      if (!lastPage || lastPage.length === 0) return undefined;
+      return lastPage[lastPage.length - 1].log_date;
+    },
     enabled: !!userId,
     staleTime: 1000 * 60 * 5,
   });
 
-  // 2. Передаем userId явно, чтобы React Query точно знал, чей профиль кэшировать
   const profileQuery = useUserProfile(userId);
 
-  // 3. Сортировка истории
   const history = useMemo(() => {
-    const data = logsQuery.data || [];
-    // Используем localeCompare для надежной сортировки строк YYYY-MM-DD
-    return [...data].sort((a, b) => b.log_date.localeCompare(a.log_date));
-  }, [logsQuery.data]);
+    return logsInfiniteQuery.data?.pages.flat() || [];
+  }, [logsInfiniteQuery.data]);
 
   return {
-    logsQuery,
+    logsQuery: logsInfiniteQuery,
     profileQuery,
     history,
-    profile: profileQuery.data ?? null, // Используем ?? для чистоты
-    // Используем isPending вместо isLoading, если хочешь ловить самое первое состояние загрузки
-    isLoading: logsQuery.isLoading || profileQuery.isLoading,
+    profile: profileQuery.data ?? null,
+    isLoading: logsInfiniteQuery.isLoading || profileQuery.isLoading,
+    fromDateDynamic, // Пробрасываем вычисленную динамическую дату наружу для еды
   };
 };
