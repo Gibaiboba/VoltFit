@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { useUserStore } from "@/store/useUserStore";
 import { useMealHistory } from "@/hooks/use-meal-history";
 import { useDashboardQueries } from "./use-queries";
@@ -17,14 +17,14 @@ export const useStudentDashboard = (
   // Локальное состояние для черновика ввода (веса, шагов, сна)
   const [userInput, setUserInput] = useState<Partial<FormDataType>>({});
 
-  // 2. Запросы через React Query логов и профиля (с логикой умного расширения диапазона)
+  // 2. Запросы через React Query (с новой блочной логикой кэширования по месяцам)
   const { history, profile, logsQuery, profileQuery, fromDateDynamic } =
     useDashboardQueries(userId, serverToday, selectedDate);
 
-  // Синхронизируем еду: передаем ту же динамическую дату, чтобы кэш калорий и БЖУ расширялся вместе с календарем
+  // Синхронизируем еду по тому же самому диапазону дат
   const { meals } = useMealHistory(userId, fromDateDynamic);
 
-  // 3. Математика и расчеты (на основе данных из кэша, еды и пользовательского ввода)
+  // 3. Расчеты на основе кэша и пользовательского ввода
   const stats = useDashboardCalculations(
     history,
     profile,
@@ -34,47 +34,59 @@ export const useStudentDashboard = (
     serverToday,
   );
 
-  // 4. Мутации (Сохранение отчетов в базу данных Supabase)
+  // 4. Мутации (с мгновенными оптимистичными обновлениями для range и infinite кэша)
   const { saveMutation } = useDashboardMutations(
     userId,
-    () => setUserInput({}), // Очистка локального черновика ввода при успешном сохранении
+    useCallback(() => setUserInput({}), []), // Очистка черновика при успехе
   );
 
-  // 5. Обработчики действий (Actions)
-  const handleDateChange = (date: string): void => {
-    setSelectedDate(date); // Меняем дату в глобальном Zustand-сторе
-    setUserInput({}); // Полностью сбрасываем черновик ввода при переходе на другой день
-  };
+  // 5. Обработчики действий (Actions) с оптимизацией быстродействия через useCallback
+  const handleDateChange = useCallback(
+    (date: string): void => {
+      setSelectedDate(date); // Меняем дату в Zustand-сторе
+      setUserInput({}); // Сбрасываем локальный черновик при переходе на другой день
+    },
+    [setSelectedDate],
+  );
 
-  // Функция для одновременного перезапуска всех тяжелых запросов дашборда при ошибке в AsyncBoundary
-  const handleRefetchAll = async (): Promise<void> => {
+  const handleRefetchAll = useCallback(async (): Promise<void> => {
     await Promise.all([logsQuery.refetch(), profileQuery.refetch()]);
-  };
+  }, [logsQuery, profileQuery]);
 
-  const setFormData = (updater: FormUpdater): void => {
-    if (typeof updater === "function") {
-      setUserInput((prev) => {
-        const next = updater(stats.formData);
-        return { ...prev, ...next };
-      });
-    } else {
-      setUserInput((prev) => ({ ...prev, ...updater }));
-    }
-  };
+  const setFormData = useCallback(
+    (updater: FormUpdater): void => {
+      if (typeof updater === "function") {
+        setUserInput((prev) => {
+          // Передаем в коллбэк объединенное состояние для точечного обновления
+          const next = updater({ ...stats.formData, ...prev });
+          return { ...prev, ...next };
+        });
+      } else {
+        setUserInput((prev) => ({ ...prev, ...updater }));
+      }
+    },
+    [stats.formData],
+  );
 
-  const addWater = (): void => {
-    setFormData((prev) => ({
-      water: (Number(prev.water) || 0) + 250,
+  // ИСПРАВЛЕНО: Безопасное добавление воды на основе актуальных вычисленных данных дня
+  const addWater = useCallback((): void => {
+    const currentWater = Number(stats.formData.water) || 0;
+    setUserInput((prev) => ({
+      ...prev,
+      water: currentWater + 250,
     }));
-  };
+  }, [stats.formData.water]);
 
-  const removeWater = (): void => {
-    setFormData((prev) => ({
-      water: Math.max(0, (Number(prev.water) || 0) - 250),
+  // ИСПРАВЛЕНО: Безопасное удаление воды
+  const removeWater = useCallback((): void => {
+    const currentWater = Number(stats.formData.water) || 0;
+    setUserInput((prev) => ({
+      ...prev,
+      water: Math.max(0, currentWater - 250),
     }));
-  };
+  }, [stats.formData.water]);
 
-  const handleSave = (): void => {
+  const handleSave = useCallback((): void => {
     saveMutation.mutate({
       log_date: selectedDate,
       steps: parseInt(stats.formData.steps) || 0,
@@ -87,16 +99,16 @@ export const useStudentDashboard = (
       water: stats.formData.water,
       activity_level: stats.formData.activity_level,
     });
-  };
+  }, [selectedDate, stats, saveMutation]);
 
   return {
     state: {
       ...stats,
-      // Флаг загрузки: активен, только если идет первичный запрос и данных в истории еще нет
+      // Загрузка активна только при первичном запросе диапазона, если в кэше пусто
       loading:
         (logsQuery.isLoading || profileQuery.isLoading) && history.length === 0,
 
-      // Приоритизация вывода ошибок: сначала ошибки сохранения отчета, затем ошибки загрузки
+      // Вывод ошибок: мутации в приоритете, затем ошибки чтения
       error: saveMutation.error
         ? getErrorMessage(saveMutation.error)
         : logsQuery.error || profileQuery.error
@@ -107,9 +119,6 @@ export const useStudentDashboard = (
       profile,
       isSaving: saveMutation.isPending,
       todayStr: serverToday,
-
-      // Пробрасываем сам объект InfiniteQuery наружу для управления бесконечным скроллом в HistoryLogPage
-      logsQuery: logsQuery,
     },
     actions: {
       handleDateChange,

@@ -1,6 +1,6 @@
 "use client";
 
-import { Calendar, RotateCcw } from "lucide-react";
+import { Calendar, RotateCcw, ChevronLeft, ChevronRight } from "lucide-react";
 import { useMemo, useRef } from "react";
 import { toISODate } from "@/lib/utils/date-utils";
 
@@ -30,6 +30,14 @@ export function DateNavigation({
         dateInputRef.current.focus();
       }
     }
+  };
+
+  // Функция для шага назад или вперед на 1 день
+  const handleDayStep = (step: number) => {
+    if (!selectedDate) return;
+    const date = new Date(selectedDate);
+    date.setDate(date.getDate() + step);
+    onDateChange(toISODate(date));
   };
 
   const formattedSelectedDate = useMemo(() => {
@@ -86,17 +94,39 @@ export function DateNavigation({
           <Calendar className="w-4 h-4 text-yellow-500 transition-transform group-hover:scale-110" />
         </button>
 
-        {/* Интерактивная текстовая зона по центру экрана. 
-            Ширина ограничена (max-w-[180px]), чтобы текст не налезал на кнопку "Назад" */}
-        <button
-          type="button"
-          onClick={handleIconClick}
-          className="absolute left-1/2 -translate-x-1/2 w-full max-w-[180px] text-center py-1.5 hover:bg-slate-50 rounded-xl transition-all group"
-        >
-          <span className="text-sm font-black text-slate-700 select-none truncate block">
-            {formattedSelectedDate}
-          </span>
-        </button>
+        {/* Блок центрального управления: Стрелка Влево + Текст + Стрелка Вправо */}
+        <div className="absolute left-1/2 -translate-x-1/2 flex items-center gap-1">
+          {/* Стрелка "Предыдущий день" */}
+          <button
+            type="button"
+            onClick={() => handleDayStep(-1)}
+            className="p-1.5 hover:bg-slate-50 text-slate-400 hover:text-slate-700 rounded-lg transition-colors"
+            aria-label="Предыдущий день"
+          >
+            <ChevronLeft className="w-4 h-4" />
+          </button>
+
+          {/* Интерактивная текстовая зона по центру экрана */}
+          <button
+            type="button"
+            onClick={handleIconClick}
+            className="w-full min-w-[140px] max-w-[160px] text-center py-1.5 hover:bg-slate-50 rounded-xl transition-all group"
+          >
+            <span className="text-sm font-black text-slate-700 select-none truncate block">
+              {formattedSelectedDate}
+            </span>
+          </button>
+
+          {/* Стрелка "Следующий день" */}
+          <button
+            type="button"
+            onClick={() => handleDayStep(1)}
+            className="p-1.5 hover:bg-slate-50 text-slate-400 hover:text-slate-700 rounded-lg transition-colors"
+            aria-label="Следующий день"
+          >
+            <ChevronRight className="w-4 h-4" />
+          </button>
+        </div>
 
         {/* Полностью изолированный скрытый инпут */}
         <input
@@ -118,13 +148,7 @@ export function DateNavigation({
               : "bg-yellow-400 text-black hover:bg-yellow-300 shadow-lg active:scale-95"
           }`}
         >
-          {isToday ? (
-            <RotateCcw className="w-3 h-3" />
-          ) : (
-            <>
-              <RotateCcw className="w-3 h-3" />{" "}
-            </>
-          )}
+          <RotateCcw className="w-3 h-3" />
         </button>
       </div>
 

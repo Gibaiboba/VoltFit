@@ -88,9 +88,15 @@ export function useMealHistory(
       queryClient.invalidateQueries({
         queryKey: ["meals-history", targetUserId],
       });
+
+      // ИСПРАВЛЕНО И СИНХРОНИЗИРОВАНО: Сбрасываем новые ключи кэша логов дашборда и истории
       queryClient.invalidateQueries({
-        queryKey: ["student-logs", targetUserId],
+        queryKey: ["student-logs-range", targetUserId],
       });
+      queryClient.invalidateQueries({
+        queryKey: ["student-logs-infinite", targetUserId],
+      });
+
       queryClient.invalidateQueries({
         queryKey: ["daily-stats", targetUserId],
       });
@@ -124,9 +130,15 @@ export function useMealHistory(
       queryClient.invalidateQueries({
         queryKey: ["meals-history", targetUserId],
       });
+
+      // ИСПРАВЛЕНО И СИНХРОНИЗИРОВАНО: Сбрасываем новые ключи кэша логов дашборда и истории
       queryClient.invalidateQueries({
-        queryKey: ["student-logs", targetUserId],
+        queryKey: ["student-logs-range", targetUserId],
       });
+      queryClient.invalidateQueries({
+        queryKey: ["student-logs-infinite", targetUserId],
+      });
+
       queryClient.invalidateQueries({
         queryKey: ["daily-stats", targetUserId],
       });

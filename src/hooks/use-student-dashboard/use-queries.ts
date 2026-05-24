@@ -1,66 +1,61 @@
 import { useMemo } from "react";
-import { useInfiniteQuery } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { studentService } from "@/services/student.service";
 import { useUserProfile } from "@/hooks/use-user-profile";
 import { Log } from "./types";
-import { toISODate } from "@/lib/utils/date-utils"; // Импортируем утилиту перевода дат
+import { toISODate } from "@/lib/utils/date-utils";
 
 export const useDashboardQueries = (
   userId: string,
   serverToday: string,
   selectedDate: string,
 ) => {
-  // УМНОЕ РАСШИРЕНИЕ: Вычисляем динамическую дату старта
+  //  Округляем дату старта до начала месяца, чтобы стабилизировать кэш
   const fromDateDynamic = useMemo(() => {
-    const today = new Date(serverToday);
     const selected = new Date(selectedDate);
 
-    // Базовый вариант: 30 дней назад от сегодняшнего дня
-    today.setDate(today.getDate() - 30);
+    // Вычисляем дату 30 дней назад для базового покрытия
+    const baseLimit = new Date(serverToday);
+    baseLimit.setDate(baseLimit.getDate() - 30);
 
-    // Если пользователь на календаре ушел глубже, чем базовые 30 дней назад
-    if (selected < today) {
-      // Сдвигаем границу кэша еще на 15 дней назад от ВЫБРАННОЙ даты (чтобы дать запас для кликов рядом)
-      selected.setDate(selected.getDate() - 15);
-      return toISODate(selected);
+    // Если выбранная дата находится в пределах последних 30 дней
+    if (selected >= baseLimit) {
+      return toISODate(baseLimit);
     }
 
-    // Если кликаем внутри последнего месяца — дата старта стабильна (запросов в сеть нет)
-    return toISODate(today);
+    // Если пользователь ушел глубже 30 дней:
+    // Округляем до 1-го числа месяца выбранной даты.
+    // Таким образом, сколько бы пользователь ни кликал внутри ЭТОГО месяца в прошлом,
+    // fromDateDynamic не изменится, и повторного запроса в сеть не будет!
+    const startOfSelectedMonth = new Date(
+      selected.getFullYear(),
+      selected.getMonth(),
+      1,
+    );
+
+    return toISODate(startOfSelectedMonth);
   }, [serverToday, selectedDate]);
 
-  // 1. Бесконечная загрузка логов порциями (для страницы истории)
-  const logsInfiniteQuery = useInfiniteQuery<Log[], Error>({
-    queryKey: ["student-logs-infinite", userId],
-    queryFn: async ({ pageParam }) => {
-      const data = await studentService.getLogsPaged(
-        userId,
-        pageParam as string,
-        20,
-      );
-      return data as Log[];
-    },
-    initialPageParam: undefined,
-    getNextPageParam: (lastPage) => {
-      if (!lastPage || lastPage.length === 0) return undefined;
-      return lastPage[lastPage.length - 1].log_date;
-    },
+  // Запрос логов за стабильный диапазон дат
+  const logsQuery = useQuery<Log[], Error>({
+    queryKey: ["student-logs-range", userId, fromDateDynamic],
+    queryFn: () =>
+      studentService.getLogsFromDate(userId, fromDateDynamic) as Promise<Log[]>,
     enabled: !!userId,
-    staleTime: 1000 * 60 * 5,
+    staleTime: 1000 * 60 * 5, // 5 минут полной стабильности данных в памяти
   });
 
   const profileQuery = useUserProfile(userId);
 
   const history = useMemo(() => {
-    return logsInfiniteQuery.data?.pages.flat() || [];
-  }, [logsInfiniteQuery.data]);
+    return logsQuery.data || [];
+  }, [logsQuery.data]);
 
   return {
-    logsQuery: logsInfiniteQuery,
+    logsQuery,
     profileQuery,
     history,
     profile: profileQuery.data ?? null,
-    isLoading: logsInfiniteQuery.isLoading || profileQuery.isLoading,
-    fromDateDynamic, // Пробрасываем вычисленную динамическую дату наружу для еды
+    fromDateDynamic,
   };
 };

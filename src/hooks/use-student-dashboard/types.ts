@@ -1,5 +1,4 @@
 import { UserProfile } from "@/types/user";
-import { UseInfiniteQueryResult, InfiniteData } from "@tanstack/react-query";
 
 export interface Log {
   id?: string;
@@ -52,7 +51,6 @@ export interface StudentDashboardHook {
     profile: UserProfile | null;
     isSaving: boolean;
     error: string | null;
-    logsQuery: UseInfiniteQueryResult<InfiniteData<Log[], unknown>, Error>;
   };
   actions: {
     handleDateChange: (date: string) => void;

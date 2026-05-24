@@ -49,8 +49,11 @@ export const useSaveMeal = (serverToday: string) => {
       // 4. Инвалидация кэша для мгновенного обновления UI
       // Обновляем историю приемов пищи
       queryClient.invalidateQueries({ queryKey: ["meals-history"] });
-      // Обновляем логи (если они используются в других местах)
-      queryClient.invalidateQueries({ queryKey: ["student-logs"] });
+
+      // ИСПРАВЛЕНО И СИНХРОНИЗИРОВАНО: Сбрасываем новые ключи кэша логов дашборда и бесконечной истории
+      queryClient.invalidateQueries({ queryKey: ["student-logs-range"] });
+      queryClient.invalidateQueries({ queryKey: ["student-logs-infinite"] });
+
       // Обновляем общую статистику за день (калории и т.д.)
       queryClient.invalidateQueries({ queryKey: ["daily-stats"] });
 

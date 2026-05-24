@@ -26,6 +26,21 @@ export const studentService = {
   },
 
   /**
+   * Получить логи студента, начиная с определенной даты (для календаря и графиков дашборда)
+   */
+  async getLogsFromDate(userId: string, fromDate: string): Promise<DailyLog[]> {
+    const { data, error } = await supabase
+      .from("daily_logs")
+      .select("*")
+      .eq("user_id", userId)
+      .gte("log_date", fromDate) // gte — Больше или равно (>=)
+      .order("log_date", { ascending: false }); // Сортируем от свежих к старым
+
+    if (error) throw error;
+    return data || [];
+  },
+
+  /**
    * Получить логи студента порциями (пагинация для бесконечного скролла)
    * @param userId - ID пользователя
    * @param cursorDate - дата-курсор (запрашиваем логи строго СТАРШЕ этой даты)
@@ -57,15 +72,12 @@ export const studentService = {
   /**
    * Сохранить или обновить лог за день
    */
-  async saveLog(userId: string, logData: Partial<DailyLog>) {
+  async saveLog(userId: string, logData: Partial<DailyLog>): Promise<DailyLog> {
     const { data, error } = await supabase
       .from("daily_logs")
       .upsert(
         { user_id: userId, ...logData },
-        {
-          onConflict: "user_id, log_date",
-          ignoreDuplicates: false,
-        },
+        { onConflict: "user_id, log_date" },
       )
       .select()
       .single();
@@ -73,7 +85,6 @@ export const studentService = {
     if (error) throw error;
     return data;
   },
-
   /**
    * Получить приемы пищи с определенной даты (для оптимизации кэша)
    */
