@@ -13,7 +13,7 @@ import { SaveButton } from "@/components/student/save-button";
 import { DateNavigation } from "@/components/student/date-navigation";
 import { DashboardSkeleton } from "@/components/student/dashboard-skeleton";
 import { useStudentDashboard } from "@/hooks/use-student-dashboard/index";
-import { useMacroStats } from "@/hooks/use-macro-stats"; // ИСПРАВЛЕНО: Импортируем наш хук
+import { useMacroStats } from "@/hooks/use-macro-stats";
 import AsyncBoundary from "@/components/shared/AsyncBoundary";
 import { useUserStore } from "@/store/useUserStore";
 
@@ -70,15 +70,16 @@ export default function StudentClient({
   );
 
   return (
-    <AsyncBoundary
-      isLoading={loading}
-      error={error && history && history.length === 0 ? error : null}
-      onRetry={refetch}
-      skeleton={<DashboardSkeleton />}
-    >
-      {/* Главная серая подложка страницы */}
-      <div className="p-6 bg-[#F4F4F5] min-h-screen pt-24 pb-44 text-slate-900 animate-in fade-in duration-300">
-        <div className="max-w-4xl mx-auto space-y-8">
+    /* Внешний контейнер со стабильными отступами вынесен за пределы AsyncBoundary */
+    <div className="p-6 bg-[#F4F4F5] min-h-screen pt-24 text-slate-900">
+      <AsyncBoundary
+        isLoading={loading}
+        error={error && history && history.length === 0 ? error : null}
+        onRetry={refetch}
+        skeleton={<DashboardSkeleton />}
+      >
+        {/* Анимация появления применяется только к загруженному контенту */}
+        <div className="max-w-4xl mx-auto space-y-8 animate-in fade-in duration-300">
           {/* Навигация дат */}
           <div className="flex items-center justify-between">
             <DateNavigation
@@ -88,6 +89,9 @@ export default function StudentClient({
               onDateChange={handleDateChange}
             />
           </div>
+
+          <PersonalTip metadata={profile?.onboarding_metadata} />
+
           {/* Баннер калорий */}
           <div>
             <CaloriesBanner
@@ -96,8 +100,8 @@ export default function StudentClient({
               progress={calProgress}
             />
           </div>
-          {/* Макронутриенты */}
 
+          {/* Макронутриенты */}
           <MacrosComboCard macros={macroStats} />
 
           {/* Сетка метрик, активность и кнопка */}
@@ -139,8 +143,6 @@ export default function StudentClient({
               onChange={(v) => setFormData({ activity_level: v })}
             />
 
-            <PersonalTip metadata={profile?.onboarding_metadata} />
-
             <SaveButton
               onClick={handleSave}
               isSaving={isSaving}
@@ -148,7 +150,7 @@ export default function StudentClient({
             />
           </div>
         </div>
-      </div>
-    </AsyncBoundary>
+      </AsyncBoundary>
+    </div>
   );
 }

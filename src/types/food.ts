@@ -39,3 +39,14 @@ export interface SaveMealResponse {
   data?: SavedMeal; // Объект из БД (с id, калориями и т.д.)
   error: string | null;
 }
+export interface DiaryMealSlotProps {
+  slot: { id: MealType; label: string };
+  savedMeal: SavedMeal | undefined;
+  isExpanded: boolean;
+  isFormActiveForThisSlot: boolean;
+  onToggle: (slotId: string) => void;
+  onPlusClick: (e: React.MouseEvent) => void;
+  onRemoveItem: (data: { mealId: string; productId: string }) => void;
+  onDeleteMeal: (id: string) => void;
+  onCloseSlot: (slotId: string) => void;
+}

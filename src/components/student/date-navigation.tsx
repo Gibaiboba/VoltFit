@@ -81,7 +81,7 @@ export function DateNavigation({
   }, [todayStr]);
 
   return (
-    <div className="flex flex-col gap-6 mb-8 w-full max-w-md mx-auto">
+    <div className="flex flex-col gap-4 mb-2 w-full max-w-md mx-auto">
       {/* Относительный контейнер, высота фиксирована для стабильности (h-11) */}
       <div className="relative flex items-center h-11 px-2 rounded-2xl bg-transparent">
         {/* Иконка жестко привязана к левому краю */}

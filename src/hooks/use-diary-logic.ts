@@ -1,4 +1,3 @@
-// hooks/use-diary-logic.ts
 import { useMemo } from "react";
 import { useMealHistory } from "@/hooks/use-meal-history";
 import { useUserProfile } from "@/hooks/use-user-profile";
@@ -65,6 +64,35 @@ export function useDiaryLogic(selectedDate: string, serverToday: string) {
     goals.kcal,
   );
 
+  // ОПТИМИЗАЦИЯ: Мемоизируем сортировку и трансформируем массив в объект-карту.
+  // Это предотвращает создание новых ссылок на массив при каждом рендере и убирает линейный поиск .find()
+  const displayMealsMap = useMemo(() => {
+    const sorted = sortMeals(dayMeals);
+
+    const map: Record<string, (typeof dayMeals)[number]> = {};
+    for (const meal of sorted) {
+      // 1. Берем исходный тип
+      let slotKey = meal.meal_type;
+
+      // 2. Если типа нет (null), определяем его по имени или отправляем в snack
+      if (!slotKey && meal.meal_name) {
+        const nameLower = meal.meal_name.toLowerCase();
+
+        if (nameLower.includes("завтр")) slotKey = "breakfast";
+        else if (nameLower.includes("обед")) slotKey = "lunch";
+        else if (nameLower.includes("ужин")) slotKey = "dinner";
+        else if (nameLower.includes("пер") || nameLower.includes("снак"))
+          slotKey = "snack";
+      }
+
+      // 3. Абсолютный fallback: если вообще ничего не подошло, пишем в 'snack'
+      const finalKey = slotKey || "snack";
+
+      map[finalKey] = meal;
+    }
+    return map;
+  }, [dayMeals]);
+
   // Функция для одновременного перезапуска запросов в AsyncBoundary
   const handleRefetchAll = async (): Promise<void> => {
     await Promise.all([refetchMeals(), refetchProfile()]);
@@ -77,8 +105,8 @@ export function useDiaryLogic(selectedDate: string, serverToday: string) {
   }, [mealsError, profileError]);
 
   return {
-    // Данные для отображения
-    displayMeals: sortMeals(dayMeals),
+    // Данные для отображения (теперь в виде стабильного словаря)
+    displayMeals: displayMealsMap,
     allMeals: meals,
     consumed: roundedStats,
     goals,

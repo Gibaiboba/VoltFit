@@ -11,7 +11,6 @@ export default function StudentTabsLayout({
 }) {
   const pathname = usePathname();
 
-  // Пути теперь строго внутри подпапок /student
   const tabs = [
     { id: "/student", label: "Трекер", icon: CalendarCheck },
     { id: "/student/diary", label: "Еда", icon: Utensils },
@@ -21,7 +20,9 @@ export default function StudentTabsLayout({
 
   return (
     <div className="min-h-screen bg-[#F4F4F5]">
-      <main>{children}</main>
+      <main className="pb-[calc(7rem+env(safe-area-inset-bottom))]">
+        {children}
+      </main>
 
       <div className="fixed bottom-0 left-0 right-0 z-50">
         <div className="absolute inset-0 bg-gradient-to-t from-[#F4F4F5] via-[#F4F4F5]/90 to-transparent h-full pointer-events-none" />
@@ -29,14 +30,13 @@ export default function StudentTabsLayout({
         <div className="max-w-md mx-auto flex items-end justify-around h-28 px-6 pb-8 relative z-10">
           {tabs.map((tab) => {
             const Icon = tab.icon;
-            // Проверяем активность вкладки
             const isActive = pathname === tab.id;
 
             return (
               <Link
                 key={tab.id}
                 href={tab.id}
-                prefetch={true} // Включаем предзагрузку для мгновенного перехода
+                prefetch={true}
                 className="flex flex-col items-center gap-1.5 transition-all group"
               >
                 <div
@@ -59,7 +59,8 @@ export default function StudentTabsLayout({
             );
           })}
         </div>
-        <div className="h-[env(safe-area-inset-bottom)]" />
+        {/* Хелпер безопасной зоны iOS */}
+        <div className="h-[env(safe-area-inset-bottom)] bg-[#F4F4F5]" />
       </div>
     </div>
   );

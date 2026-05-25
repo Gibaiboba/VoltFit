@@ -4,156 +4,115 @@ import { useState, useEffect } from "react";
 import { useProductSearch } from "@/hooks/use-product-search";
 import { useMealStore } from "@/store/useMealStore";
 import { useSaveMeal } from "@/hooks/use-save-meal";
-import { useMealHistory } from "@/hooks/use-meal-history";
 import { SearchPanel } from "@/components/food/search-panel";
 import { ConstructorList } from "@/components/food/constructor-list";
 import { SummaryCard } from "@/components/food/summary-card";
-import { MealType } from "@/types/food";
-import { ChevronLeft, Plus } from "lucide-react";
-import { toISODate } from "@/lib/utils/date-utils";
-export default function FoodConstructor({
-  serverToday,
-}: {
+import { ChevronLeft } from "lucide-react";
+
+interface FoodConstructorProps {
   serverToday: string;
-}) {
+}
+
+const MEAL_LABELS: Record<string, string> = {
+  breakfast: "Завтрак",
+  lunch: "Обед",
+  dinner: "Ужин",
+  snack: "Перекус",
+};
+
+export default function FoodConstructor({ serverToday }: FoodConstructorProps) {
   const [query, setQuery] = useState<string>("");
   const [comment, setComment] = useState<string>("");
 
-  // 1. Подгружаем историю за выбранный день
-  const { meals: history = [] } = useMealHistory(undefined);
+  // Атомарные селекторы Zustand для исключения паразитных ререндеров
+  const selectedItems = useMealStore((state) => state.selectedItems);
+  const addItem = useMealStore((state) => state.addItem);
+  const removeItem = useMealStore((state) => state.removeItem);
+  const updateWeight = useMealStore((state) => state.updateWeight);
+  const getTotal = useMealStore((state) => state.getTotal);
+  const activeMealType = useMealStore((state) => state.activeMealType);
+  const setMealType = useMealStore((state) => state.setMealType);
+  const clearItems = useMealStore((state) => state.clearItems);
 
   const { data: results = [], isLoading: isSearching } =
     useProductSearch(query);
-
-  const {
-    selectedItems,
-    addItem,
-    removeItem,
-    updateWeight,
-    getTotal,
-    activeMealType,
-    setMealType,
-    loadItems,
-    clearItems,
-  } = useMealStore();
-
   const { saveMeal, isPending } = useSaveMeal(serverToday);
 
+  // Важный UX: Блокировка прокрутки основного экрана при открытом конструкторе
   useEffect(() => {
-    clearItems();
-  }, [clearItems]);
-
-  const mealSlots: { id: MealType; label: string }[] = [
-    { id: "breakfast", label: "Завтрак" },
-    { id: "lunch", label: "Обед" },
-    { id: "dinner", label: "Ужин" },
-    { id: "snack", label: "Перекус" },
-  ];
-
-  // логика выбора слота через toISODate
-  const handleSelectSlot = (slotId: MealType) => {
-    clearItems();
-    setComment("");
-
-    const existing = history.find((m) => {
-      // Используем функцию для корректного сравнения дат с учетом часового пояса
-      const mealDate = toISODate(new Date(m.created_at));
-      return m.meal_type === slotId && mealDate === serverToday;
-    });
-
-    if (existing) {
-      loadItems(existing.items, slotId, existing.id);
-      setComment(existing.meal_name || "");
-    } else {
-      setMealType(slotId);
+    if (activeMealType) {
+      document.body.classList.add("overflow-hidden");
     }
+    return () => {
+      document.body.classList.remove("overflow-hidden");
+    };
+  }, [activeMealType]);
+
+  // Безопасный выход, если слой неактивен
+  if (!activeMealType) return null;
+
+  const currentLabel = MEAL_LABELS[activeMealType] || "Прием пищи";
+
+  const handleClose = () => {
+    setMealType(null);
+    clearItems();
+    setQuery("");
+    setComment("");
   };
 
-  if (!activeMealType) {
-    return (
-      <div className="mt-32 max-w-2xl mx-auto p-6">
-        <h2 className="text-2xl font-black text-slate-900 mb-8 text-center uppercase tracking-tighter">
-          Выберите прием пищи
-        </h2>
-        <div className="grid grid-cols-1 gap-4">
-          {mealSlots.map((slot) => {
-            // Исправленный поиск для отображения калорий на кнопках
-            const saved = history.find((m) => {
-              const mealDate = toISODate(new Date(m.created_at));
-              return m.meal_type === slot.id && mealDate === serverToday;
-            });
-
-            return (
-              <button
-                key={slot.id}
-                onClick={() => handleSelectSlot(slot.id)}
-                className="flex items-center justify-between p-6 rounded-3xl bg-white border border-slate-100 shadow-sm hover:border-slate-300 transition-all group"
-              >
-                <div className="flex flex-col items-start text-left">
-                  <span className="font-bold text-slate-800 uppercase tracking-widest text-sm">
-                    {slot.label}
-                  </span>
-                  {saved && (
-                    <span className="text-xs font-bold text-emerald-500 mt-1">
-                      {Math.round(saved.total_kcal)} ккал
-                    </span>
-                  )}
-                </div>
-                <div className="p-2 rounded-full bg-slate-900 text-white group-hover:scale-110 transition-transform">
-                  <Plus size={20} />
-                </div>
-              </button>
-            );
-          })}
-        </div>
-      </div>
-    );
-  }
-
-  const currentLabel =
-    mealSlots.find((s) => s.id === activeMealType)?.label || "Прием пищи";
+  const handleSaveMeal = async () => {
+    await saveMeal(comment);
+    setMealType(null); // Автоматически закрываем оверлей после успешного сохранения
+    clearItems(); // Очищаем стейт выбранных продуктов
+    setComment(""); // Сбрасываем комментарий к блюду
+    setQuery(""); // Очищаем строку поиска
+  };
 
   return (
-    <div className="mt-24 max-w-6xl mx-auto p-6">
-      <button
-        onClick={() => {
-          setMealType(null);
-          clearItems();
-          setQuery("");
-        }}
-        className="flex items-center gap-2 text-slate-400 hover:text-slate-900 mb-6 font-bold text-xs transition-colors uppercase tracking-widest"
-      >
-        <ChevronLeft size={14} /> Назад к выбору
-      </button>
+    /* Внешняя обертка в стиле страниц личного кабинета с плавной анимацией появления */
+    <div className="space-y-8 animate-in fade-in duration-300 text-slate-900">
+      {/* ВЕРХНЯЯ СЕКЦИЯ: Шапка конструктора */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200/60 pb-6">
+        <button
+          onClick={handleClose}
+          className="flex items-center gap-2 text-slate-400 hover:text-slate-900 font-black text-xs transition-colors uppercase tracking-widest bg-white border border-slate-200 shadow-sm px-4 py-2.5 rounded-xl hover:border-slate-300 active:scale-95 duration-200"
+        >
+          <ChevronLeft size={14} /> Назад в дневник
+        </button>
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 items-start">
-        <SearchPanel
-          query={query}
-          setQuery={setQuery}
-          results={results}
-          isLoading={isSearching}
-          onAddItem={addItem}
-        />
+        <span className="px-5 py-2.5 rounded-xl bg-slate-950 text-white text-[10px] font-black uppercase tracking-[0.2em] w-fit shadow-sm">
+          Режим ввода: {currentLabel}
+        </span>
+      </div>
 
-        <div className="lg:col-span-7 bg-white p-8 rounded-[40px] border border-slate-100 shadow-xl shadow-slate-200/50">
-          <div className="mb-6">
-            <span className="px-5 py-2 rounded-full bg-slate-900 text-white text-[10px] font-black uppercase tracking-[0.2em]">
-              {currentLabel}
-            </span>
-          </div>
+      {/* ОСНОВНАЯ СЕТКА: Поиск слева, Конструктор справа */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+        {/* Левая панель: Поиск и выдача продуктов (занимает 5 колонок из 12) */}
+        <div className="lg:col-span-5">
+          <SearchPanel
+            query={query}
+            setQuery={setQuery}
+            results={results}
+            isLoading={isSearching}
+            onAddItem={addItem}
+          />
+        </div>
 
+        {/* Правая панель: Список выбранного и КБЖУ (занимает 7 колонок из 12) */}
+        <div className="lg:col-span-7 bg-white p-6 md:p-8 rounded-[32px] border border-slate-100 shadow-sm">
           <ConstructorList
             items={selectedItems}
             onUpdateWeight={updateWeight}
             onRemoveItem={removeItem}
           />
 
+          {/* Карточка суммирования КБЖУ и кнопка сохранения */}
           {selectedItems.length > 0 && (
             <SummaryCard
               totals={getTotal()}
               mealName={comment}
               setMealName={setComment}
-              onSave={() => saveMeal(comment)}
+              onSave={handleSaveMeal}
               isPending={isPending}
             />
           )}
