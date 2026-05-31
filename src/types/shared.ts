@@ -1,5 +1,4 @@
 export type Goal = "lose_weight" | "gain_muscle" | "maintain";
-export type ActivityLevelValue = 1.2 | 1.375 | 1.55 | 1.725;
 
 // Самый важный тип — Единый Лог между тренером и учеником
 export interface DailyLog {
@@ -11,9 +10,12 @@ export interface DailyLog {
   calories: number;
   sleep_hours: number;
   water: number;
-  activity_level: string;
   created_at?: string;
   proteins?: number;
   fats?: number;
   carbs?: number;
+  selected_activity_id: string | null;
+  activity_duration: number;
+  activity_name?: string;
+  burned_calories: number;
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, useEffect } from "react";
 import { toISODate } from "@/lib/utils/date-utils";
 import { useDiaryLogic } from "@/hooks/use-diary-logic";
 import { useMacroStats } from "@/hooks/use-macro-stats";
@@ -27,7 +27,6 @@ export default function DiaryPage() {
 
   const todayStr = useMemo(() => toISODate(new Date()), []);
 
-  // Состояние открытых аккордеонов для каждого слота
   const [expandedSlots, setExpandedSlots] = useState<Record<string, boolean>>({
     breakfast: false,
     lunch: false,
@@ -35,7 +34,37 @@ export default function DiaryPage() {
     snack: false,
   });
 
-  // Бизнес-логика данных (с умным квантованием архивных дат)
+  // 1. Блокировка скролла
+  useEffect(() => {
+    document.body.style.overflow = activeMealType ? "hidden" : "";
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, [activeMealType]);
+
+  const handleCloseConstructor = useCallback(() => {
+    setMealType(null);
+    setExpandedSlots({
+      breakfast: false,
+      lunch: false,
+      dinner: false,
+      snack: false,
+    });
+  }, [setMealType]);
+
+  // 2. Обработчик системной кнопки «Назад»
+  useEffect(() => {
+    const handlePopState = () => {
+      // Закрываем оверлей ТОЛЬКО если мы вернулись с нашего искусственного стейта
+      if (activeMealType) {
+        handleCloseConstructor();
+      }
+    };
+
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, [activeMealType, handleCloseConstructor]);
+
   const {
     displayMeals,
     allMeals,
@@ -50,10 +79,8 @@ export default function DiaryPage() {
     removeItem,
   } = useDiaryLogic(selectedDate, todayStr);
 
-  // Оптимизированный расчет макросов
   const macroStats = useMacroStats(goals, consumed);
 
-  // Вычисляем дни, в которых есть записи
   const daysWithData = useMemo(() => {
     if (!allMeals) return [];
     return Array.from(
@@ -61,7 +88,6 @@ export default function DiaryPage() {
     );
   }, [allMeals]);
 
-  // Ссылочно-стабильные методы управления аккордеонами
   const toggleSlot = useCallback((slotId: string) => {
     setExpandedSlots((prev) => ({ ...prev, [slotId]: !prev[slotId] }));
   }, []);
@@ -76,37 +102,42 @@ export default function DiaryPage() {
       clearItems();
 
       const existing = displayMeals[slotId];
-
       if (existing) {
         loadItems(existing.items, slotId, existing.id);
-      } else {
-        setMealType(slotId);
       }
 
+      setMealType(slotId);
+      window.history.pushState({ isOverlayOpen: true }, "", "");
       setExpandedSlots((prev) => ({ ...prev, [slotId]: true }));
     },
     [displayMeals, clearItems, loadItems, setMealType],
   );
 
-  return (
-    <AsyncBoundary
-      isLoading={isLoading && allMeals.length === 0}
-      error={error}
-      onRetry={refetch}
-      skeleton={<HistorySkeleton />}
-    >
-      <div className="mt-24 max-w-4xl mx-auto p-6 lg:p-8 space-y-8 relative text-slate-900">
-        {/* Индикатор фонового обновления архива */}
-        {isFetching && allMeals.length > 0 && (
-          <div className="absolute top-4 right-6 text-[10px] font-black text-slate-400 uppercase tracking-widest animate-pulse pointer-events-none">
-            ⏳ Обновление архива...
-          </div>
-        )}
+  const handleProgrammaticClose = useCallback(() => {
+    if (window.history.state?.isOverlayOpen) {
+      window.history.back();
+    } else {
+      handleCloseConstructor();
+    }
+  }, [handleCloseConstructor]);
 
-        {/* ВЕРХНЯЯ СЕКЦИЯ: Навигация по датам */}
-        <section className="space-y-6">
-          <div className="flex justify-center w-full">
-            <div className="w-full md:w-auto flex justify-center">
+  return (
+    <div className="p-6 bg-[#F4F4F5] min-h-screen pt-24 text-slate-900 relative">
+      <AsyncBoundary
+        isLoading={isLoading && allMeals.length === 0}
+        error={error}
+        onRetry={refetch}
+        skeleton={<HistorySkeleton />}
+      >
+        <div className="max-w-4xl mx-auto space-y-8 animate-in fade-in duration-300">
+          {isFetching && allMeals.length > 0 && (
+            <div className="absolute top-4 right-6 text-[10px] font-black text-slate-400 uppercase tracking-widest animate-pulse pointer-events-none">
+              ⏳ Обновление архива...
+            </div>
+          )}
+
+          <section className="space-y-6">
+            <div className="flex items-center justify-between">
               <DateNavigation
                 selectedDate={selectedDate}
                 todayStr={todayStr}
@@ -115,50 +146,48 @@ export default function DiaryPage() {
                 daysWithData={daysWithData}
               />
             </div>
-          </div>
-
-          {/* Статистика калорий и БЖУ за день */}
-          <CaloriesBanner
-            current={consumed.kcal}
-            target={goals.kcal}
-            progress={progress}
-          />
-          <MacrosComboCard macros={macroStats} />
-        </section>
-
-        {/* ПОЛНОЭКРАННЫЙ ОВЕРЛЕЙ КОНСТРУКТОРА */}
-        {activeMealType && (
-          <div className="fixed inset-0 bg-slate-50 z-50 overflow-y-auto animate-in fade-in slide-in-from-bottom-8 duration-300">
-            <div className="max-w-6xl mx-auto p-4 md:p-12 pb-32">
-              <FoodConstructor serverToday={selectedDate} />
-            </div>
-          </div>
-        )}
-
-        {/* СПИСОК СЛОТОВ ПРИЕМА ПИЩИ (АККОРДЕОНЫ) */}
-        <section className="space-y-4">
-          <div className="px-2">
-            <h2 className="text-xl font-black text-slate-900 uppercase italic tracking-tight">
-              Дневной рацион
-            </h2>
-          </div>
-
-          {MEAL_SLOTS.map((slot) => (
-            <DiaryMealSlot
-              key={slot.id}
-              slot={slot}
-              savedMeal={displayMeals[slot.id]}
-              isExpanded={!!expandedSlots[slot.id]}
-              isFormActiveForThisSlot={activeMealType === slot.id}
-              onToggle={toggleSlot}
-              onPlusClick={handlePlusClick(slot.id)}
-              onRemoveItem={removeItem}
-              onDeleteMeal={deleteMeal}
-              onCloseSlot={closeSlot}
+            <CaloriesBanner
+              current={consumed.kcal}
+              target={goals.kcal}
+              progress={progress}
             />
-          ))}
-        </section>
-      </div>
-    </AsyncBoundary>
+            <MacrosComboCard macros={macroStats} />
+          </section>
+
+          {activeMealType && (
+            <div className="fixed inset-0 bg-slate-50 z-50 overflow-y-auto animate-in fade-in slide-in-from-bottom-8 duration-300">
+              <div className="max-w-6xl mx-auto p-4 md:p-8 pb-20">
+                <FoodConstructor
+                  serverToday={selectedDate}
+                  onClose={handleProgrammaticClose}
+                />
+              </div>
+            </div>
+          )}
+
+          <section className="space-y-4">
+            <div className="px-1">
+              <h2 className="text-xl font-black text-slate-900 uppercase italic tracking-tight">
+                Дневной рацион
+              </h2>
+            </div>
+            {MEAL_SLOTS.map((slot) => (
+              <DiaryMealSlot
+                key={slot.id}
+                slot={slot}
+                savedMeal={displayMeals[slot.id]}
+                isExpanded={!!expandedSlots[slot.id]}
+                isFormActiveForThisSlot={activeMealType === slot.id}
+                onToggle={toggleSlot}
+                onPlusClick={handlePlusClick(slot.id)}
+                onRemoveItem={removeItem}
+                onDeleteMeal={deleteMeal}
+                onCloseSlot={closeSlot}
+              />
+            ))}
+          </section>
+        </div>
+      </AsyncBoundary>
+    </div>
   );
 }

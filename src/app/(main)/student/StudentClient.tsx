@@ -1,14 +1,13 @@
 "use client";
 
 import { useEffect } from "react";
-import { Scale, Footprints, Moon } from "lucide-react";
+import { Scale, Footprints, Moon, Dumbbell } from "lucide-react";
 import { toast } from "sonner";
 import { MacrosComboCard } from "@/components/student/macros-combo-card";
 import PersonalTip from "@/components/shared/PersonalTip";
 import CaloriesBanner from "@/components/student/calories-banner";
 import MetricWater from "@/components/student/metric-water";
 import MetricInput from "@/components/student/metric-input";
-import ActivitySelector from "@/components/student/activity-selector";
 import { SaveButton } from "@/components/student/save-button";
 import { DateNavigation } from "@/components/student/date-navigation";
 import { DashboardSkeleton } from "@/components/student/dashboard-skeleton";
@@ -16,6 +15,8 @@ import { useStudentDashboard } from "@/hooks/use-student-dashboard/index";
 import { useMacroStats } from "@/hooks/use-macro-stats";
 import AsyncBoundary from "@/components/shared/AsyncBoundary";
 import { useUserStore } from "@/store/useUserStore";
+import Link from "next/link";
+import { ACTIVITIES_MAP } from "@/constants/activities";
 
 interface StudentClientProps {
   userId: string;
@@ -138,10 +139,31 @@ export default function StudentClient({
               />
             </div>
 
-            <ActivitySelector
-              value={formData.activity_level}
-              onChange={(v) => setFormData({ activity_level: v })}
-            />
+            <Link
+              href={`/student/activity?date=${selectedDate}`}
+              className="flex items-center justify-between w-full p-4 bg-white border border-slate-100 
+             rounded-2xl shadow-sm hover:border-slate-200 hover:bg-slate-50/50 transition-all group"
+            >
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 bg-orange-50 text-orange-500 rounded-xl group-hover:scale-105 transition-transform">
+                  <Dumbbell className="w-5 h-5" />
+                </div>
+                <div className="text-left">
+                  <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">
+                    Активность дня
+                  </p>
+                  <p className="text-sm font-bold text-slate-700">
+                    {formData.selected_activity_id &&
+                    ACTIVITIES_MAP[formData.selected_activity_id]
+                      ? `${ACTIVITIES_MAP[formData.selected_activity_id].name} (${formData.activity_duration} мин)`
+                      : "День без тренировок"}
+                  </p>
+                </div>
+              </div>
+              <span className="text-xs font-bold text-orange-500 bg-orange-50/50 px-3 py-1.5 rounded-xl group-hover:bg-orange-100 transition-colors">
+                Изменить →
+              </span>
+            </Link>
 
             <SaveButton
               onClick={handleSave}

@@ -9,8 +9,12 @@ export interface Log {
   calories: number;
   sleep_hours: number;
   water: number;
-  activity_level: string;
   created_at?: string;
+
+  selected_activity_id: string | null;
+  activity_duration: number;
+  activity_name?: string;
+  burned_calories: number;
 }
 
 export interface FormDataType {
@@ -18,8 +22,10 @@ export interface FormDataType {
   weight: string;
   sleep_hours: string;
   water: number;
-  activity_level: string;
+
   calories: string;
+  selected_activity_id: string;
+  activity_duration: string;
 }
 export interface MutationContext {
   previousLogs?: Log[];
@@ -51,6 +57,7 @@ export interface StudentDashboardHook {
     profile: UserProfile | null;
     isSaving: boolean;
     error: string | null;
+    burnedCalories: number;
   };
   actions: {
     handleDateChange: (date: string) => void;

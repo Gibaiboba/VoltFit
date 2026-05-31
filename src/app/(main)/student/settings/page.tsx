@@ -33,12 +33,17 @@ export default async function SettingsPage() {
     .single();
 
   return (
-    <div className="max-w-2xl mx-auto pt-10 px-4">
-      <h1 className="text-3xl font-black text-slate-800 mb-10">
-        Настройки профиля
-      </h1>
+    <div className="p-6 bg-[#F4F4F5] min-h-screen pt-24 text-slate-900">
+      <div className="max-w-4xl mx-auto space-y-8 animate-in fade-in duration-300">
+        <div className="px-1">
+          <h1 className="text-xl font-black text-slate-900 uppercase italic tracking-tight">
+            Настройки профиля
+          </h1>
+        </div>
 
-      <SettingsForm initialProfile={profile} userId={user.id} />
+        {/* Форма настроек */}
+        <SettingsForm initialProfile={profile} userId={user.id} />
+      </div>
     </div>
   );
 }

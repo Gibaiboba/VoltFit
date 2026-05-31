@@ -1,15 +1,14 @@
 import { useMutation, useQueryClient, QueryKey } from "@tanstack/react-query";
 import { studentService } from "@/services/student.service";
 import { DailyLog } from "@/types/shared";
+import { ACTIVITIES_MAP } from "@/constants/activities";
 import { toast } from "sonner";
 
-// Описываем структуру данных для кэша бесконечного запроса (Infinite Query)
 interface InfiniteLogsCacheStructure {
   pages: DailyLog[][];
   pageParams: (string | undefined)[];
 }
 
-// Описываем строго типизированный контекст для безопасного отката (Rollback Context)
 interface MutationRollbackContext {
   previousRangeQueries: [QueryKey, DailyLog[] | undefined][];
   previousInfiniteData: InfiniteLogsCacheStructure | undefined;
@@ -21,25 +20,21 @@ export const useDashboardMutations = (
 ) => {
   const queryClient = useQueryClient();
 
-  // Передаем дженерики: <ТипОтвета, ТипОшибки, ТипВходящихПеременных, ТипКонтекста>
   const saveMutation = useMutation<
     DailyLog,
     Error,
     Partial<DailyLog>,
     MutationRollbackContext
   >({
-    // 1. Вызываем метод сервиса
     mutationFn: (logData) => studentService.saveLog(userId, logData),
 
     onMutate: async (newLogData): Promise<MutationRollbackContext> => {
-      // Валидация на наличие даты для обеспечения строгой типобезопасности без as
       if (!newLogData.log_date) {
         throw new Error("log_date is required for optimistic updates");
       }
 
       const targetDate = newLogData.log_date;
 
-      // Отменяем текущие запросы, чтобы сервер не перебил наш оптимистичный стейт
       await queryClient.cancelQueries({
         queryKey: ["student-logs-range", userId],
       });
@@ -47,7 +42,6 @@ export const useDashboardMutations = (
         queryKey: ["student-logs-infinite", userId],
       });
 
-      // Делаем снимок текущего кэша для безопасного отката (Rollback) при сбое сети
       const previousRangeQueries = queryClient.getQueriesData<DailyLog[]>({
         queryKey: ["student-logs-range", userId],
       });
@@ -60,15 +54,29 @@ export const useDashboardMutations = (
       // Хелпер для внедрения измененного лога в массив данных
       const updateLogEntries = (old: DailyLog[] = []): DailyLog[] => {
         const exists = old.some((l) => l.log_date === targetDate);
+
+        // Находим понятное название активности по её ID для отображения у тренера/в истории
+        const activityId = newLogData.selected_activity_id || "";
+        const computedActivityName =
+          activityId && ACTIVITIES_MAP[activityId]
+            ? ACTIVITIES_MAP[activityId].name
+            : "День без тренировок";
+
         if (exists) {
           return old.map((l) =>
-            l.log_date === targetDate ? { ...l, ...newLogData } : l,
+            l.log_date === targetDate
+              ? {
+                  ...l,
+                  ...newLogData,
+                  activity_name: computedActivityName, // Обновляем виртуальное имя
+                }
+              : l,
           );
         }
 
-        // Честно конструируем полноценный объект DailyLog со всеми обязательными полями без Type Assertion
+        // Честно конструируем полноценный объект DailyLog без activity_level
         const fallbackLog: DailyLog = {
-          id: crypto.randomUUID(), // Временный клиентский UUID
+          id: crypto.randomUUID(),
           user_id: userId,
           log_date: targetDate,
           steps: 0,
@@ -79,9 +87,13 @@ export const useDashboardMutations = (
           carbs: 0,
           sleep_hours: 0,
           water: 0,
-          activity_level: "День без тренировок",
+          // Инициализируем новые колонки
+          selected_activity_id: null,
+          activity_duration: 0,
+          burned_calories: 0,
+          activity_name: computedActivityName,
           created_at: new Date().toISOString(),
-          ...newLogData, // Накатываем переданные изменения
+          ...newLogData,
         };
 
         return [fallbackLog, ...old].sort((a, b) =>
@@ -89,13 +101,11 @@ export const useDashboardMutations = (
         );
       };
 
-      // МГНОВЕННОЕ ОБНОВЛЕНИЕ ДАШБОРДА (всех кэшей диапазонов)
       queryClient.setQueriesData<DailyLog[]>(
         { queryKey: ["student-logs-range", userId] },
         (old) => updateLogEntries(old),
       );
 
-      // МГНОВЕННОЕ ОБНОВЛЕНИЕ ЛЕНТЫ ИСТОРИИ (структура бесконечного запроса)
       if (previousInfiniteData) {
         queryClient.setQueryData<InfiniteLogsCacheStructure>(
           ["student-logs-infinite", userId],
@@ -111,7 +121,6 @@ export const useDashboardMutations = (
         );
       }
 
-      // Возвращаем контекст с бэкапами данных
       return { previousRangeQueries, previousInfiniteData };
     },
 
@@ -121,7 +130,6 @@ export const useDashboardMutations = (
     },
 
     onError: (err, _variables, context) => {
-      // Если сеть упала — мгновенно возвращаем старые данные на экран
       if (context?.previousRangeQueries) {
         context.previousRangeQueries.forEach(([queryKey, oldData]) => {
           queryClient.setQueryData(queryKey, oldData);
@@ -138,7 +146,6 @@ export const useDashboardMutations = (
     },
 
     onSettled: () => {
-      // В фоне тихо сверяем кэш с бэкендом (без лоадеров на экране)
       queryClient.invalidateQueries({
         queryKey: ["student-logs-range", userId],
       });

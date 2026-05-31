@@ -16,7 +16,6 @@ export function ConstructorList({
     <div className="space-y-4 mb-10 min-h-[100px]">
       {/* Заголовок секции */}
       <div className="flex items-center justify-between mb-8">
-        <h2 className="text-2xl font-black text-slate-800">Состав блюда</h2>
         <span className="px-4 py-1.5 bg-blue-50 text-blue-600 rounded-full text-[10px] font-black uppercase tracking-widest">
           {items.length} поз.
         </span>

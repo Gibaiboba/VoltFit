@@ -1,4 +1,4 @@
-import { Goal, ActivityLevelValue } from "./shared";
+import { Goal } from "./shared";
 
 export interface OnboardingMetadata {
   diet_type?: "everything" | "vegan" | "keto" | "restrictions";
@@ -14,13 +14,14 @@ export interface UserProfile {
   full_name: string | null;
   avatar_url?: string | null;
   role: "student" | "coach";
+  gender?: "male" | "female";
   email?: string;
   weight?: number;
   height?: number;
   age?: number;
   goal?: Goal;
   target_weight?: number;
-  activity_level?: ActivityLevelValue;
+
   daily_calories?: number;
   protein?: number;
   fat?: number;

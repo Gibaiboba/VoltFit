@@ -8,13 +8,17 @@ import StudentModal from "@/components/coach/StudentModal";
 import Link from "next/link";
 import { StudentView } from "@/types/coach";
 import { X } from "lucide-react";
+import { ACTIVITIES_MAP } from "@/constants/activities"; // 🔥 Импортируем нашу карту MET
 
+// ИСПРАВЛЕНО: Массив фильтров теперь динамически строится на основе реальных категорий тренировок
 const ACTIVITY_FILTERS = [
-  "Все",
-  "Силовая тренировка",
-  "Кардио тренировка",
-  "Групповая тренировка",
-  "День без тренировок",
+  { value: "Все", label: "🎯 Все активности" },
+  ...Array.from(
+    new Set(Object.values(ACTIVITIES_MAP).map((a) => a.category)),
+  ).map((cat) => ({
+    value: cat, // Категория (например, "Тренажерный зал", "Ходьба/Бег")
+    label: cat,
+  })),
 ];
 
 const getStudentLabel = (count: number) => {
@@ -29,7 +33,6 @@ const getStudentLabel = (count: number) => {
 export default function CoachDashboard() {
   const { state, actions } = useCoachDashboard();
 
-  // ТИПИЗАЦИЯ: Используем StudentView
   const handleStudentClick = useCallback(
     (student: StudentView) => {
       actions.setSelectedStudent(student);
@@ -37,7 +40,6 @@ export default function CoachDashboard() {
     [actions],
   );
 
-  // Стабильные обработчики для фильтров
   const handleSearchChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
       actions.setSearchQuery(e.target.value);
@@ -80,7 +82,6 @@ export default function CoachDashboard() {
                 className="w-full p-4 pl-12 bg-white border border-slate-200 rounded-2xl outline-none focus:border-blue-500 shadow-sm font-semibold text-slate-700"
               />
 
-              {/* Кнопка очистки */}
               {state.searchQuery && (
                 <button
                   onClick={() => actions.setSearchQuery("")}
@@ -92,14 +93,15 @@ export default function CoachDashboard() {
               )}
             </div>
 
+            {/* ИСПРАВЛЕНО: Селектор теперь рендерит новые категории из ACTIVITIES_MAP */}
             <select
               value={state.selectedActivity}
               onChange={handleActivityChange}
               className="p-4 bg-white border border-slate-200 rounded-2xl outline-none focus:border-blue-500 shadow-sm font-bold text-slate-600 cursor-pointer px-8 appearance-none"
             >
               {ACTIVITY_FILTERS.map((filter) => (
-                <option key={filter} value={filter}>
-                  {filter === "Все" ? "🎯 Все активности" : filter}
+                <option key={filter.value} value={filter.value}>
+                  {filter.label}
                 </option>
               ))}
             </select>
@@ -138,12 +140,7 @@ export default function CoachDashboard() {
 
         <AddStudentForm
           isPending={state.isAdding}
-          onAdd={
-            (
-              email,
-              opts, // ИЗМЕНЕНИЕ: принимаем строку email
-            ) => actions.addStudent(email, opts) // ИЗМЕНЕНИЕ: просто прокидываем в экшен
-          }
+          onAdd={(email, opts) => actions.addStudent(email, opts)}
         />
 
         {state.isLoading ? (

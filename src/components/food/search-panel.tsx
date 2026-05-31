@@ -1,4 +1,5 @@
-import { Search, Loader2, Database, Utensils, Plus } from "lucide-react";
+import { useEffect, useRef } from "react";
+import { Search, Loader2, Database, Utensils, Plus, X } from "lucide-react";
 import { Product } from "@/types/food";
 
 interface SearchPanelProps {
@@ -16,36 +17,48 @@ export function SearchPanel({
   isLoading,
   onAddItem,
 }: SearchPanelProps) {
-  return (
-    <div className="lg:col-span-5 space-y-6">
-      {/* Шапка поиска */}
-      <div className="space-y-2 text-left">
-        <h1 className="text-3xl font-black text-slate-800 tracking-tight">
-          Конструктор
-        </h1>
-        <p className="text-slate-400 text-sm font-medium">
-          Найдите продукты в базе данных
-        </p>
-      </div>
+  // Ссылка на DOM-элемент инпута
+  const inputRef = useRef<HTMLInputElement>(null);
 
+  // Автофокус при монтировании компонента
+  useEffect(() => {
+    inputRef.current?.focus();
+  }, []);
+
+  return (
+    <div className="lg:col-span-5 space-y-6 relative group">
       {/* Поле ввода */}
-      <div className="relative group">
-        <Search
-          className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-blue-500 transition-colors"
-          size={20}
-        />
-        <input
-          type="text"
-          className="w-full pl-12 pr-12 py-5 bg-white border border-slate-100 rounded-[28px] shadow-sm focus:ring-4 focus:ring-blue-50 focus:border-blue-200 outline-none transition-all font-bold text-slate-700 placeholder:text-slate-300"
-          placeholder="Начните вводить название..."
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-        />
-        {isLoading && (
-          <Loader2
-            className="absolute right-5 top-1/2 -translate-y-1/2 animate-spin text-blue-500"
-            size={20}
-          />
+      <Search
+        className="absolute left-4 top-[31px] -translate-y-1/2 text-slate-400 group-focus-within:text-blue-500 transition-colors z-10"
+        size={20}
+      />
+      <input
+        ref={inputRef} // Привязываем ссылку
+        type="text"
+        className="w-full pl-12 pr-12 py-5 bg-white border border-slate-100 rounded-[28px] shadow-sm focus:ring-4 focus:ring-blue-50 focus:border-blue-200 outline-none transition-all font-bold text-slate-700 placeholder:text-slate-300"
+        placeholder="Начните вводить название..."
+        value={query}
+        onChange={(e) => setQuery(e.target.value)}
+      />
+
+      {/* Правый блок: Лоадер ИЛИ Крестик очистки */}
+      <div className="absolute right-5 top-[31px] -translate-y-1/2 z-10 flex items-center justify-center">
+        {isLoading ? (
+          <Loader2 className="animate-spin text-blue-500" size={20} />
+        ) : (
+          query && (
+            <button
+              onClick={() => {
+                setQuery("");
+                inputRef.current?.focus(); // Возвращаем фокус на инпут после очистки текста
+              }}
+              className="p-1 rounded-full text-slate-400 hover:text-slate-600 hover:bg-slate-100 active:scale-90 transition-all"
+              type="button"
+              aria-label="Очистить поиск"
+            >
+              <X size={20} strokeWidth={2.5} />
+            </button>
+          )
         )}
       </div>
 
@@ -54,7 +67,7 @@ export function SearchPanel({
         {results.map((product) => (
           <div
             key={product.id}
-            className="flex items-center justify-between p-5 bg-white border border-slate-100 rounded-[24px] hover:border-blue-200 hover:shadow-md transition-all group"
+            className="flex items-center justify-between p-5 bg-white border border-slate-100 rounded-[24px] hover:border-blue-200 hover:shadow-md transition-all group/item"
           >
             <div className="flex-1 text-left">
               <div className="flex items-center gap-2 mb-1">
@@ -71,6 +84,7 @@ export function SearchPanel({
               onClick={() => {
                 onAddItem(product);
                 setQuery(""); // Очищаем поиск после добавления
+                inputRef.current?.focus(); // Возвращаем фокус, чтобы можно было сразу искать следующий продукт
               }}
               className="p-3 bg-slate-50 text-slate-400 hover:bg-blue-600 hover:text-white rounded-2xl transition-all active:scale-90"
             >

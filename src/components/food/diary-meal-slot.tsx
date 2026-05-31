@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, memo } from "react";
-import { formatMealTime } from "@/lib/utils/date-utils";
 import { DiaryMealSlotProps, SelectedProduct } from "@/types/food";
 import {
   Plus,
@@ -64,11 +63,6 @@ function DiaryMealSlotComponent({
             <h3 className="font-black text-xl text-slate-900 uppercase tracking-tighter">
               {slot.label}
             </h3>
-            {savedMeal && (
-              <span className="text-[9px] font-black text-slate-400 bg-slate-100 border border-slate-200/50 px-2 py-0.5 rounded-full uppercase">
-                {formatMealTime(savedMeal.created_at)}
-              </span>
-            )}
           </div>
 
           {savedMeal ? (

@@ -6,6 +6,9 @@ export const coachService = {
   /**
    * Получаем всех учеников тренера с их последними логами
    */
+  /**
+   * Получаем всех учеников тренера с их последними логами
+   */
   async getStudents() {
     const { data, error } = (await supabase
       .from("coach_students")
@@ -15,22 +18,24 @@ export const coachService = {
           id,
           full_name,
           daily_logs ( 
-          weight,
-          steps, 
-          calories, 
-          sleep_hours, 
-          activity_level, 
-          log_date, 
-          water,
-          proteins,  
-          fats,
-          carbs    
+            weight,
+            steps, 
+            calories, 
+            sleep_hours, 
+            log_date, 
+            water,
+            proteins,  
+            fats,
+            carbs,
+            selected_activity_id,
+            activity_duration
           )
         )
       `,
       )
+
       .order("log_date", {
-        foreignTable: "profiles.daily_logs",
+        foreignTable: "student.daily_logs",
         ascending: false,
       })) as PostgrestResponse<StudentData>;
 

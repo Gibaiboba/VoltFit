@@ -2,11 +2,12 @@
 
 import { useMemo, useCallback, useState, useEffect } from "react";
 import { useCoachStore } from "@/store/useCoachStore";
-import { useUserStore } from "@/store/useUserStore"; // ИЗМЕНЕНИЕ: Импорт стора пользователя
+import { useUserStore } from "@/store/useUserStore";
 import { useCoachQueries } from "./use-queries";
 import { useCoachMutations } from "./use-mutations";
 import { StudentData, StudentView } from "@/types/coach";
 import { useDebounce } from "@/hooks/use-debounce";
+import { ACTIVITIES_MAP } from "@/constants/activities";
 
 export const useCoachDashboard = () => {
   // 1. Глобальное состояние из Zustand
@@ -19,10 +20,11 @@ export const useCoachDashboard = () => {
     setSelectedStudent,
   } = useCoachStore();
 
-  // ИЗМЕНЕНИЕ: Получаем профиль текущего тренера для ID
-  const { profile } = useUserStore();
+  // Получаем профиль текущего тренера для ID
+  const { user } = useUserStore();
+  const coachId = user?.id;
 
-  // 2. Локальное состояние для мгновенного отображения в инпуте
+  // 2. Local state для мгновенного отображения в инпуте поиска
   const [localSearch, setLocalSearch] = useState(searchQuery);
   const debouncedSearch = useDebounce(localSearch, 300);
 
@@ -30,34 +32,38 @@ export const useCoachDashboard = () => {
   const { studentsQuery } = useCoachQueries();
   const { addStudentMutation } = useCoachMutations();
 
-  // Синхронизация: когда дебаунс сработал — обновляем глобальный стор
+  // эффект для обновления Zustand с проверкой на равенство.
   useEffect(() => {
-    setSearchQuery(debouncedSearch);
-  }, [debouncedSearch, setSearchQuery]);
+    if (debouncedSearch !== searchQuery) {
+      setSearchQuery(debouncedSearch);
+    }
+  }, [debouncedSearch, searchQuery, setSearchQuery]);
 
-  // Синхронизация: если searchQuery изменился извне (например, сброс фильтров)
-  useEffect(() => {
-    setLocalSearch(searchQuery);
-  }, [searchQuery]);
-
-  // 4. Умная фильтрация + Расчет шагов (один проход по массиву)
+  // 4. Умная фильтрация по категориям тренировок из ACTIVITIES_MAP
   const enrichedStudents = useMemo((): StudentView[] => {
     const students = studentsQuery.data || [];
     const query = searchQuery.toLowerCase();
 
     return students
       .filter((item: StudentData) => {
-        // ИЗМЕНЕНИЕ: Безопасный доступ к логам (решает ошибку Spread types / Object types)
         const studentProfile = item.student;
+        // Достаем самый свежий лог студента
         const lastLog = studentProfile?.daily_logs?.[0];
 
         const matchesSearch = (studentProfile?.full_name ?? "")
           .toLowerCase()
           .includes(query);
 
+        // Читаем новый selected_activity_id и определяем его текстовую категорию
+        const activityId = lastLog?.selected_activity_id || "";
+        const currentLogCategory =
+          activityId && ACTIVITIES_MAP[activityId]
+            ? ACTIVITIES_MAP[activityId].category
+            : "День без тренировок";
+
+        // Сравниваем категорию лога с выбранным фильтром ("Все", "Тренажерный зал" и т.д.)
         const matchesActivity =
-          selectedActivity === "Все" ||
-          lastLog?.activity_level === selectedActivity;
+          selectedActivity === "Все" || currentLogCategory === selectedActivity;
 
         return matchesSearch && matchesActivity;
       })
@@ -74,6 +80,8 @@ export const useCoachDashboard = () => {
   }, [studentsQuery.data, searchQuery, selectedActivity]);
 
   // 5. Стабильные действия (actions)
+  // 🔥 ИСПРАВЛЕНО: Теперь принудительно очищаем локальный инпут руками,
+  // так как реактивного эффекта обратной синхронизации больше нет.
   const resetFilters = useCallback(() => {
     setLocalSearch("");
     setSearchQuery("");
@@ -82,17 +90,17 @@ export const useCoachDashboard = () => {
 
   const actions = useMemo(
     () => ({
+      // При вводе символов мы мгновенно обновляем только локальный быстрый стейт,
+      // а дебаунс-эффект выше сам через 300мс обновит глобальный стор без лагов.
       setSearchQuery: setLocalSearch,
       setSelectedActivity,
       setSelectedStudent,
       resetFilters,
-      // ИЗМЕНЕНИЕ: Адаптер для добавления студента
-      // Теперь принимает только email (string) и простые опции
       addStudent: (email: string, options?: { onSuccess?: () => void }) => {
-        if (!profile?.id) return;
+        if (!coachId) return;
 
         addStudentMutation.mutate(
-          { email, coachId: profile.id },
+          { email, coachId: coachId },
           {
             onSuccess: () => {
               options?.onSuccess?.();
@@ -106,7 +114,7 @@ export const useCoachDashboard = () => {
       setSelectedStudent,
       resetFilters,
       addStudentMutation,
-      profile?.id,
+      coachId,
     ],
   );
 
@@ -117,7 +125,7 @@ export const useCoachDashboard = () => {
       isLoading: studentsQuery.isLoading,
       isError: studentsQuery.isError,
       isAdding: addStudentMutation.isPending,
-      searchQuery: localSearch,
+      searchQuery: localSearch, // Экспортируем локальную строку, чтобы инпут обновлялся синхронно
       selectedActivity,
       selectedStudent,
       totalCount: enrichedStudents.length,

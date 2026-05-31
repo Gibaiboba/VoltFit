@@ -14,7 +14,7 @@ export const useStudentDashboard = (
   // 1. Глобальное состояние даты из Zustand
   const { selectedDate, setSelectedDate } = useUserStore();
 
-  // Локальное состояние для черновика ввода (веса, шагов, сна)
+  // Локальное состояние для черновика ввода (веса, шагов, сна, тренировок)
   const [userInput, setUserInput] = useState<Partial<FormDataType>>({});
 
   // 2. Запросы через React Query (с новой блочной логикой кэширования по месяцам)
@@ -24,7 +24,7 @@ export const useStudentDashboard = (
   // Синхронизируем еду по тому же самому диапазону дат
   const { meals } = useMealHistory(userId, fromDateDynamic);
 
-  // 3. Расчеты на основе кэша и пользовательского ввода
+  // 3. Расчеты на основе кэша и пользовательского ввода (уже учитывают новые поля и MET)
   const stats = useDashboardCalculations(
     history,
     profile,
@@ -68,7 +68,7 @@ export const useStudentDashboard = (
     [stats.formData],
   );
 
-  // ИСПРАВЛЕНО: Безопасное добавление воды на основе актуальных вычисленных данных дня
+  // Безопасное добавление воды на основе актуальных вычисленных данных дня
   const addWater = useCallback((): void => {
     const currentWater = Number(stats.formData.water) || 0;
     setUserInput((prev) => ({
@@ -77,7 +77,7 @@ export const useStudentDashboard = (
     }));
   }, [stats.formData.water]);
 
-  // ИСПРАВЛЕНО: Безопасное удаление воды
+  // Безопасное удаление воды
   const removeWater = useCallback((): void => {
     const currentWater = Number(stats.formData.water) || 0;
     setUserInput((prev) => ({
@@ -86,6 +86,7 @@ export const useStudentDashboard = (
     }));
   }, [stats.formData.water]);
 
+  // ИСПРАВЛЕНО: Теперь передаем новые поля активности в мутацию сохранения
   const handleSave = useCallback((): void => {
     saveMutation.mutate({
       log_date: selectedDate,
@@ -97,14 +98,18 @@ export const useStudentDashboard = (
       carbs: stats.currentCarbs,
       sleep_hours: parseFloat(stats.formData.sleep_hours) || 0,
       water: stats.formData.water,
-      activity_level: stats.formData.activity_level,
+
+      // Передаем реляционные параметры активности
+      selected_activity_id: stats.formData.selected_activity_id || null,
+      activity_duration: parseInt(stats.formData.activity_duration) || 0,
+      burned_calories: stats.burnedCalories,
     });
   }, [selectedDate, stats, saveMutation]);
-
   return {
     state: {
       ...stats,
       // Загрузка активна только при первичном запросе диапазона, если в кэше пусто
+      burnedCalories: stats.burnedCalories,
       loading:
         (logsQuery.isLoading || profileQuery.isLoading) && history.length === 0,
 

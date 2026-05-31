@@ -9,7 +9,7 @@ export function useUserProfile(passedUserId?: string) {
   const userId = passedUserId || storeUserId;
 
   return useQuery({
-    queryKey: ["user-profile", userId],
+    queryKey: ["student-profile", userId],
     queryFn: async () => {
       if (!userId) return null;
 

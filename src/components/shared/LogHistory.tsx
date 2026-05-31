@@ -2,7 +2,7 @@
 
 import { formatNumber, formatWater } from "@/lib/utils/format-number";
 import { formatToShortDate } from "@/lib/utils/date-utils";
-import { ACTIVITY_OPTIONS } from "@/constants/activityOptions";
+import { ACTIVITIES_MAP } from "@/constants/activities";
 
 interface Log {
   log_date: string;
@@ -10,11 +10,12 @@ interface Log {
   weight: number;
   calories: number;
   sleep_hours: number;
-  activity_level: string;
   water: number;
   proteins?: number;
   fats?: number;
   carbs?: number;
+  selected_activity_id?: string | null;
+  activity_duration?: number;
 }
 
 interface LogHistoryProps {
@@ -24,12 +25,7 @@ interface LogHistoryProps {
   onLogClick?: (date: string) => void;
 }
 
-const ACTIVITY_STYLES: Record<string, string> = {
-  [ACTIVITY_OPTIONS[0]]: "border-yellow-400/30 text-yellow-400 bg-yellow-400/5",
-  [ACTIVITY_OPTIONS[1]]: "border-cyan-400/30 text-cyan-400 bg-cyan-400/5",
-  [ACTIVITY_OPTIONS[2]]: "border-purple-400/30 text-purple-400 bg-purple-400/5",
-  default: "border-white/10 text-slate-400 bg-white/5",
-};
+const STATUS_BADGE_STYLE = "border-slate-300 text-slate-600 bg-slate-100";
 
 export default function LogHistory({
   logs,
@@ -46,58 +42,66 @@ export default function LogHistory({
 
   if (logs.length === 0)
     return (
-      <p className="text-slate-600 italic text-center py-8 text-sm font-bold uppercase tracking-tighter">
+      <p className="text-slate-400 italic text-center py-8 text-sm font-bold uppercase tracking-tighter">
         Записей пока нет
       </p>
     );
+
   return (
     <div className="space-y-4">
       {title && (
-        <div className="flex items-center gap-3 mb-6">
-          <div className="w-1.5 h-5 bg-yellow-400 rounded-full" />
-          <h2 className="text-sm font-black text-slate-400 uppercase tracking-[0.2em] italic">
+        <div className="flex items-center gap-2 mb-6 px-1">
+          {/* Жесткий прямоугольный маркер */}
+          <div className="w-2 h-4 bg-slate-900 border border-black/10" />
+          <h2 className="text-xs font-black text-slate-900 uppercase italic tracking-tight">
             {title}
           </h2>
         </div>
       )}
 
-      {/* используем log.log_date как уникальный key */}
       {logs.map((log) => {
-        const activityStyle =
-          ACTIVITY_STYLES[log.activity_level] || ACTIVITY_STYLES.default;
+        // 🔥 ДИНАМИЧЕСКИ ОПРЕДЕЛЯЕМ НАЗВАНИЕ АКТИВНОСТИ ДЛЯ ВЕРСТКИ КАРТОЧКИ
+        const activityId = log.selected_activity_id || "";
+        const duration = log.activity_duration || 0;
+
+        const activityText =
+          activityId && ACTIVITIES_MAP[activityId]
+            ? `${ACTIVITIES_MAP[activityId].name} (${duration} мин)`
+            : "День без тренировок";
 
         return (
           <div
-            key={log.log_date} // <-- ЖЕСТКИЙ УНИКАЛЬНЫЙ ИДЕНТИФИКАТОР ДЛЯ REACT
+            key={log.log_date}
             onClick={() => onLogClick?.(log.log_date)}
             className={`
-              group p-5 rounded-[2rem] bg-[#080808] border border-white/5 
-              hover:border-white/20 hover:shadow-[0_0_30px_rgba(0,0,0,0.5)]
-              transition-all duration-300 relative overflow-hidden
-              ${onLogClick ? "cursor-pointer active:scale-[0.98]" : ""}
+              group p-5 rounded-2xl bg-white border-2 border-slate-200 
+              hover:border-slate-400 hover:shadow-[4px_4px_0px_0px_rgba(15,23,42,0.05)]
+              transition-all duration-200 relative overflow-hidden
+              ${onLogClick ? "cursor-pointer active:scale-[0.99] active:translate-y-0.5" : ""}
             `}
           >
-            {/* Декоративная полоска */}
-            <div className="absolute left-0 top-0 bottom-0 w-1 bg-yellow-400 opacity-0 group-hover:opacity-100 transition-opacity" />
+            {/* Жесткая декоративная полоска вместо размытой */}
+            <div className="absolute left-0 top-0 bottom-0 w-1 bg-slate-900 opacity-0 group-hover:opacity-100 transition-opacity" />
 
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
               <div className="flex items-center gap-4">
-                {/* Блок даты */}
-                <div className="bg-white/5 text-white w-14 h-14 rounded-2xl flex flex-col items-center justify-center border border-white/10 group-hover:border-yellow-400/50 transition-colors">
-                  <span className="text-[10px] font-black text-slate-500 uppercase tracking-tighter leading-none mb-1">
+                {/* Блок даты в светлой палитре */}
+                <div className="bg-slate-50 text-slate-900 w-14 h-14 rounded-xl flex flex-col items-center justify-center border-2 border-slate-200 group-hover:border-slate-900 transition-colors">
+                  <span className="text-[9px] font-black text-slate-400 uppercase tracking-tighter leading-none mb-1">
                     Дата
                   </span>
-                  <span className="font-black italic text-sm">
+                  <span className="font-black italic text-sm text-slate-900">
                     {formatToShortDate(log.log_date)}
                   </span>
                 </div>
 
                 <div>
-                  <p className="text-xs font-black text-slate-300 uppercase tracking-wider group-hover:text-yellow-400 transition-colors italic">
-                    {log.activity_level || "Без активности"}
+                  {/* 🔥 ВЫВОДИМ ОБНОВЛЕННЫЙ ТЕКСТ ТРЕНИРОВКИ С МИНУТАМИ */}
+                  <p className="text-xs font-black text-slate-800 uppercase tracking-wider group-hover:text-slate-900 transition-colors italic">
+                    {activityText}
                   </p>
                   <span
-                    className={`inline-block px-2 py-0.5 mt-1.5 text-[8px] uppercase font-black rounded border italic tracking-widest ${activityStyle}`}
+                    className={`inline-block px-2 py-0.5 mt-1.5 text-[8px] uppercase font-black rounded-md border-2 italic tracking-wider ${STATUS_BADGE_STYLE}`}
                   >
                     Status: Logged
                   </span>
@@ -118,7 +122,7 @@ export default function LogHistory({
                 />
 
                 {/* Макросы (Desktop only) */}
-                <div className="hidden lg:flex gap-6 pl-6 border-l border-white/5">
+                <div className="hidden lg:flex gap-6 pl-6 border-l-2 border-slate-200">
                   <Metric
                     label="P"
                     value={Math.round(log.proteins || 0)}
@@ -156,14 +160,14 @@ function Metric({
   color?: "default" | "yellow" | "cyan";
 }) {
   const valueColors = {
-    default: "text-slate-100",
-    yellow: "text-yellow-400",
-    cyan: "text-cyan-400",
+    default: "text-slate-900",
+    yellow: "text-[#facc15]",
+    cyan: "text-[#22d3ee]",
   };
 
   return (
     <div className="flex flex-col">
-      <span className="text-[8px] text-slate-500 font-black uppercase tracking-[0.15em] mb-1">
+      <span className="text-[8px] text-slate-400 font-black uppercase tracking-wider mb-1">
         {label}
       </span>
       <div className="flex items-baseline gap-0.5">
@@ -173,7 +177,7 @@ function Metric({
           {value}
         </span>
         {unit && (
-          <span className="text-[8px] font-black text-slate-600 uppercase italic">
+          <span className="text-[8px] font-black text-slate-400 uppercase italic">
             {unit}
           </span>
         )}

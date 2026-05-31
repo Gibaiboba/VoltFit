@@ -4,6 +4,7 @@ import { SavedMeal } from "@/types/food";
 import { UserProfile } from "@/types/user";
 import { useNutritionStats } from "../use-nutrition-stats";
 import { getPreviousWeight } from "@/lib/utils/weight-utils";
+import { ACTIVITIES_MAP } from "@/constants/activities";
 
 export const useDashboardCalculations = (
   history: Log[],
@@ -13,31 +14,70 @@ export const useDashboardCalculations = (
   userInput: Record<string, string | number>,
   serverToday: string,
 ) => {
-  // 1. Целевые калории из профиля (с fallback значением)
-  const targetCalories = useMemo(
+  // 1. Базовые целевые калории из профиля (константа из онбординга)
+  const baseTargetCalories = useMemo(
     () => profile?.daily_calories || 2000,
     [profile],
   );
 
-  // 2. Использование единого хука для расчетов БЖУ и калорий из еды
+  // 2. Находим текущий лог в истории для выбранной даты
+  const currentLog = useMemo(
+    () => history.find((l) => l.log_date === selectedDate),
+    [history, selectedDate],
+  );
+
+  // 3. Сбор параметров активности (Черновик пользователя > Запись из БД)
+  const selectedActivityId = useMemo(
+    () =>
+      (
+        userInput.selected_activity_id ??
+        currentLog?.selected_activity_id ??
+        ""
+      ).toString(),
+    [userInput.selected_activity_id, currentLog?.selected_activity_id],
+  );
+
+  const durationMin = useMemo(
+    () =>
+      Number(userInput.activity_duration ?? currentLog?.activity_duration ?? 0),
+    [userInput.activity_duration, currentLog?.activity_duration],
+  );
+
+  const burnedCalories = useMemo(() => {
+    if (
+      !selectedActivityId ||
+      durationMin <= 0 ||
+      !ACTIVITIES_MAP[selectedActivityId]
+    ) {
+      return 0;
+    }
+
+    const met = ACTIVITIES_MAP[selectedActivityId].met;
+    const weight = profile?.weight || 70;
+    const gender = profile?.gender || "female";
+
+    const genderFactor = gender === "female" ? 0.014 : 0.015;
+    return Math.round(met * genderFactor * weight * durationMin);
+  }, [selectedActivityId, durationMin, profile]);
+
+  // 5. ДИНАМИЧЕСКАЯ ЦЕЛАЯ ЦЕЛЬ: Складываем константу онбординга и траты тренировки!
+  const targetCalories = useMemo(() => {
+    return baseTargetCalories + burnedCalories;
+  }, [baseTargetCalories, burnedCalories]);
+
+  // 6. Передаем новую увеличенную цель в хук подсчета съеденной еды (шкала прогресса пересчитается сама!)
   const { roundedStats } = useNutritionStats(
     meals,
     selectedDate,
     targetCalories,
   );
 
-  // 3. Поиск текущего лога в истории для выбранной даты
-  const currentLog = useMemo(
-    () => history.find((l) => l.log_date === selectedDate),
-    [history, selectedDate],
-  );
-
-  // 4. Поиск предыдущего записанного веса через изолированную утилиту
+  // 7. Поиск предыдущего записанного веса
   const previousWeight = useMemo(() => {
     return getPreviousWeight(history, selectedDate);
   }, [history, selectedDate]);
 
-  // 5. Формирование данных для формы ввода (черновик пользователя > лог из БД > пустая строка)
+  // 8. Формирование данных для формы ввода
   const formData = useMemo<FormDataType>(() => {
     return {
       steps: (userInput.steps ?? currentLog?.steps ?? "").toString(),
@@ -48,16 +88,13 @@ export const useDashboardCalculations = (
         ""
       ).toString(),
       water: Number(userInput.water ?? currentLog?.water ?? 0),
-      activity_level: (
-        userInput.activity_level ??
-        currentLog?.activity_level ??
-        "День без тренировок"
-      ).toString(),
       calories: (currentLog?.calories ?? "0").toString(),
+      selected_activity_id: selectedActivityId,
+      activity_duration: durationMin > 0 ? durationMin.toString() : "",
     };
-  }, [userInput, currentLog]);
+  }, [userInput, currentLog, selectedActivityId, durationMin]);
 
-  // 6. Итоговые калории (Приоритет: Записи еды из дневника > Ручной ввод в лог)
+  // 9. Итоговые калории из еды
   const currentCalories = useMemo(() => {
     const kcal =
       roundedStats.kcal > 0
@@ -66,13 +103,13 @@ export const useDashboardCalculations = (
     return Math.round(kcal);
   }, [roundedStats.kcal, formData.calories]);
 
-  // 7. Расчет прогресса по калориям для шкалы
+  // 10. Прогресс для шкалы (считается от НОВОЙ СУММАРНОЙ цели)
   const calProgress = useMemo(() => {
     if (!targetCalories || targetCalories <= 0) return 0;
     return Math.min((currentCalories / targetCalories) * 100, 100);
   }, [currentCalories, targetCalories]);
 
-  // 8. Подготовка исторических данных для графиков (последние 7 отчетов)
+  // 11. Подготовка исторических данных для графиков
   const chartData = useMemo(() => {
     const sorted = [...history]
       .sort((a, b) => a.log_date.localeCompare(b.log_date))
@@ -84,24 +121,22 @@ export const useDashboardCalculations = (
     };
   }, [history]);
 
-  // 9. Вспомогательные флаги
   const isToday = useMemo(
     () => selectedDate === serverToday,
     [selectedDate, serverToday],
   );
-
   const hasLog = useMemo(() => !!currentLog, [currentLog]);
 
   return {
     currentLog,
     previousWeight,
     formData,
-    // Данные макросов берутся в округленном виде из общего хука расчетов
     currentProteins: roundedStats.p,
     currentFats: roundedStats.f,
     currentCarbs: roundedStats.c,
+    burnedCalories, // Отдаем чистый расход наружу для плашек "+350 ккал"
     chartData,
-    targetCalories,
+    targetCalories, // Отдаем суммированную цель (Константа + Тренировка) наружу во все баннеры!
     currentCalories,
     calProgress,
     isToday,
