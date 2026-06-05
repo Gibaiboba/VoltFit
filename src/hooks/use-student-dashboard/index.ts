@@ -86,7 +86,7 @@ export const useStudentDashboard = (
     }));
   }, [stats.formData.water]);
 
-  // ИСПРАВЛЕНО: Теперь передаем новые поля активности в мутацию сохранения
+  // Теперь передаем новые поля активности в мутацию сохранения
   const handleSave = useCallback((): void => {
     saveMutation.mutate({
       log_date: selectedDate,
@@ -99,12 +99,12 @@ export const useStudentDashboard = (
       sleep_hours: parseFloat(stats.formData.sleep_hours) || 0,
       water: stats.formData.water,
 
-      // Передаем реляционные параметры активности
-      selected_activity_id: stats.formData.selected_activity_id || null,
-      activity_duration: parseInt(stats.formData.activity_duration) || 0,
-      burned_calories: stats.burnedCalories,
+      // Передаем весь массив активностей для сохранения в jsonb колонку
+      activities: stats.formData.activities,
+      burned_calories: stats.burnedCalories, // Общая сумма сожженного за день
     });
   }, [selectedDate, stats, saveMutation]);
+
   return {
     state: {
       ...stats,
@@ -124,6 +124,11 @@ export const useStudentDashboard = (
       profile,
       isSaving: saveMutation.isPending,
       todayStr: serverToday,
+
+      // ЯВНО ПРОПИСЫВАЕМ ПОЛЯ ДЛЯ СИНХРОНИЗАЦИИ С ТИПАМИ
+      targetProteins: stats.targetProteins,
+      targetFats: stats.targetFats,
+      targetCarbs: stats.targetCarbs,
     },
     actions: {
       handleDateChange,

@@ -5,6 +5,8 @@ import { sortMeals } from "@/lib/utils/meal-utils";
 import { useNutritionStats } from "./use-nutrition-stats";
 import { getErrorMessage } from "@/lib/utils/error-helper";
 import { toISODate } from "@/lib/utils/date-utils";
+// 🟢 ИМПОРТИРУЕМ ХУК ЗАПРОСОВ ЛОГОВ (тот же, что и на главной)
+import { useDashboardQueries } from "@/hooks/use-student-dashboard/use-queries";
 
 export function useDiaryLogic(selectedDate: string, serverToday: string) {
   // УМНОЕ КВАНТОВАНИЕ: Округляем архивный хвост до начала месяца для стабильности кэша
@@ -17,17 +19,14 @@ export function useDiaryLogic(selectedDate: string, serverToday: string) {
 
     // Если пользователь кликнул на дату глубже, чем 30 дней назад
     if (selected < today) {
-      // Вырезаем год и месяц (из "2026-03-15" получаем "2026-03")
       const yearMonth = selectedDate.slice(0, 7);
-      // Возвращаем строго первый день этого месяца для фиксации queryKey
       return `${yearMonth}-01`;
     }
 
-    // Если кликаем внутри последнего месяца — дата старта неподвижна
     return toISODate(today);
   }, [serverToday, selectedDate]);
 
-  // 1. Загружаем данные еды (теперь queryKey стабилен внутри любого архивного месяца)
+  // 1. Загружаем данные еды
   const {
     meals,
     isLoading: mealsLoading,
@@ -46,35 +45,59 @@ export function useDiaryLogic(selectedDate: string, serverToday: string) {
     refetch: refetchProfile,
   } = useUserProfile();
 
-  // 3. Формируем цели на основе профиля
-  const goals = useMemo(
-    () => ({
-      kcal: profile?.daily_calories || 2000,
-      p: profile?.protein || 0,
-      f: profile?.fat || 0,
-      c: profile?.carbs || 0,
-    }),
+  // 🟢 3. Загружаем логи активности пользователя за этот же период
+  // (Предполагается, что в профиле лежит userId. Если в useUserProfile лежит id, берем его)
+  const userId = profile?.id || "";
+  const { history, logsQuery } = useDashboardQueries(
+    userId,
+    serverToday,
+    selectedDate,
+  );
+
+  // 🟢 4. Вычисляем сожженные калории за выбранный день
+  const burnedCalories = useMemo(() => {
+    const currentLog = history.find((l) => l.log_date === selectedDate);
+    return currentLog?.burned_calories || 0;
+  }, [history, selectedDate]);
+
+  // Базовые целевые калории
+  const baseTargetCalories = useMemo(
+    () => profile?.daily_calories || 2000,
     [profile],
   );
 
-  // 4. Используем общий хук для расчетов БЖУ и калорий за выбранный день
-  const { dayMeals, progress, roundedStats } = useNutritionStats(
+  // Динамическая цель калорий (база + спорт)
+  const targetCalories = useMemo(() => {
+    return baseTargetCalories + burnedCalories;
+  }, [baseTargetCalories, burnedCalories]);
+
+  // 🟢 5. Используем общий хук для расчетов БЖУ и калорий с передачей динамической цели
+  const { dayMeals, progress, roundedStats, targetMacros } = useNutritionStats(
     meals,
     selectedDate,
-    goals.kcal,
+    targetCalories, // Новая динамическая цель
+    baseTargetCalories, // Базовая цель для расчета дельты внутри хука
+  );
+
+  // Динамические цели для вывода наружу
+  const goals = useMemo(
+    () => ({
+      kcal: targetCalories,
+      p: targetMacros.p,
+      f: targetMacros.f,
+      c: targetMacros.c,
+    }),
+    [targetCalories, targetMacros],
   );
 
   // ОПТИМИЗАЦИЯ: Мемоизируем сортировку и трансформируем массив в объект-карту.
-  // Это предотвращает создание новых ссылок на массив при каждом рендере и убирает линейный поиск .find()
   const displayMealsMap = useMemo(() => {
     const sorted = sortMeals(dayMeals);
 
     const map: Record<string, (typeof dayMeals)[number]> = {};
     for (const meal of sorted) {
-      // 1. Берем исходный тип
       let slotKey = meal.meal_type;
 
-      // 2. Если типа нет (null), определяем его по имени или отправляем в snack
       if (!slotKey && meal.meal_name) {
         const nameLower = meal.meal_name.toLowerCase();
 
@@ -85,9 +108,7 @@ export function useDiaryLogic(selectedDate: string, serverToday: string) {
           slotKey = "snack";
       }
 
-      // 3. Абсолютный fallback: если вообще ничего не подошло, пишем в 'snack'
       const finalKey = slotKey || "snack";
-
       map[finalKey] = meal;
     }
     return map;
@@ -95,29 +116,29 @@ export function useDiaryLogic(selectedDate: string, serverToday: string) {
 
   // Функция для одновременного перезапуска запросов в AsyncBoundary
   const handleRefetchAll = async (): Promise<void> => {
-    await Promise.all([refetchMeals(), refetchProfile()]);
+    await Promise.all([refetchMeals(), refetchProfile(), logsQuery.refetch()]);
   };
 
   // Комбинируем и приоритизируем ошибки
   const combinedError = useMemo(() => {
-    const activeError = mealsError || profileError;
-    return activeError ? getErrorMessage(activeError) : null;
-  }, [mealsError, profileError]);
+    const activeError = mealsError || profileError || logsQuery.error;
+    return activeError ? getErrorMessage(activeError as Error) : null;
+  }, [mealsError, profileError, logsQuery.error]);
 
   return {
-    // Данные для отображения (теперь в виде стабильного словаря)
     displayMeals: displayMealsMap,
     allMeals: meals,
     consumed: roundedStats,
-    goals,
+    goals, // Теперь тут лежат динамически повышенные БЖУ и ккал!
     progress,
 
-    // Статусы загрузки (разделяем первичную и фоновую дозагрузку)
-    isLoading: mealsLoading || profileLoading,
-    isFetching: mealsFetching,
+    isLoading:
+      mealsLoading ||
+      profileLoading ||
+      (logsQuery.isLoading && history.length === 0),
+    isFetching: mealsFetching || logsQuery.isFetching,
     error: combinedError,
 
-    // Методы управления
     refetch: handleRefetchAll,
     deleteMeal,
     removeItem,

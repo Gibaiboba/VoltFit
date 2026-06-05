@@ -1,3 +1,5 @@
+"use client";
+
 import { useMemo } from "react";
 import { MACRO_CONFIG } from "@/constants/nutrition";
 
@@ -30,6 +32,5 @@ export const useMacroStats = (goals: MacroValues, consumed: MacroValues) => {
       },
     ],
     [goals?.p, goals?.f, goals?.c, consumed?.p, consumed?.f, consumed?.c],
-    // Оптимизация: пересчитает массив только если изменятся конкретные числа БЖУ
   );
 };

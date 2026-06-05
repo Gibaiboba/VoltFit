@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useCallback, useEffect } from "react";
+import { useEffect, useState, useMemo, useCallback } from "react";
 import { toISODate } from "@/lib/utils/date-utils";
 import { useDiaryLogic } from "@/hooks/use-diary-logic";
 import { useMacroStats } from "@/hooks/use-macro-stats";
@@ -55,7 +55,6 @@ export default function DiaryPage() {
   // 2. Обработчик системной кнопки «Назад»
   useEffect(() => {
     const handlePopState = () => {
-      // Закрываем оверлей ТОЛЬКО если мы вернулись с нашего искусственного стейта
       if (activeMealType) {
         handleCloseConstructor();
       }
@@ -79,7 +78,11 @@ export default function DiaryPage() {
     removeItem,
   } = useDiaryLogic(selectedDate, todayStr);
 
-  const macroStats = useMacroStats(goals, consumed);
+  // 🟢 ИСПРАВЛЕНО: Передаем динамические цели, приходящие из обновленного useDiaryLogic
+  const macroStats = useMacroStats(
+    { p: goals.p || 0, f: goals.f || 0, c: goals.c || 0 },
+    { p: consumed.p || 0, f: consumed.f || 0, c: consumed.c || 0 },
+  );
 
   const daysWithData = useMemo(() => {
     if (!allMeals) return [];

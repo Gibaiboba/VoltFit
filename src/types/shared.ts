@@ -14,8 +14,12 @@ export interface DailyLog {
   proteins?: number;
   fats?: number;
   carbs?: number;
-  selected_activity_id: string | null;
-  activity_duration: number;
-  activity_name?: string;
   burned_calories: number;
+  activity_name?: string;
+  activities: {
+    id: string;
+    activity_id: string;
+    duration: number;
+    burned_calories: number;
+  }[];
 }
