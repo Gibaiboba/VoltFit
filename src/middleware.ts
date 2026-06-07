@@ -60,8 +60,7 @@ export async function middleware(request: NextRequest) {
     path === "/login" ||
     path === "/register" ||
     path === "/forgot-password" ||
-    path === "/update-password" ||
-    path.startsWith("/products");
+    path === "/update-password";
 
   /**
    * Хелпер для редиректа, который не теряет обновленные куки (токены)
@@ -99,8 +98,11 @@ export async function middleware(request: NextRequest) {
   }
 
   // 4. Проверка онбординга (если не пройден — только на онбординг)
+  // Проверка онбординга срабатывает ТОЛЬКО для учеников
+
   if (
     user &&
+    userRole === "student" &&
     !onboardingDone &&
     !path.startsWith("/onboarding") &&
     !isPublicPage

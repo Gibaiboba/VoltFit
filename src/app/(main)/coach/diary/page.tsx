@@ -1,4 +1,4 @@
 import DiaryView from "@/components/shared/DiaryView";
-export default function StudentDiaryPage() {
+export default function CoachDiaryPage() {
   return <DiaryView />;
 }

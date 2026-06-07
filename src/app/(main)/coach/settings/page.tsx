@@ -1,4 +1,4 @@
 import SettingsView from "@/components/shared/SettingsView";
-export default function StudentSettingsPage() {
+export default function CoachSettingsPage() {
   return <SettingsView />;
 }

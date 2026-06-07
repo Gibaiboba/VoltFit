@@ -6,17 +6,16 @@ export const coachService = {
   /**
    * Получаем всех учеников тренера с их последними логами
    */
-  /**
-   * Получаем всех учеников тренера с их последними логами
-   */
+
   async getStudents() {
-    const { data, error } = (await supabase
-      .from("coach_students")
-      .select(
-        `
+    const { data, error } = (await supabase.from("coach_students").select(
+      `
         student:profiles!student_id (
           id,
           full_name,
+          daily_calories,
+          gender,
+          weight,
           daily_logs ( 
             weight,
             steps, 
@@ -27,19 +26,25 @@ export const coachService = {
             proteins,  
             fats,
             carbs,
-            selected_activity_id,
-            activity_duration
+            activities,
+            burned_calories
           )
         )
       `,
-      )
-
-      .order("log_date", {
-        foreignTable: "student.daily_logs",
-        ascending: false,
-      })) as PostgrestResponse<StudentData>;
+    )) as PostgrestResponse<StudentData>;
 
     if (error) throw error;
+
+    if (data) {
+      data.forEach((item) => {
+        if (item.student?.daily_logs) {
+          item.student.daily_logs.sort((a, b) =>
+            b.log_date.localeCompare(a.log_date),
+          );
+        }
+      });
+    }
+
     return data || [];
   },
 

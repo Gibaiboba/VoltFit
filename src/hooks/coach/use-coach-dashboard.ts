@@ -8,6 +8,7 @@ import { useCoachMutations } from "./use-mutations";
 import { StudentData, StudentView } from "@/types/coach";
 import { useDebounce } from "@/hooks/use-debounce";
 import { ACTIVITIES_MAP } from "@/constants/activities";
+import { LoggedActivity } from "@/hooks/use-student-dashboard/types";
 
 export const useCoachDashboard = () => {
   // 1. Глобальное состояние из Zustand
@@ -32,14 +33,14 @@ export const useCoachDashboard = () => {
   const { studentsQuery } = useCoachQueries();
   const { addStudentMutation } = useCoachMutations();
 
-  // эффект для обновления Zustand с проверкой на равенство.
+  // Эффект для обновления Zustand с проверкой на равенство
   useEffect(() => {
     if (debouncedSearch !== searchQuery) {
       setSearchQuery(debouncedSearch);
     }
   }, [debouncedSearch, searchQuery, setSearchQuery]);
 
-  // 4. Умная фильтрация по категориям тренировок из ACTIVITIES_MAP
+  // 4. УМНАЯ ФИЛЬТРАЦИЯ И ДИНАМИЧЕСКИЙ ПЕРЕСЧЕТ С УЧЕТОМ ПОЛА/ВЕСА УЧЕНИКА
   const enrichedStudents = useMemo((): StudentView[] => {
     const students = studentsQuery.data || [];
     const query = searchQuery.toLowerCase();
@@ -54,34 +55,74 @@ export const useCoachDashboard = () => {
           .toLowerCase()
           .includes(query);
 
-        // Читаем новый selected_activity_id и определяем его текстовую категорию
-        const activityId = lastLog?.selected_activity_id || "";
-        const currentLogCategory =
-          activityId && ACTIVITIES_MAP[activityId]
-            ? ACTIVITIES_MAP[activityId].category
-            : "День без тренировок";
+        // Безопасно собираем категории всех тренировок, выполненных за день
+        const logActivities = lastLog?.activities || [];
 
-        // Сравниваем категорию лога с выбранным фильтром ("Все", "Тренажерный зал" и т.д.)
+        const executedCategories = logActivities.map((act: LoggedActivity) => {
+          const config = ACTIVITIES_MAP[act.activity_id];
+          return config ? config.category : "День без тренировок";
+        });
+
+        // Если массив пустой, значит тренировок в этот день не было
+        if (executedCategories.length === 0) {
+          executedCategories.push("День без тренировок");
+        }
+
+        // Сравниваем: фильтр сработает, если выбран "Все", либо если выбранная тренером
+        // категория содержится в списке выполненных тренировок ученика за этот день!
         const matchesActivity =
-          selectedActivity === "Все" || currentLogCategory === selectedActivity;
+          selectedActivity === "Все" ||
+          executedCategories.includes(selectedActivity);
 
         return matchesSearch && matchesActivity;
       })
-      .map(
-        (item: StudentData): StudentView => ({
+      .map((item: StudentData): StudentView => {
+        const studentProfile = item.student;
+
+        const studentWeight = Number(studentProfile.weight) || 70;
+        const studentGender =
+          studentProfile.gender === "male" ? "male" : "female";
+        const genderFactor = studentGender === "female" ? 0.014 : 0.015;
+
+        // Динамически пересчитываем burned_calories для всей истории логов ученика
+        const updatedLogs = (studentProfile.daily_logs || []).map((log) => {
+          const logActivities = log.activities || [];
+
+          // Если ученик взвешивался в конкретный день — берем этот вес, иначе базовый из профиля
+          const currentWeight = log.weight > 0 ? log.weight : studentWeight;
+
+          // Считаем сумму калорий за день без промежуточных округлений сессий
+          const dayBurnedRaw = logActivities.reduce((sum: number, act) => {
+            const config = ACTIVITIES_MAP[act.activity_id];
+            if (!config || act.duration <= 0) return sum;
+            return (
+              sum + config.met * genderFactor * currentWeight * act.duration
+            );
+          }, 0);
+
+          return {
+            ...log,
+            // Виртуально подменяем burned_calories на клиенте тренера на точный гендерный расчет
+            burned_calories: Math.round(dayBurnedRaw),
+          };
+        });
+
+        return {
           ...item,
+          student: {
+            ...item.student,
+            daily_logs: updatedLogs, // Заменяем логи на пересчитанные с учетом параметров ученика
+          },
           // Считаем шаги только для отфильтрованных и только при изменении данных
           weeklySteps:
-            item.student.daily_logs
+            updatedLogs
               ?.slice(0, 7)
               .reduce((sum, log) => sum + (log.steps || 0), 0) || 0,
-        }),
-      );
+        };
+      });
   }, [studentsQuery.data, searchQuery, selectedActivity]);
 
   // 5. Стабильные действия (actions)
-  // 🔥 ИСПРАВЛЕНО: Теперь принудительно очищаем локальный инпут руками,
-  // так как реактивного эффекта обратной синхронизации больше нет.
   const resetFilters = useCallback(() => {
     setLocalSearch("");
     setSearchQuery("");
@@ -90,8 +131,6 @@ export const useCoachDashboard = () => {
 
   const actions = useMemo(
     () => ({
-      // При вводе символов мы мгновенно обновляем только локальный быстрый стейт,
-      // а дебаунс-эффект выше сам через 300мс обновит глобальный стор без лагов.
       setSearchQuery: setLocalSearch,
       setSelectedActivity,
       setSelectedStudent,
@@ -125,7 +164,7 @@ export const useCoachDashboard = () => {
       isLoading: studentsQuery.isLoading,
       isError: studentsQuery.isError,
       isAdding: addStudentMutation.isPending,
-      searchQuery: localSearch, // Экспортируем локальную строку, чтобы инпут обновлялся синхронно
+      searchQuery: localSearch,
       selectedActivity,
       selectedStudent,
       totalCount: enrichedStudents.length,

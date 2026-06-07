@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { Scale, Footprints, Moon } from "lucide-react";
 import { toast } from "sonner";
 import { MacrosComboCard } from "@/components/student/macros-combo-card";
@@ -17,6 +17,7 @@ import AsyncBoundary from "@/components/shared/AsyncBoundary";
 import { useUserStore } from "@/store/useUserStore";
 import { ACTIVITIES_MAP } from "@/constants/activities";
 import { ActivityModal } from "@/components/student/activity-modal";
+import { useActivityModalStore } from "@/store/useActivityModalStore";
 
 interface StudentClientProps {
   userId: string;
@@ -29,10 +30,8 @@ export default function StudentClient({
 }: StudentClientProps) {
   const { state, actions } = useStudentDashboard(userId, serverToday);
   const { selectedDate } = useUserStore();
-
-  // Локальное состояние для открытия/закрытия модалки активности
-  const [isActivityModalOpen, setIsActivityModalOpen] = useState(false);
-
+  const { isActivityModalOpen, closeActivityModal, openActivityModal } =
+    useActivityModalStore();
   const {
     loading,
     error,
@@ -88,10 +87,10 @@ export default function StudentClient({
   );
 
   // Функция для сохранения прямо из модалки
-  const handleSaveActivity = async () => {
+  const handleSaveActivity = () => {
     try {
-      await handleSave();
-      setIsActivityModalOpen(false); // Закрываем окно при успешном сохранении
+      handleSave();
+      closeActivityModal();
     } catch (err) {
       console.error("Ошибка при сохранении активности из модалки:", err);
     }
@@ -166,13 +165,12 @@ export default function StudentClient({
               />
             </div>
 
-            {/* Вместо Link теперь кнопка button, открывающая модалку */}
             <button
-              onClick={() => setIsActivityModalOpen(true)}
+              onClick={openActivityModal}
               className="flex items-center justify-between w-full p-4 bg-white border border-slate-100 
              rounded-2xl shadow-sm hover:border-slate-200 hover:bg-slate-50/50 transition-all group cursor-pointer"
             >
-              {/* ИСПРАВЛЕНО: Используем ACTIVITIES_MAP для вывода названий всех тренировок дня */}
+              {/* Используем ACTIVITIES_MAP для вывода названий всех тренировок дня */}
               <div className="text-left">
                 <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">
                   Активность дня
@@ -209,7 +207,7 @@ export default function StudentClient({
       {/* Подключаем модальное окно активности */}
       <ActivityModal
         isOpen={isActivityModalOpen}
-        onClose={() => setIsActivityModalOpen(false)}
+        onClose={closeActivityModal}
         formData={formData}
         setFormData={setFormData}
         burnedCalories={burnedCalories}

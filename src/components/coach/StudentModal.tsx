@@ -92,6 +92,9 @@ export default function StudentModal() {
                 date={item.date}
                 log={item.dayLog}
                 meals={item.dayMeals}
+                baseCalories={selectedStudent.student.daily_calories || 2000}
+                studentWeight={selectedStudent.student?.weight || 70}
+                studentGender={selectedStudent.student?.gender || "female"}
               />
             ))
           )}

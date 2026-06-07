@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { SavedMeal, SelectedProduct } from "@/types/food"; // Импортируем типы
+import { SavedMeal, SelectedProduct } from "@/types/food";
 import { formatMealTime } from "@/lib/utils/date-utils";
 import {
   Calendar,
@@ -17,7 +17,7 @@ import {
 
 interface MealCardProps {
   meal: SavedMeal;
-  onDelete: (id: string) => void;
+  onDelete?: (id: string) => void;
   onRemoveItem?: (data: { mealId: string; productId: string }) => void;
 }
 
@@ -37,6 +37,7 @@ export function MealCard({ meal, onDelete, onRemoveItem }: MealCardProps) {
   const hasComment = meal.meal_name && meal.meal_name.trim().length > 0;
 
   const handleDelete = async () => {
+    if (!onDelete) return; // Защита
     setIsDeleting(true);
     try {
       onDelete(meal.id);
@@ -64,36 +65,39 @@ export function MealCard({ meal, onDelete, onRemoveItem }: MealCardProps) {
             {formatMealTime(meal.created_at)}
           </div>
 
-          <div className="relative" onClick={(e) => e.stopPropagation()}>
-            {isConfirming ? (
-              <div className="flex items-center gap-1 bg-red-50 p-1 rounded-xl border border-red-100 animate-in fade-in zoom-in duration-200">
+          {/* Кнопка корзины рендерится только если передан проп onDelete */}
+          {onDelete && (
+            <div className="relative" onClick={(e) => e.stopPropagation()}>
+              {isConfirming ? (
+                <div className="flex items-center gap-1 bg-red-50 p-1 rounded-xl border border-red-100 animate-in fade-in zoom-in duration-200">
+                  <button
+                    onClick={handleDelete}
+                    className="p-1.5 text-red-600 hover:bg-red-100 rounded-lg transition-colors"
+                    disabled={isDeleting}
+                  >
+                    {isDeleting ? (
+                      <Loader2 size={16} className="animate-spin" />
+                    ) : (
+                      <Check size={16} />
+                    )}
+                  </button>
+                  <button
+                    onClick={() => setIsConfirming(false)}
+                    className="p-1.5 text-gray-400 hover:bg-gray-100 rounded-lg transition-colors"
+                  >
+                    <X size={16} />
+                  </button>
+                </div>
+              ) : (
                 <button
-                  onClick={handleDelete}
-                  className="p-1.5 text-red-600 hover:bg-red-100 rounded-lg transition-colors"
-                  disabled={isDeleting}
+                  onClick={() => setIsConfirming(true)}
+                  className="text-gray-200 hover:text-red-500 transition-colors p-2"
                 >
-                  {isDeleting ? (
-                    <Loader2 size={16} className="animate-spin" />
-                  ) : (
-                    <Check size={16} />
-                  )}
+                  <Trash2 size={18} />
                 </button>
-                <button
-                  onClick={() => setIsConfirming(false)}
-                  className="p-1.5 text-gray-400 hover:bg-gray-100 rounded-lg transition-colors"
-                >
-                  <X size={16} />
-                </button>
-              </div>
-            ) : (
-              <button
-                onClick={() => setIsConfirming(true)}
-                className="text-gray-200 hover:text-red-500 transition-colors p-2"
-              >
-                <Trash2 size={18} />
-              </button>
-            )}
-          </div>
+              )}
+            </div>
+          )}
         </div>
 
         <div className="flex justify-between items-start">
@@ -152,22 +156,24 @@ export function MealCard({ meal, onDelete, onRemoveItem }: MealCardProps) {
                 className="flex justify-between items-center text-sm bg-white p-4 rounded-[20px] border border-gray-100 shadow-sm group"
               >
                 <div className="flex items-center gap-3">
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      // Теперь обращаемся без any
-                      const productId = item.id || item.food_id;
-                      if (productId) {
-                        onRemoveItem?.({
-                          mealId: meal.id,
-                          productId: productId,
-                        });
-                      }
-                    }}
-                    className="w-6 h-6 flex items-center justify-center rounded-full bg-red-50 text-red-400 opacity-0 group-hover:opacity-100 transition-all hover:bg-red-500 hover:text-white"
-                  >
-                    <X size={12} />
-                  </button>
+                  {/* Маленький крестик удаления ингредиента рендерится только при наличии onRemoveItem */}
+                  {onRemoveItem && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        const productId = item.id || item.food_id;
+                        if (productId) {
+                          onRemoveItem({
+                            mealId: meal.id,
+                            productId: productId,
+                          });
+                        }
+                      }}
+                      className="w-6 h-6 flex items-center justify-center rounded-full bg-red-50 text-red-400 opacity-0 group-hover:opacity-100 transition-all hover:bg-red-500 hover:text-white"
+                    >
+                      <X size={12} />
+                    </button>
+                  )}
 
                   <div className="text-left">
                     <p className="font-bold text-gray-700">{item.name}</p>

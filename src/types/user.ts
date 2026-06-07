@@ -14,9 +14,9 @@ export interface UserProfile {
   full_name: string | null;
   avatar_url?: string | null;
   role: "student" | "coach";
-  gender?: "male" | "female";
+  gender: "male" | "female" | null | string;
   email?: string;
-  weight?: number;
+  weight: number | null;
   height?: number;
   age?: number;
   goal?: Goal;

@@ -1,6 +1,8 @@
 "use client";
-import { memo } from "react";
+import { memo, useMemo } from "react";
 import { StudentView } from "@/types/coach";
+import { ACTIVITIES_MAP } from "@/constants/activities";
+import { LoggedActivity } from "@/hooks/use-student-dashboard/types";
 
 interface StudentCardProps {
   item: StudentView;
@@ -8,21 +10,62 @@ interface StudentCardProps {
   onClick: (student: StudentView) => void;
 }
 
-const getActivityStyle = (activity?: string) => {
-  const styles: Record<string, string> = {
-    "Силовая тренировка": "bg-red-100 text-red-600 border-red-200",
-    "Кардио тренировка": "bg-orange-100 text-orange-600 border-orange-200",
-    "Групповая тренировка": "bg-purple-100 text-purple-600 border-purple-200",
-  };
-  return (
-    styles[activity || ""] || "bg-slate-100 text-slate-500 border-slate-200"
-  );
+// Динамический подбор стилей на основе сгенерированной сводки тренировок
+const getActivityStyle = (activityName?: string) => {
+  if (!activityName || activityName === "День без тренировок") {
+    return "bg-slate-100 text-slate-500 border-slate-200";
+  }
+
+  const lower = activityName.toLowerCase();
+
+  if (
+    lower.includes("силов") ||
+    lower.includes("тяжел") ||
+    lower.includes("кроссфит")
+  ) {
+    return "bg-red-100 text-red-600 border-red-200";
+  }
+
+  if (
+    lower.includes("бег") ||
+    lower.includes("плаван") ||
+    lower.includes("вело") ||
+    lower.includes("сайкл")
+  ) {
+    return "bg-orange-100 text-orange-600 border-orange-200";
+  }
+
+  if (
+    lower.includes("йога") ||
+    lower.includes("растяж") ||
+    lower.includes("аэроб") ||
+    lower.includes("танц")
+  ) {
+    return "bg-purple-100 text-purple-600 border-purple-200";
+  }
+
+  return "bg-blue-100 text-blue-600 border-blue-200";
 };
 
 function StudentCard({ item, weeklySteps, onClick }: StudentCardProps) {
   const lastLog = item.student.daily_logs?.[0];
 
-  //стабильный обработчик внутри
+  // Генерируем красивую строку названий тренировок на лету из JSONB массива
+  const computedActivityName = useMemo(() => {
+    const logActivities = lastLog?.activities || [];
+    if (logActivities.length === 0) return "День без тренировок";
+
+    return logActivities
+      .map((a: LoggedActivity) => {
+        const config = ACTIVITIES_MAP[a.activity_id];
+        // Вырезаем эмодзи для аккуратности отображения в карточке тренера
+        return config
+          ? config.name.split(" ").slice(1).join(" ")
+          : "Тренировка";
+      })
+      .join(", ");
+  }, [lastLog?.activities]);
+
   const handleCardClick = () => {
     onClick(item);
   };
@@ -37,10 +80,11 @@ function StudentCard({ item, weeklySteps, onClick }: StudentCardProps) {
           <p className="text-xl font-black text-slate-800 group-hover:text-blue-600 transition-colors">
             {item.student.full_name}
           </p>
+
           <span
-            className={`inline-block px-3 py-1 text-[10px] uppercase font-black tracking-widest rounded-lg border ${getActivityStyle(lastLog?.activity_level)}`}
+            className={`inline-block px-3 py-1 text-[10px] uppercase font-black tracking-widest rounded-lg border ${getActivityStyle(computedActivityName)}`}
           >
-            {lastLog?.activity_level || "Нет данных"}
+            {computedActivityName}
           </span>
         </div>
         <div className="text-left md:text-right">
@@ -89,7 +133,7 @@ function StudentCard({ item, weeklySteps, onClick }: StudentCardProps) {
           👣 {lastLog?.steps?.toLocaleString() || 0}
         </div>
 
-        <div className="bg-blue-50 p-3 rounded-2xl border border-blue-100">
+        <div className="bg-blue-50 p-3 rounded-2xl border border-blue-100 col-span-2 sm:col-span-1">
           <p className="text-[10px] text-blue-400 uppercase mb-1 font-black">
             7 дней
           </p>
@@ -102,5 +146,4 @@ function StudentCard({ item, weeklySteps, onClick }: StudentCardProps) {
   );
 }
 
-// Экспортируем мемоизированный компонент
 export default memo(StudentCard);
