@@ -45,7 +45,6 @@ export default function LoginPage() {
       router.refresh();
 
       // 2. Просто делаем редирект на базовый роут.
-      // Middleware сам решит: на /onboarding или в кабинет по роли.
       const role = data.user.user_metadata?.role;
       router.replace(role === "coach" ? "/coach" : "/student");
     } catch (error: unknown) {
@@ -57,20 +56,26 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 flex items-center justify-center p-6">
-      <div className="max-w-md w-full bg-white p-8 rounded-3xl shadow-xl border border-slate-100">
-        <div className="text-center mb-8">
-          <h1 className="text-3xl font-black text-slate-800 tracking-tight">
-            Volt<span className="text-blue-600">Fit</span>
-          </h1>
+    <div className="min-h-screen flex items-center justify-center p-6">
+      <div className="max-w-md w-full p-8 rounded-3xl">
+        <div className="text-center mb-8 flex flex-col items-center">
+          <Link
+            href="/"
+            className="w-fit flex items-center justify-center px-4 py-1.5 bg-yellow-400 text-slate-950 font-black text-xl italic tracking-wider rounded-xl hover:bg-yellow-300 transition-colors"
+          >
+            VOLTFIT
+          </Link>
           <p className="text-slate-400 mt-2">
             С возвращением! Войдите в аккаунт
           </p>
         </div>
 
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+        <form
+          onSubmit={handleSubmit(onSubmit)}
+          className="space-y-4 flex flex-col"
+        >
           {/* Поле Email */}
-          <div className="relative">
+          <div className="relative w-full">
             <input
               {...register("email", {
                 required: "Введите Email",
@@ -81,10 +86,10 @@ export default function LoginPage() {
               })}
               type="email"
               placeholder="Email"
-              className={`w-full p-4 bg-slate-50 rounded-2xl outline-none border-2 transition-all text-slate-800 ${
+              className={`w-full p-4 bg-transparent rounded-t-2xl rounded-b-none outline-none border-b-2 transition-all text-slate-800 ${
                 errors.email
-                  ? "border-red-400"
-                  : "border-transparent focus:border-blue-500"
+                  ? "border-b-red-400 focus:border-b-red-400"
+                  : "border-b-slate-300 focus:border-b-slate-800"
               }`}
             />
             {errors.email && (
@@ -95,7 +100,7 @@ export default function LoginPage() {
           </div>
 
           {/* Поле Пароль */}
-          <div className="relative">
+          <div className="relative w-full">
             <input
               {...register("password", {
                 required: "Введите пароль",
@@ -103,17 +108,17 @@ export default function LoginPage() {
               })}
               type={showPassword ? "text" : "password"}
               placeholder="Пароль"
-              className={`w-full p-4 bg-slate-50 rounded-2xl outline-none border-2 transition-all text-slate-800 ${
+              className={`w-full p-4 bg-transparent rounded-t-2xl rounded-b-none outline-none border-b-2 transition-all text-slate-800 pr-12 ${
                 errors.password
-                  ? "border-red-400"
-                  : "border-transparent focus:border-blue-500"
+                  ? "border-b-red-400 focus:border-b-red-400"
+                  : "border-b-slate-300 focus:border-b-slate-800"
               }`}
             />
             {/* Кнопка "Глазик" */}
             <button
               type="button"
               onClick={() => setShowPassword(!showPassword)}
-              className="absolute right-4 top-4 text-slate-400 hover:text-blue-600 transition-colors"
+              className="absolute right-4 top-4 text-slate-400 hover:text-slate-800 transition-colors"
             >
               {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
             </button>
@@ -128,7 +133,7 @@ export default function LoginPage() {
           <div className="flex justify-end px-2">
             <Link
               href="/forgot-password"
-              className="text-xs font-semibold text-slate-400 hover:text-blue-600 transition-colors"
+              className="text-xs font-semibold text-slate-400 hover:text-slate-800 transition-colors"
             >
               Забыли пароль?
             </Link>
@@ -137,7 +142,7 @@ export default function LoginPage() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full py-4 bg-blue-600 text-white font-bold rounded-2xl hover:bg-blue-700 transition-all shadow-lg shadow-blue-100 disabled:bg-slate-300"
+            className="w-full max-w-[240px] mx-auto py-4 bg-yellow-400 text-slate-950 font-bold rounded-2xl hover:bg-yellow-300 transition-all shadow-md disabled:bg-slate-300 disabled:text-slate-500"
           >
             {loading ? "Входим..." : "ВОЙТИ"}
           </button>
@@ -148,7 +153,7 @@ export default function LoginPage() {
             Нет аккаунта?{" "}
             <Link
               href="/register"
-              className="text-blue-600 font-bold hover:underline"
+              className="text-slate-800 font-medium underline underline-offset-4 decoration-1 transition-colors hover:text-slate-600"
             >
               Зарегистрироваться
             </Link>

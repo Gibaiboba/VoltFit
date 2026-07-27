@@ -55,7 +55,7 @@ export default function Header({ initialUser, initialProfile }: HeaderProps) {
   };
 
   return (
-    <header className="fixed top-0 left-0 w-full bg-white backdrop-blur-md z-50">
+    <header className="fixed top-0 left-0 w-full bg-[var(--background)] backdrop-blur-md z-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
         <Link
           href="/"

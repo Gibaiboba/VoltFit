@@ -14,7 +14,7 @@ export function SaveButton({ onClick, isSaving, hasLog }: SaveButtonProps) {
         onClick={onClick}
         disabled={isSaving}
         className={`
-          w-full py-4 rounded-2xl font-bold uppercase tracking-wider text-xs
+          w-full py-4 mb-6 rounded-2xl font-bold uppercase tracking-wider text-xs
           transition-all duration-200 active:scale-[0.98] 
           disabled:cursor-not-allowed flex items-center justify-center gap-2.5 shadow-sm
           ${

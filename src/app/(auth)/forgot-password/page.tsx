@@ -16,7 +16,8 @@ export default function ForgotPasswordPage() {
   const [loading, setLoading] = useState(false);
   const [isSent, setIsSent] = useState(false);
   const [secondsLeft, setSecondsLeft] = useState(60);
-  const [canResend, setCanResend] = useState(false);
+
+  const canResend = isSent && secondsLeft === 0;
 
   const {
     register,
@@ -26,16 +27,13 @@ export default function ForgotPasswordPage() {
     defaultValues: { email: "" },
   });
 
-  // Логика таймера для повторной отправки
   useEffect(() => {
-    let timer: NodeJS.Timeout;
-    if (isSent && secondsLeft > 0) {
-      timer = setInterval(() => {
-        setSecondsLeft((prev) => prev - 1);
-      }, 1000);
-    } else if (secondsLeft === 0) {
-      setCanResend(true);
-    }
+    if (!isSent || secondsLeft <= 0) return;
+
+    const timer = setInterval(() => {
+      setSecondsLeft((prev) => prev - 1);
+    }, 1000);
+
     return () => clearInterval(timer);
   }, [isSent, secondsLeft]);
 
@@ -44,8 +42,7 @@ export default function ForgotPasswordPage() {
     try {
       await authService.resetPassword(values.email);
       setIsSent(true);
-      setSecondsLeft(60); // Сброс таймера при каждой отправке
-      setCanResend(false);
+      setSecondsLeft(60);
       toast.success("Инструкции отправлены!");
     } catch (error: unknown) {
       console.error("Reset password error:", error);
@@ -57,29 +54,37 @@ export default function ForgotPasswordPage() {
 
   const handleResend = () => {
     setIsSent(false);
-    setCanResend(false);
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 flex items-center justify-center p-6">
-      <div className="max-w-md w-full bg-white p-8 rounded-3xl shadow-xl border border-slate-100">
-        {/* Навигация назад */}
-        <Link
-          href="/login"
-          className="flex items-center text-slate-400 hover:text-blue-600 transition-colors mb-6 text-sm font-medium w-fit group"
-        >
-          <ChevronLeft
-            size={18}
-            className="group-hover:-translate-x-1 transition-transform"
-          />
-          Назад к входу
-        </Link>
+    /* Добавлен relative для позиционирования верхней левой кнопки */
+    <div className="min-h-screen flex items-center justify-center p-6 relative">
+      {/* Изменено: Перемещено в левый верхний угол, синий цвет заменен на slate-800 */}
+      <Link
+        href="/login"
+        className="absolute top-6 left-6 flex items-center text-slate-400 hover:text-slate-800 transition-colors text-sm font-medium w-fit group"
+      >
+        <ChevronLeft
+          size={18}
+          className="group-hover:-translate-x-1 transition-transform"
+        />
+        Назад к входу
+      </Link>
 
-        <div className="text-center mb-8">
+      <div className="max-w-md w-full p-8 rounded-3xl">
+        <div className="text-center mb-8 flex flex-col items-center">
+          {/* Изменено: Добавлен единый фирменный логотип */}
+          <Link
+            href="/"
+            className="w-fit flex items-center justify-center px-4 py-1.5 bg-yellow-400 text-slate-950 font-black text-xl italic tracking-wider rounded-xl hover:bg-yellow-300 transition-colors mb-4"
+          >
+            VOLTFIT
+          </Link>
+          {/* Изменено: Убран синий цвет текста */}
           <h1 className="text-2xl font-black text-slate-800 tracking-tight">
-            Восстановление <span className="text-blue-600">пароля</span>
+            Восстановление пароля
           </h1>
-          <p className="text-slate-400 mt-2 text-sm">
+          <p className="text-slate-400 mt-2 text-sm max-w-sm">
             {isSent
               ? "Мы отправили ссылку для сброса на ваш email. Проверьте входящие и папку Спам."
               : "Введите ваш email, и мы пришлем ссылку для создания нового пароля."}
@@ -87,8 +92,12 @@ export default function ForgotPasswordPage() {
         </div>
 
         {!isSent ? (
-          <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-            <div>
+          <form
+            onSubmit={handleSubmit(onSubmit)}
+            className="space-y-4 flex flex-col"
+          >
+            <div className="relative w-full">
+              {/* Изменено: Нижнее подчеркивание, убран фон, фокус заменен на slate-800 */}
               <input
                 {...register("email", {
                   required: "Введите Email",
@@ -99,10 +108,10 @@ export default function ForgotPasswordPage() {
                 })}
                 type="email"
                 placeholder="Ваш Email"
-                className={`w-full p-4 bg-slate-50 rounded-2xl border-2 transition-all outline-none text-slate-800 ${
+                className={`w-full p-4 bg-transparent rounded-t-2xl rounded-b-none outline-none border-b-2 transition-all text-slate-800 ${
                   errors.email
-                    ? "border-red-400"
-                    : "border-transparent focus:border-blue-500"
+                    ? "border-b-red-400 focus:border-b-red-400"
+                    : "border-b-slate-300 focus:border-b-slate-800"
                 }`}
               />
               {errors.email && (
@@ -112,26 +121,29 @@ export default function ForgotPasswordPage() {
               )}
             </div>
 
+            {/* Изменено: Кнопка сужена и перекрашена в черно-желтый */}
             <button
               type="submit"
               disabled={loading}
-              className="w-full py-4 bg-blue-600 text-white font-bold rounded-2xl hover:bg-blue-700 transition-all shadow-lg shadow-blue-100 disabled:bg-slate-300"
+              className="w-full max-w-[240px] mx-auto py-4 bg-yellow-400 text-slate-950 font-bold rounded-2xl hover:bg-yellow-300 transition-all shadow-md disabled:bg-slate-300 disabled:text-slate-500 mt-4"
             >
               {loading ? "Отправляем..." : "ОТПРАВИТЬ ССЫЛКУ"}
             </button>
           </form>
         ) : (
-          <div className="space-y-6 text-center">
-            <div className="p-4 bg-blue-50 rounded-2xl border border-blue-100 text-blue-700 text-sm leading-relaxed">
+          <div className="space-y-6 text-center flex flex-col">
+            {/* Изменено: Синяя плашка заменена на минималистичную серую */}
+            <div className="p-4 bg-slate-100 rounded-2xl border border-slate-200 text-slate-700 text-sm leading-relaxed text-left">
               Ссылка действительна 24 часа. Если письма нет, проверьте
               правильность адреса.
             </div>
 
             <div className="space-y-4">
               {canResend ? (
+                /* Изменено: Кнопка стала черной, тоньше и всегда подчеркнутой */
                 <button
                   onClick={handleResend}
-                  className="text-blue-600 font-bold hover:underline text-sm"
+                  className="text-slate-800 font-medium underline underline-offset-4 decoration-1 transition-colors hover:text-slate-600 text-sm"
                 >
                   Не пришло письмо? Отправить снова
                 </button>
@@ -145,9 +157,10 @@ export default function ForgotPasswordPage() {
                 </p>
               )}
 
+              {/* Изменено: Нижняя кнопка сужена и перекрашена в черно-желтый */}
               <Link
                 href="/login"
-                className="block w-full py-4 bg-slate-800 text-white text-center font-bold rounded-2xl hover:bg-slate-900 transition-all shadow-lg shadow-slate-100"
+                className="block w-full max-w-[240px] mx-auto py-4 bg-yellow-400 text-slate-950 text-center font-bold rounded-2xl hover:bg-yellow-300 transition-all shadow-md mt-4"
               >
                 ВЕРНУТЬСЯ КО ВХОДУ
               </Link>
