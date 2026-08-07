@@ -88,6 +88,7 @@ export interface DashboardCalculationsResult {
     calories: { x: string; y: number }[];
   };
   targetCalories: number;
+  waterTarget: number;
   currentCalories: number;
   calProgress: number;
   isToday: boolean;

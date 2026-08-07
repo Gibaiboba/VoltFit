@@ -8,9 +8,9 @@ import QueryProvider from "@/providers/QueryProvider";
 const inter = Inter({ subsets: ["latin", "cyrillic"] });
 
 export const metadata: Metadata = {
-  title: "VoltFit — Твой путь к идеальной форме",
+  title: "Vitality on the go! VitGo — путь к идеальной форме",
   description:
-    "Персонализированные тренировки и трекинг активности в приложении VoltFit",
+    "Персонализированные тренировки и трекинг активности в приложении VitGo",
 };
 
 export default function RootLayout({

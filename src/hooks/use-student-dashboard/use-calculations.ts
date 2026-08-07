@@ -10,6 +10,7 @@ import { UserProfile } from "@/types/user";
 import { useNutritionStats } from "../use-nutrition-stats";
 import { getPreviousWeight } from "@/lib/utils/weight-utils";
 import { ACTIVITIES_MAP } from "@/constants/activities";
+import { calculateDynamicWaterTarget } from "@/lib/utils/waterCalculator";
 
 export const useDashboardCalculations = (
   history: DailyLog[],
@@ -107,10 +108,17 @@ export const useDashboardCalculations = (
     };
   }, [history]);
 
+  //расчет динамической цели по воде на лету
+  const waterTarget = useMemo<number>(() => {
+    const stepsCount = parseInt(formData.steps) || 0;
+    return calculateDynamicWaterTarget(profile, stepsCount, currentActivities);
+  }, [profile, formData.steps, currentActivities]);
+
   return {
     currentLog,
     previousWeight,
     formData,
+    waterTarget,
     currentProteins: roundedStats.p,
     currentFats: roundedStats.f,
     currentCarbs: roundedStats.c,

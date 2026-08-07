@@ -1,3 +1,5 @@
+import { LoggedActivity } from "@/hooks/use-student-dashboard/types";
+
 export type Goal = "lose_weight" | "gain_muscle" | "maintain";
 
 // Самый важный тип — Единый Лог между тренером и учеником
@@ -16,10 +18,5 @@ export interface DailyLog {
   carbs?: number;
   burned_calories: number;
   activity_name?: string;
-  activities: {
-    id: string;
-    activity_id: string;
-    duration: number;
-    burned_calories: number;
-  }[];
+  activities: LoggedActivity[];
 }

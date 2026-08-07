@@ -15,14 +15,14 @@ import {
   Moon,
   Sparkles,
 } from "lucide-react";
+import { toast } from "sonner";
 import { useMealStore } from "@/store/useMealStore";
 import { useActivityModalStore } from "@/store/useActivityModalStore";
 import FoodConstructor from "@/components/food/food-constructor";
 import { useUserStore } from "@/store/useUserStore";
-
-// Глобальный хук дашборда и модальное окно активности
 import { useStudentDashboard } from "@/hooks/use-student-dashboard/index";
 import { ActivityModal } from "@/components/student/activity-modal";
+import { useWaterTracker } from "@/hooks/use-water-tracker";
 
 export default function StudentTabsLayout({
   children,
@@ -52,14 +52,21 @@ export default function StudentTabsLayout({
 
   const isConstructorOpen = Boolean(activeMealType);
 
+  // Передаем selectedDate в качестве serverToday, чтобы хук точно определял текущую дату в контексте кэша
+  const {
+    updateWater,
+    isPending,
+    disabled: isWaterDisabled,
+  } = useWaterTracker(selectedDate);
+
   // Состояние быстрого меню добавления
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
   // Списки табов для левой и правой половин панели
   const leftTabs = [
-    { id: "/student", label: "Трекер", icon: Activity },
     { id: "/student/diary", label: "Дневник", icon: Utensils },
+    { id: "/student", label: "Трекер", icon: Activity },
   ];
 
   const rightTabs = [
@@ -135,6 +142,17 @@ export default function StudentTabsLayout({
     setIsMenuOpen(false);
   };
 
+  const handleFastWaterAdd = () => {
+    if (isWaterDisabled || isPending) return;
+    updateWater(250); // Добавляем 250 мл
+    setIsMenuOpen(false);
+
+    toast.success("Водный баланс обновлен!", {
+      description: "Успешно добавлено +250 мл воды 🥛",
+      duration: 3000, // исчезнет через 3 секунды
+    });
+  };
+
   const renderTab = (tab: (typeof leftTabs)[number]) => {
     const Icon = tab.icon;
     const isActive = pathname === tab.id;
@@ -201,7 +219,7 @@ export default function StudentTabsLayout({
         targetCalories={dashState.targetCalories}
         calProgress={dashState.calProgress}
         onSave={async () => {
-          await dashActions.handleSave();
+          dashActions.handleSave();
           closeActivityModal();
         }}
         isSaving={dashState.isSaving}
@@ -261,15 +279,33 @@ export default function StudentTabsLayout({
                 </button>
               </div>
 
-              <button
-                onClick={handleAddActivity}
-                className="w-full flex items-center justify-center gap-2 p-3 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl shadow-sm transition-all group"
-              >
-                <Dumbbell className="w-4 h-4 text-emerald-100 group-hover:rotate-12 transition-transform" />
-                <span className="text-xs font-black uppercase tracking-wider">
-                  Trenirovka
-                </span>
-              </button>
+              {/* Сетка кнопок действий */}
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  onClick={handleAddActivity}
+                  className="flex items-center justify-center gap-2 p-3 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl shadow-sm transition-all group"
+                >
+                  <Dumbbell className="w-4 h-4 text-emerald-100 group-hover:rotate-12 transition-transform" />
+                  <span className="text-xs font-black uppercase tracking-wider">
+                    Trenirovka
+                  </span>
+                </button>
+
+                {/* Кнопка мгновенного добавления +250мл*/}
+                <button
+                  type="button"
+                  disabled={isWaterDisabled || isPending}
+                  onClick={handleFastWaterAdd}
+                  className="flex items-center justify-center gap-2 p-3 bg-blue-500 hover:bg-blue-600 text-white rounded-xl shadow-sm transition-all group cursor-pointer disabled:opacity-60"
+                >
+                  <span className="text-sm group-hover:scale-110 transition-transform">
+                    🥛
+                  </span>
+                  <span className="text-xs font-black uppercase tracking-wider">
+                    Вода +250
+                  </span>
+                </button>
+              </div>
             </div>
           )}
 

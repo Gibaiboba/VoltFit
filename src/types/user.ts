@@ -21,7 +21,7 @@ export interface UserProfile {
   age?: number;
   goal?: Goal;
   target_weight?: number;
-
+  activity_level?: number;
   daily_calories?: number;
   protein?: number;
   fat?: number;

@@ -61,7 +61,7 @@ export default function Header({ initialUser, initialProfile }: HeaderProps) {
           href="/"
           className="flex items-center justify-center px-3 py-1.5 bg-yellow-400 text-slate-950 font-black text-xl italic tracking-wider rounded-xl hover:bg-yellow-300 transition-colors"
         >
-          VOLTFIT
+          VitGo
         </Link>
 
         {displayUser ? (

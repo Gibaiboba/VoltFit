@@ -14,6 +14,7 @@ import { HistorySkeleton } from "@/components/history/history-skeleton";
 import AsyncBoundary from "@/components/shared/AsyncBoundary";
 import { MealType } from "@/types/food";
 import { MEAL_SLOTS } from "@/constants/mealTypes";
+import WaterTrackerCard from "@/components/student/WaterTrackerCard";
 
 export default function DiaryPage() {
   const selectedDate = useUserStore((state) => state.selectedDate);
@@ -77,7 +78,7 @@ export default function DiaryPage() {
     removeItem,
   } = useDiaryLogic(selectedDate, todayStr);
 
-  // 🟢 ИСПРАВЛЕНО: Передаем динамические цели, приходящие из обновленного useDiaryLogic
+  //  Передаем динамические цели, приходящие из useDiaryLogic
   const macroStats = useMacroStats(
     { p: goals.p || 0, f: goals.f || 0, c: goals.c || 0 },
     { p: consumed.p || 0, f: consumed.f || 0, c: consumed.c || 0 },
@@ -146,6 +147,10 @@ export default function DiaryPage() {
               progress={progress}
             />
             <MacrosComboCard macros={macroStats} />
+          </section>
+
+          <section className="w-full">
+            <WaterTrackerCard serverToday={todayStr} />
           </section>
 
           <section className="space-y-4">

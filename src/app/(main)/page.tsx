@@ -78,7 +78,7 @@ export default async function Home() {
               </div>
               <div>
                 <div className="font-bold text-sm text-white">
-                  Дневник VoltFit
+                  Дневник VitGo
                 </div>
                 <div className="text-xs text-slate-400">
                   Синхронизировано с тренером
