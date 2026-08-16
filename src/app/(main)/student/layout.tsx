@@ -23,6 +23,7 @@ import { useUserStore } from "@/store/useUserStore";
 import { useStudentDashboard } from "@/hooks/use-student-dashboard/index";
 import { ActivityModal } from "@/components/student/activity-modal";
 import { useWaterTracker } from "@/hooks/use-water-tracker";
+import { useServerToday } from "@/providers/DateProvider";
 
 export default function StudentTabsLayout({
   children,
@@ -52,12 +53,15 @@ export default function StudentTabsLayout({
 
   const isConstructorOpen = Boolean(activeMealType);
 
-  // Передаем selectedDate в качестве serverToday, чтобы хук точно определял текущую дату в контексте кэша
+  //  Извлекаем стабильную сегодняшнюю дату сервера из React Context
+  const serverToday = useServerToday();
+
+  // Передаем serverToday из контекста вместо скользящей selectedDate!
   const {
     updateWater,
     isPending,
     disabled: isWaterDisabled,
-  } = useWaterTracker(selectedDate);
+  } = useWaterTracker(serverToday);
 
   // Состояние быстрого меню добавления
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -149,7 +153,7 @@ export default function StudentTabsLayout({
 
     toast.success("Водный баланс обновлен!", {
       description: "Успешно добавлено +250 мл воды 🥛",
-      duration: 3000, // исчезнет через 3 секунды
+      duration: 3000,
     });
   };
 
@@ -184,6 +188,7 @@ export default function StudentTabsLayout({
       </Link>
     );
   };
+
   return (
     <div className="min-h-screen bg-[#F8F9FA]">
       <main
@@ -224,7 +229,6 @@ export default function StudentTabsLayout({
         }}
         isSaving={dashState.isSaving}
       />
-
       {/* Оверлей-затемнение фона при открытом меню быстрого добавления */}
       {isMenuOpen && (
         <div className="fixed inset-0 bg-slate-900/30 backdrop-blur-md z-40 animate-in fade-in duration-200" />
@@ -246,8 +250,9 @@ export default function StudentTabsLayout({
 
               <div className="grid grid-cols-2 gap-2">
                 <button
+                  type="button"
                   onClick={() => handleAddMeal("breakfast")}
-                  className="flex items-center gap-2 p-3 bg-amber-50/60 hover:bg-amber-50 border border-amber-100 rounded-xl transition-all group w-full text-left"
+                  className="flex items-center gap-2 p-3 bg-amber-50/60 hover:bg-amber-50 border border-amber-100 rounded-xl transition-all group w-full text-left cursor-pointer"
                 >
                   <Coffee className="w-4 h-4 text-amber-500 group-hover:scale-110 transition-transform" />
                   <span className="text-xs font-bold text-slate-700">
@@ -255,22 +260,25 @@ export default function StudentTabsLayout({
                   </span>
                 </button>
                 <button
+                  type="button"
                   onClick={() => handleAddMeal("lunch")}
-                  className="flex items-center gap-2 p-3 bg-orange-50/60 hover:bg-orange-50 border border-orange-100 rounded-xl transition-all group w-full text-left"
+                  className="flex items-center gap-2 p-3 bg-orange-50/60 hover:bg-orange-50 border border-orange-100 rounded-xl transition-all group w-full text-left cursor-pointer"
                 >
                   <Sun className="w-4 h-4 text-orange-500 group-hover:scale-110 transition-transform" />
                   <span className="text-xs font-bold text-slate-700">Обед</span>
                 </button>
                 <button
+                  type="button"
                   onClick={() => handleAddMeal("dinner")}
-                  className="flex items-center gap-2 p-3 bg-blue-50/60 hover:bg-blue-50 border border-blue-100 rounded-xl transition-all group w-full text-left"
+                  className="flex items-center gap-2 p-3 bg-blue-50/60 hover:bg-blue-50 border border-blue-100 rounded-xl transition-all group w-full text-left cursor-pointer"
                 >
                   <Moon className="w-4 h-4 text-blue-500 group-hover:scale-110 transition-transform" />
                   <span className="text-xs font-bold text-slate-700">Ужин</span>
                 </button>
                 <button
+                  type="button"
                   onClick={() => handleAddMeal("snack")}
-                  className="flex items-center gap-2 p-3 bg-purple-50/60 hover:bg-purple-50 border border-purple-100 rounded-xl transition-all group w-full text-left"
+                  className="flex items-center gap-2 p-3 bg-purple-50/60 hover:bg-purple-50 border border-purple-100 rounded-xl transition-all group w-full text-left cursor-pointer"
                 >
                   <Sparkles className="w-4 h-4 text-purple-500 group-hover:scale-110 transition-transform" />
                   <span className="text-xs font-bold text-slate-700">
@@ -282,8 +290,9 @@ export default function StudentTabsLayout({
               {/* Сетка кнопок действий */}
               <div className="grid grid-cols-2 gap-2">
                 <button
+                  type="button"
                   onClick={handleAddActivity}
-                  className="flex items-center justify-center gap-2 p-3 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl shadow-sm transition-all group"
+                  className="flex items-center justify-center gap-2 p-3 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl shadow-sm transition-all group cursor-pointer"
                 >
                   <Dumbbell className="w-4 h-4 text-emerald-100 group-hover:rotate-12 transition-transform" />
                   <span className="text-xs font-black uppercase tracking-wider">
@@ -291,7 +300,7 @@ export default function StudentTabsLayout({
                   </span>
                 </button>
 
-                {/* Кнопка мгновенного добавления +250мл*/}
+                {/* Кнопка мгновенного добавления +250мл */}
                 <button
                   type="button"
                   disabled={isWaterDisabled || isPending}
@@ -320,6 +329,7 @@ export default function StudentTabsLayout({
               {/* Центральная кнопка Плюс */}
               <div className="relative -top-3 px-2 shrink-0">
                 <button
+                  type="button"
                   onClick={() => setIsMenuOpen(!isMenuOpen)}
                   className={`w-12 h-12 md:w-14 md:h-14 rounded-full flex items-center justify-center shadow-lg transition-all duration-300 cursor-pointer ${
                     isMenuOpen

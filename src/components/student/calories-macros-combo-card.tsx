@@ -1,5 +1,7 @@
 "use client";
 
+import { Flame } from "lucide-react";
+
 interface MacroItem {
   label: string;
   current: number;
@@ -16,6 +18,7 @@ interface CaloriesMacrosComboCardProps {
   target: number;
   progress: number;
   macros: MacroItem[];
+  burnedCalories?: number;
 }
 
 export function CaloriesMacrosComboCard({
@@ -23,10 +26,10 @@ export function CaloriesMacrosComboCard({
   target = 0,
   progress = 0,
   macros,
+  burnedCalories = 0,
 }: CaloriesMacrosComboCardProps) {
   const roundedCurrent = Math.round(current) || 0;
   const validTarget = target > 0 ? target : 0;
-  const caloriesLeft = Math.max(0, validTarget - roundedCurrent);
 
   // Параметры для SVG Кругового Прогресс-бара
   const radius = 42;
@@ -53,12 +56,13 @@ export function CaloriesMacrosComboCard({
             </span>
           </div>
 
-          {/* Плашка "Осталось" теперь в темно-зеленых тонах */}
+          {/* Плашка активности в янтарно-оранжевых тонах вместо "Осталось" */}
           <div className="pt-1">
-            <span className="inline-flex items-center text-[11px] font-bold text-emerald-800 bg-emerald-50 px-2.5 py-1 rounded-lg border border-emerald-100/50">
-              Осталось:{" "}
-              <span className="text-emerald-600 font-black ml-1">
-                {caloriesLeft} ккал
+            <span className="inline-flex items-center gap-1 text-[11px] font-bold text-amber-800 bg-amber-50 px-2.5 py-1 rounded-lg border border-amber-100/50">
+              <Flame className="w-3.5 h-3.5 text-amber-500" />
+              Активность:{" "}
+              <span className="text-amber-600 font-black">
+                +{burnedCalories} ккал
               </span>
             </span>
           </div>

@@ -32,7 +32,6 @@ export function DateNavigation({
     }
   };
 
-  // Функция для шага назад или вперед на 1 день
   const handleDayStep = (step: number) => {
     if (!selectedDate) return;
     const date = new Date(selectedDate);
@@ -81,54 +80,51 @@ export function DateNavigation({
   }, [todayStr]);
 
   return (
-    <div className="flex flex-col gap-4 mb-2 w-full max-w-md mx-auto">
-      {/* Относительный контейнер, высота фиксирована для стабильности (h-11) */}
-      <div className="relative flex items-center h-11 px-2 rounded-2xl bg-transparent">
-        {/* Иконка жестко привязана к левому краю */}
+    <div className="flex flex-col gap-3 mb-2 w-full max-w-md mx-auto px-2">
+      {/* Верхняя панель: Переведена на чистый Flexbox для идеального выравнивания */}
+      <div className="flex items-center justify-between h-11 w-full gap-1 bg-transparent">
+        {/* Левая кнопка: Календарь */}
         <button
           type="button"
           onClick={handleIconClick}
-          className="absolute left-2 z-10 p-2 hover:bg-slate-100 rounded-xl transition-colors group"
+          className="flex-shrink-0 p-2 hover:bg-slate-100 rounded-xl transition-colors group"
           aria-label="Открыть календарь"
         >
           <Calendar className="w-4 h-4 text-yellow-500 transition-transform group-hover:scale-110" />
         </button>
 
-        {/* Блок центрального управления: Стрелка Влево + Текст + Стрелка Вправо */}
-        <div className="absolute left-1/2 -translate-x-1/2 flex items-center gap-1">
-          {/* Стрелка "Предыдущий день" */}
+        {/* Центральный блок управления: Стрелки + Текст */}
+        <div className="flex items-center justify-center flex-1 min-w-0 gap-0.5">
           <button
             type="button"
             onClick={() => handleDayStep(-1)}
-            className="p-1.5 hover:bg-slate-50 text-slate-400 hover:text-slate-700 rounded-lg transition-colors"
+            className="p-1.5 flex-shrink-0 hover:bg-slate-50 text-slate-400 hover:text-slate-700 rounded-lg transition-colors"
             aria-label="Предыдущий день"
           >
             <ChevronLeft className="w-4 h-4" />
           </button>
 
-          {/* Интерактивная текстовая зона по центру экрана */}
+          {/* Текст теперь гибкий (flex-1), не ломает верстку и плавно уменьшается */}
           <button
             type="button"
             onClick={handleIconClick}
-            className="w-full min-w-[140px] max-w-[160px] text-center py-1.5 hover:bg-slate-50 rounded-xl transition-all group"
+            className="px-1 py-1.5 hover:bg-slate-50 rounded-xl transition-all min-w-0 max-w-[150px] flex-1"
           >
-            <span className="text-sm font-black text-slate-700 select-none truncate block">
+            <span className="text-xs sm:text-sm font-black text-slate-700 select-none truncate block">
               {formattedSelectedDate}
             </span>
           </button>
 
-          {/* Стрелка "Следующий день" */}
           <button
             type="button"
             onClick={() => handleDayStep(1)}
-            className="p-1.5 hover:bg-slate-50 text-slate-400 hover:text-slate-700 rounded-lg transition-colors"
-            aria-label="Следующий день"
+            className="p-1.5 flex-shrink-0 hover:bg-slate-50 text-slate-400 hover:text-slate-700 rounded-lg transition-colors"
           >
             <ChevronRight className="w-4 h-4" />
           </button>
         </div>
 
-        {/* Полностью изолированный скрытый инпут */}
+        {/* Скрытый инпут */}
         <input
           ref={dateInputRef}
           type="date"
@@ -138,23 +134,23 @@ export function DateNavigation({
           tabIndex={-1}
         />
 
-        {/* Кнопка LIVE/Назад жестко привязана к правому краю */}
+        {/* Правая кнопка: Текст скрывается на экранах < 360px, оставляя только иконку */}
         <button
           type="button"
           onClick={() => !isToday && onDateChange(todayStr)}
-          className={`absolute right-2 flex items-center gap-2 px-5 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-tighter transition-all ${
+          className={`flex-shrink-0 flex items-center justify-center h-9 w-9 rounded-xl text-[10px] font-black uppercase transition-all ${
             isToday
               ? "bg-slate-50 text-slate-300 pointer-events-none"
-              : "bg-yellow-400 text-black hover:bg-yellow-300 shadow-lg active:scale-95"
+              : "bg-yellow-400 text-black hover:bg-yellow-300 shadow-md active:scale-95"
           }`}
         >
-          <RotateCcw className="w-3 h-3" />
+          <RotateCcw className="w-3 h-3 flex-shrink-0" />
         </button>
       </div>
 
-      {/* Лента дат */}
+      {/* Лента дат: Размеры кружков стали адаптивными (w-9 h-9 на мобильных, w-11 h-11 на экранах побольше) */}
       <div
-        className="flex justify-between items-center gap-1"
+        className="flex justify-between items-center gap-1 w-full"
         role="group"
         aria-label="Выбор даты"
       >
@@ -168,28 +164,28 @@ export function DateNavigation({
               key={day.full}
               type="button"
               onClick={() => onDateChange(day.full)}
-              className="flex flex-col items-center gap-2 flex-1 group"
+              className="flex flex-col items-center gap-1 flex-1 min-w-0 group"
               aria-current={isActive ? "date" : undefined}
             >
               <span
-                className={`text-[9px] font-black uppercase transition-colors ${
+                className={`text-[8px] sm:text-[9px] font-black uppercase transition-colors truncate w-full text-center ${
                   isActive ? "text-yellow-500" : "text-slate-400"
                 }`}
               >
-                {isRealToday ? "Сегодня" : day.dayName}
+                {isRealToday ? "Сег" : day.dayName}
               </span>
 
               <div
-                className={`relative flex items-center justify-center w-11 h-11 rounded-full font-black text-sm transition-all duration-300 ${
+                className={`relative flex items-center justify-center w-9 h-9 sm:w-11 sm:h-11 rounded-full font-black text-xs sm:text-sm transition-all duration-300 ${
                   isActive
-                    ? "bg-yellow-400 text-black shadow-lg scale-110 ring-4 ring-yellow-400/10"
+                    ? "bg-yellow-400 text-black shadow-md scale-105 sm:scale-110 ring-2 sm:ring-4 ring-yellow-400/10"
                     : "bg-transparent text-slate-600 hover:bg-slate-100"
                 }`}
               >
                 {day.dayNum}
                 {hasData && (
                   <span
-                    className={`absolute -bottom-1 w-1.5 h-1.5 rounded-full ${
+                    className={`absolute bottom-0 sm:-bottom-1 w-1 h-1 sm:w-1.5 sm:h-1.5 rounded-full ${
                       isActive ? "bg-black" : "bg-green-500"
                     }`}
                   />

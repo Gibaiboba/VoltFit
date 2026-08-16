@@ -129,8 +129,9 @@ export function useDiaryLogic(selectedDate: string, serverToday: string) {
     displayMeals: displayMealsMap,
     allMeals: meals,
     consumed: roundedStats,
-    goals, // Теперь тут лежат динамически повышенные БЖУ и ккал!
+    goals, // тут лежат динамически повышенные БЖУ и ккал
     progress,
+    burnedCalories,
 
     isLoading:
       mealsLoading ||

@@ -129,6 +129,7 @@ export default function StudentClient({
             target={targetCalories}
             progress={calProgress}
             macros={macroStats}
+            burnedCalories={burnedCalories}
           />
 
           <ActivitySection

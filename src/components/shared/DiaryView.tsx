@@ -69,6 +69,7 @@ export default function DiaryPage() {
     allMeals,
     consumed,
     goals,
+    burnedCalories,
     progress,
     isLoading,
     isFetching,
@@ -117,21 +118,21 @@ export default function DiaryPage() {
   );
 
   return (
-    <div className="p-6 bg-[#F4F4F5] min-h-screen pt-24 text-slate-900 relative">
+    <div className="p-2 bg-[var(--background)] min-h-screen pt-18 text-slate-900 relative">
       <AsyncBoundary
         isLoading={isLoading && allMeals.length === 0}
         error={error}
         onRetry={refetch}
         skeleton={<HistorySkeleton />}
       >
-        <div className="max-w-4xl mx-auto space-y-8 animate-in fade-in duration-300">
+        <div className="max-w-4xl mx-auto space-y-3 animate-in fade-in duration-300">
           {isFetching && allMeals.length > 0 && (
             <div className="absolute top-4 right-6 text-[10px] font-black text-slate-400 uppercase tracking-widest animate-pulse pointer-events-none">
               ⏳ Обновление архива...
             </div>
           )}
 
-          <section className="space-y-6">
+          <section className="space-y-3">
             <div className="flex items-center justify-between">
               <DateNavigation
                 selectedDate={selectedDate}
@@ -143,7 +144,8 @@ export default function DiaryPage() {
             </div>
             <CaloriesBanner
               current={consumed.kcal}
-              target={goals.kcal}
+              burned={burnedCalories}
+              target={Math.max(0, goals.kcal - burnedCalories)}
               progress={progress}
             />
             <MacrosComboCard macros={macroStats} />
@@ -153,9 +155,9 @@ export default function DiaryPage() {
             <WaterTrackerCard serverToday={todayStr} />
           </section>
 
-          <section className="space-y-4">
+          <section className="space-y-2">
             <div className="px-1">
-              <h2 className="text-xl font-black text-slate-900 uppercase italic tracking-tight">
+              <h2 className="text-xl mt-5 font-black text-slate-900 uppercase italic tracking-tight">
                 Дневной рацион
               </h2>
             </div>
