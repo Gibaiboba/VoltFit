@@ -16,7 +16,7 @@ interface ActivityModalProps {
   onClose: () => void;
   formData: FormDataType;
   setFormData: (updater: FormUpdater) => void;
-  burnedCalories: number;
+  burnedCalories: number; // Оставляем в пропсах для обратной совместимости с родителем
   currentCalories: number;
   targetCalories: number;
   calProgress: number;
@@ -29,7 +29,6 @@ export function ActivityModal({
   onClose,
   formData,
   setFormData,
-  burnedCalories,
   currentCalories,
   targetCalories,
   calProgress,
@@ -43,6 +42,12 @@ export function ActivityModal({
   // Локальные стейты для конструирования ОДНОЙ текущей добавляемой сессии
   const [localActivityId, setLocalActivityId] = useState("");
   const [localDuration, setLocalDuration] = useState("");
+
+  // ПОДСЧЕТ СУММЫ НА ЛЕТУ ИЗ ТЕКУЩЕГО МАССИВА СЕССИЙ
+  const totalBurnedCalories = (formData.activities || []).reduce(
+    (sum, act) => sum + (Number(act.burned_calories) || 0),
+    0,
+  );
 
   useEffect(() => {
     if (isOpen) {
@@ -212,11 +217,11 @@ export function ActivityModal({
           )}
         </div>
 
-        {/* ИТОГОВАЯ СУММА */}
-        {burnedCalories > 0 && (
+        {/* ИТОГОВАЯ СУММА — ИСПОЛЬЗУЕТ ДИНАМИЧЕСКИЙ СЧЕТЧИК */}
+        {totalBurnedCalories > 0 && (
           <div className="p-3 bg-amber-50 rounded-xl flex items-center gap-2 text-amber-700 text-xs font-semibold border border-amber-100">
             <Flame className="w-4 h-4 text-amber-500 animate-pulse" />
-            Всего будет сожжено за сегодня: +{burnedCalories} ккал
+            Всего будет сожжено за сегодня: +{totalBurnedCalories} ккал
           </div>
         )}
 

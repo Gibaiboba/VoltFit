@@ -30,7 +30,7 @@ export interface FormDataType {
   water: number;
   calories: string;
 
-  // 🟢 ИСПРАВЛЕНО: Форма теперь держит массив залогированных активностей за день
+  // Форма держит массив залогированных активностей за день
   activities: LoggedActivity[];
 }
 

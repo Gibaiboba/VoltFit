@@ -6,7 +6,6 @@ export const coachService = {
   /**
    * Получаем всех учеников тренера с их последними логами
    */
-
   async getStudents() {
     const { data, error } = (await supabase.from("coach_students").select(
       `
@@ -86,5 +85,22 @@ export const coachService = {
     if (linkError) throw linkError;
 
     return student;
+  },
+
+  /**
+   * 👇 ДОБАВЛЕНО: Логика удаления ученика (разрыв связи)
+   */
+  async removeStudent(studentId: string, coachId: string) {
+    const { error } = await supabase
+      .from("coach_students")
+      .delete()
+      .eq("coach_id", coachId)
+      .eq("student_id", studentId);
+
+    if (error) {
+      throw new Error("Не удалось прекратить сотрудничество с учеником");
+    }
+
+    return { success: true };
   },
 };

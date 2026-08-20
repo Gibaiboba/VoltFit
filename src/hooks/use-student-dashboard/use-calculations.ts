@@ -9,7 +9,7 @@ import { SavedMeal } from "@/types/food";
 import { UserProfile } from "@/types/user";
 import { useNutritionStats } from "../use-nutrition-stats";
 import { getPreviousWeight } from "@/lib/utils/weight-utils";
-import { ACTIVITIES_MAP } from "@/constants/activities";
+
 import { calculateDynamicWaterTarget } from "@/lib/utils/waterCalculator";
 
 export const useDashboardCalculations = (
@@ -39,20 +39,11 @@ export const useDashboardCalculations = (
   const totalBurnedCalories = useMemo<number>(() => {
     if (!currentActivities || currentActivities.length === 0) return 0;
 
-    const weight = profile?.weight || 70;
-    const gender = profile?.gender || "female";
-    const genderFactor = gender === "female" ? 0.014 : 0.015;
-
     return currentActivities.reduce((sum, act) => {
-      const config = ACTIVITIES_MAP[act.activity_id];
-      if (!config || act.duration <= 0) return sum;
-
-      const kcal = Math.round(
-        config.met * genderFactor * weight * act.duration,
-      );
-      return sum + kcal;
+      // Просто берем уже вычисленное значение из объекта активности
+      return sum + (Number(act.burned_calories) || 0);
     }, 0);
-  }, [currentActivities, profile]);
+  }, [currentActivities]);
 
   const targetCalories = useMemo<number>(() => {
     return baseTargetCalories + totalBurnedCalories;

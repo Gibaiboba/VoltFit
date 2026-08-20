@@ -27,7 +27,7 @@ export default function CoachTabsLayout({
   // У ТРЕНЕРА него всего 3 вкладки, плюс делит их по центру
   const leftTabs = [
     { id: "/coach", label: "Ученики", icon: Users },
-    { id: "/coach/diary", label: "Мой Дневник", icon: Utensils },
+    { id: "/coach/diary", label: "Дневник", icon: Utensils },
   ];
 
   const rightTabs = [

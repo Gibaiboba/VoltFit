@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
-import { Scale, Footprints, Moon } from "lucide-react";
+import { Scale, Footprints } from "lucide-react";
 import { toast } from "sonner";
 import PersonalTip from "@/components/shared/PersonalTip";
 import { CaloriesMacrosComboCard } from "@/components/student/calories-macros-combo-card";
@@ -18,6 +18,7 @@ import { useUserStore } from "@/store/useUserStore";
 import { ActivityModal } from "@/components/student/activity-modal";
 import { useActivityModalStore } from "@/store/useActivityModalStore";
 import { useDailyLogValidation } from "@/hooks/use-daily-log-validation";
+import SleepMetricInput from "@/components/student/sleep-metric-input";
 
 interface StudentClientProps {
   userId: string;
@@ -164,12 +165,9 @@ export default function StudentClient({
                 onChange={(v) => handleFieldChange("weight", v)}
                 error={fieldErrors.weight}
               />
-              <MetricInput
-                title="Сон"
-                icon={Moon}
-                color="blue"
+
+              <SleepMetricInput
                 value={formData.sleep_hours}
-                suffix="ч"
                 onChange={(v) => handleFieldChange("sleep_hours", v)}
                 error={fieldErrors.sleep_hours}
               />

@@ -1,5 +1,6 @@
 "use client";
 
+import { useState, useCallback, useMemo } from "react";
 import {
   useQuery,
   useMutation,
@@ -28,16 +29,31 @@ interface UseMealHistoryReturn {
     unknown
   >;
   isProcessing: boolean;
+  loadMore: () => void;
+  daysLimit: number;
 }
 
 export function useMealHistory(
   studentId?: string,
-  fromDate?: string,
+  externalFromDate?: string,
 ): UseMealHistoryReturn {
   const queryClient = useQueryClient();
   const currentUser = useUserStore((state) => state.user);
   const targetUserId = studentId || currentUser?.id;
 
+  // Управляем количеством дней прямо внутри хука (начинаем с 14 дней)
+  const [daysLimit, setDaysLimit] = useState(14);
+
+  // Вычисляем дату "X дней назад" в формате YYYY-MM-DD
+  // Вычисляем дату: если передана externalFromDate, берем её. Если нет — считаем по лимиту дней.
+  const fromDate = useMemo(() => {
+    if (externalFromDate) return externalFromDate;
+
+    const date = new Date();
+    date.setDate(date.getDate() - daysLimit);
+    return toISODate(date);
+  }, [daysLimit, externalFromDate]);
+  // Добавляем fromDate в queryKey, чтобы React Query перезапускал запрос при нажатии кнопки
   const queryKey = ["meals-history", targetUserId, fromDate];
 
   const {
@@ -49,23 +65,26 @@ export function useMealHistory(
   } = useQuery<SavedMeal[], Error | PostgrestError>({
     queryKey,
     queryFn: async () => {
-      let query = supabase
+      // Запрашиваем данные СТРОГО начиная с вычисленной даты
+      const { data, error: dbError } = await supabase
         .from("user_meals")
         .select("*")
         .eq("user_id", targetUserId)
+        .gte("created_at", `${fromDate}T00:00:00`)
         .order("created_at", { ascending: true });
 
-      if (fromDate) {
-        query = query.gte("created_at", `${fromDate}T00:00:00`);
-      }
-
-      const { data, error: dbError } = await query;
       if (dbError) throw dbError;
       return data as SavedMeal[];
     },
     enabled: !!targetUserId,
   });
 
+  // Функция для увеличения окна загрузки еще на 14 дней
+  const loadMore = useCallback(() => {
+    setDaysLimit((prev) => prev + 14);
+  }, []);
+
+  // ... (Остальной ваш неизмененный код deleteMutation, removeItemMutation и invalidateAllHistory)
   const getMealDate = (mealId: string): string | null => {
     const meal = meals.find((m) => m.id === mealId);
     return meal?.created_at ? toISODate(new Date(meal.created_at)) : null;
@@ -74,18 +93,6 @@ export function useMealHistory(
   const invalidateAllHistory = () => {
     queryClient.invalidateQueries({
       queryKey: ["meals-history", targetUserId],
-      exact: false,
-    });
-    queryClient.invalidateQueries({
-      queryKey: ["student-logs-range", targetUserId],
-      exact: false,
-    });
-    queryClient.invalidateQueries({
-      queryKey: ["student-logs-infinite", targetUserId],
-      exact: false,
-    });
-    queryClient.invalidateQueries({
-      queryKey: ["daily-stats", targetUserId],
       exact: false,
     });
   };
@@ -118,12 +125,8 @@ export function useMealHistory(
         queryClient.setQueryData(queryKey, context.previousMeals);
       toast.error(err.message || "Ошибка при удалении");
     },
-    onSuccess: () => {
-      toast.success("Прием пищи удален");
-    },
-    onSettled: () => {
-      invalidateAllHistory();
-    },
+    onSuccess: () => toast.success("Прием пищи удален"),
+    onSettled: () => invalidateAllHistory(),
   });
 
   const removeItemMutation = useMutation<
@@ -147,22 +150,16 @@ export function useMealHistory(
     onMutate: async ({ mealId, productId }) => {
       await queryClient.cancelQueries({ queryKey });
       const previousMeals = queryClient.getQueryData<SavedMeal[]>(queryKey);
-
       if (previousMeals) {
         const updatedMeals = previousMeals.map((meal) => {
           if (meal.id !== mealId) return meal;
-
-          // ТИПИЗИРОВАНО: явно приводим элементы к типу SelectedProduct для безопасного поиска
           const items = meal.items as SelectedProduct[];
           const targetItem = items.find(
             (item) => (item.id || item.food_id) === productId,
           );
-
           if (!targetItem) return meal;
-
           const itemWeight = targetItem.weight || 0;
           const factor = itemWeight / 100;
-
           return {
             ...meal,
             total_kcal: Math.max(0, meal.total_kcal - targetItem.kcal * factor),
@@ -183,12 +180,8 @@ export function useMealHistory(
         queryClient.setQueryData(queryKey, context.previousMeals);
       toast.error(err.message || "Ошибка при удалении продукта");
     },
-    onSuccess: () => {
-      toast.success("Продукт удален");
-    },
-    onSettled: () => {
-      invalidateAllHistory();
-    },
+    onSuccess: () => toast.success("Продукт удален"),
+    onSettled: () => invalidateAllHistory(),
   });
 
   return {
@@ -200,5 +193,8 @@ export function useMealHistory(
     deleteMeal: deleteMutation.mutate,
     removeItem: removeItemMutation.mutate,
     isProcessing: deleteMutation.isPending || removeItemMutation.isPending,
+    // 👇 Возвращаем новые методы наружу
+    loadMore,
+    daysLimit,
   };
 }

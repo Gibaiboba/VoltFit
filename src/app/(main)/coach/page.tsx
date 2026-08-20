@@ -5,30 +5,8 @@ import { useCoachDashboard } from "@/hooks/coach/use-coach-dashboard";
 import AddStudentForm from "@/components/coach/AddStudentForm";
 import StudentCard from "@/components/coach/StudentCard";
 import StudentModal from "@/components/coach/StudentModal";
-import Link from "next/link";
 import { StudentView } from "@/types/coach";
 import { X } from "lucide-react";
-import { ACTIVITIES_MAP } from "@/constants/activities"; // 🔥 Импортируем нашу карту MET
-
-// ИСПРАВЛЕНО: Массив фильтров теперь динамически строится на основе реальных категорий тренировок
-const ACTIVITY_FILTERS = [
-  { value: "Все", label: "🎯 Все активности" },
-  ...Array.from(
-    new Set(Object.values(ACTIVITIES_MAP).map((a) => a.category)),
-  ).map((cat) => ({
-    value: cat, // Категория (например, "Тренажерный зал", "Ходьба/Бег")
-    label: cat,
-  })),
-];
-
-const getStudentLabel = (count: number) => {
-  const lastDigit = count % 10;
-  const lastTwoDigits = count % 100;
-  if (lastTwoDigits >= 11 && lastTwoDigits <= 19) return "учеников";
-  if (lastDigit === 1) return "ученик";
-  if (lastDigit >= 2 && lastDigit <= 4) return "ученика";
-  return "учеников";
-};
 
 export default function CoachDashboard() {
   const { state, actions } = useCoachDashboard();
@@ -47,29 +25,25 @@ export default function CoachDashboard() {
     [actions],
   );
 
-  const handleActivityChange = useCallback(
-    (e: React.ChangeEvent<HTMLSelectElement>) => {
-      actions.setSelectedActivity(e.target.value);
-    },
-    [actions],
-  );
-
   return (
-    <div className="p-6 bg-slate-50 pt-24 min-h-screen">
-      <div className="max-w-5xl mx-auto space-y-8">
+    <div className="p-6 bg-slate-50 pt-19 min-h-screen">
+      <div className="max-w-5xl mx-auto space-y-6">
+        {/* Шапка панели */}
         <div className="flex flex-col gap-6">
-          <h1 className="text-3xl font-black text-slate-800 tracking-tight">
-            Панель <span className="text-blue-600">Тренера</span>
+          {/* Заголовок со встроенным бэйджем количества */}
+          <h1 className="text-3xl font-black text-slate-800 tracking-tight text-center flex items-center justify-center gap-3">
+            <span>Панель тренера</span>
+
+            {/* Бэйдж рендерится только если данные загружены и ученики есть */}
+            {!state.isLoading && !state.isError && state.totalCount > 0 && (
+              <span className="inline-flex items-center justify-center px-3 py-1 text-sm font-extrabold bg-blue-50 text-blue-600 rounded-full border border-blue-100 animate-in fade-in zoom-in-95 duration-200">
+                {state.totalCount}
+              </span>
+            )}
           </h1>
 
-          <Link
-            href="/diary"
-            className="text-xl font-bold text-blue-600 hover:underline inline-flex items-center gap-2"
-          >
-            📊 История питания тренера
-          </Link>
-
-          <div className="flex flex-col md:flex-row gap-4">
+          {/* Строка поиска и кнопка добавления в один ряд */}
+          <div className="flex flex-row items-center gap-3 w-full">
             <div className="relative flex-1">
               <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">
                 🔍
@@ -93,56 +67,24 @@ export default function CoachDashboard() {
               )}
             </div>
 
-            {/* ИСПРАВЛЕНО: Селектор теперь рендерит новые категории из ACTIVITIES_MAP */}
-            <select
-              value={state.selectedActivity}
-              onChange={handleActivityChange}
-              className="p-4 bg-white border border-slate-200 rounded-2xl outline-none focus:border-blue-500 shadow-sm font-bold text-slate-600 cursor-pointer px-8 appearance-none"
-            >
-              {ACTIVITY_FILTERS.map((filter) => (
-                <option key={filter.value} value={filter.value}>
-                  {filter.label}
-                </option>
-              ))}
-            </select>
+            {/* Кнопка добавления в ряду поиска */}
+            <div className="shrink-0">
+              <AddStudentForm
+                isPending={state.isAdding}
+                onAdd={(email, opts) => actions.addStudent(email, opts)}
+              />
+            </div>
           </div>
         </div>
 
+        {/* Индикатор ошибки загрузки */}
         {state.isError && (
           <div className="bg-red-50 border-2 border-red-100 p-6 rounded-[32px] text-center">
             <p className="text-red-600 font-bold">Ошибка при загрузке данных</p>
           </div>
         )}
 
-        {!state.isLoading && !state.isError && (
-          <div className="flex items-center justify-between px-2">
-            <p className="text-xs font-black uppercase tracking-[0.2em] text-slate-400">
-              {state.totalCount > 0 ? (
-                <>
-                  Найдено:{" "}
-                  <span className="text-blue-600">{state.totalCount}</span>{" "}
-                  {getStudentLabel(state.totalCount)}
-                </>
-              ) : (
-                "Результатов нет"
-              )}
-            </p>
-            {(state.searchQuery || state.selectedActivity !== "Все") && (
-              <button
-                onClick={actions.resetFilters}
-                className="text-[10px] font-black uppercase tracking-widest text-red-400 hover:text-red-500"
-              >
-                ✕ Сбросить фильтры
-              </button>
-            )}
-          </div>
-        )}
-
-        <AddStudentForm
-          isPending={state.isAdding}
-          onAdd={(email, opts) => actions.addStudent(email, opts)}
-        />
-
+        {/* Список учеников */}
         {state.isLoading ? (
           <div className="flex justify-center p-12 animate-pulse text-slate-400 font-black uppercase tracking-widest text-xs">
             Загрузка данных...
@@ -150,8 +92,18 @@ export default function CoachDashboard() {
         ) : (
           <div className="grid gap-6">
             {state.totalCount === 0 && !state.isError ? (
-              <div className="bg-white p-16 rounded-[40px] border-2 border-dashed border-slate-200 text-center text-slate-400">
-                Никто не подходит под эти параметры
+              <div className="bg-white p-16 rounded-[40px] border border-slate-100 shadow-sm text-center flex flex-col items-center justify-center gap-4 animate-in fade-in duration-200">
+                <span className="text-slate-400 font-medium">
+                  Никого не найдено
+                </span>
+                {state.searchQuery && (
+                  <button
+                    onClick={() => actions.setSearchQuery("")}
+                    className="px-4 py-2 bg-slate-50 hover:bg-slate-100 text-xs font-black uppercase tracking-widest text-slate-500 hover:text-slate-700 rounded-xl transition-all border border-slate-200/60"
+                  >
+                    ✕ Сбросить поиск
+                  </button>
+                )}
               </div>
             ) : (
               state.students.map((item) => (
@@ -160,6 +112,7 @@ export default function CoachDashboard() {
                   item={item}
                   weeklySteps={item.weeklySteps}
                   onClick={handleStudentClick}
+                  onRemove={(id) => actions.removeStudent(id)}
                 />
               ))
             )}
