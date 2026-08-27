@@ -1,5 +1,6 @@
 import { UserProfile } from "@/types/user";
 import { DailyLog } from "@/types/shared";
+import { SavedMeal } from "@/types/food";
 
 export interface LoggedActivity {
   id: string; // уникальный ID записи (crypto.randomUUID())
@@ -64,6 +65,7 @@ export interface StudentDashboardHook {
     targetProteins: number;
     targetFats: number;
     targetCarbs: number;
+    meals: SavedMeal[];
   };
   actions: {
     handleDateChange: (date: string) => void;

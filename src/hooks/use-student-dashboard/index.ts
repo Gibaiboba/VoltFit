@@ -17,7 +17,7 @@ export const useStudentDashboard = (
   // Локальное состояние для черновика ввода (веса, шагов, сна, тренировок)
   const [userInput, setUserInput] = useState<Partial<FormDataType>>({});
 
-  // 2. Запросы через React Query (с новой блочной логикой кэширования по месяцам)
+  // 2. Запросы через React Query (с блочной логикой кэширования по месяцам)
   const { history, profile, logsQuery, profileQuery, fromDateDynamic } =
     useDashboardQueries(userId, serverToday, selectedDate);
 
@@ -108,6 +108,7 @@ export const useStudentDashboard = (
   return {
     state: {
       ...stats,
+      meals,
       // Загрузка активна только при первичном запросе диапазона, если в кэше пусто
       burnedCalories: stats.burnedCalories,
       loading:

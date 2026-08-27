@@ -111,9 +111,6 @@ export function MealCard({ meal, onDelete, onRemoveItem }: MealCardProps) {
                 {meal.meal_name}
               </p>
             )}
-            <p className="text-[10px] font-bold text-blue-400/60 uppercase mt-2 tracking-widest">
-              {meal.items.length} ингредиентов
-            </p>
           </div>
 
           <div className="text-right leading-none pt-1">
@@ -146,9 +143,6 @@ export function MealCard({ meal, onDelete, onRemoveItem }: MealCardProps) {
 
       {isExpanded && (
         <div className="px-6 pb-6 bg-slate-50/50 border-t border-gray-50 animate-in slide-in-from-top-2 duration-300">
-          <p className="text-[9px] text-gray-400 font-black uppercase tracking-[0.2em] py-4 text-left">
-            Детальный состав:
-          </p>
           <div className="space-y-2">
             {(meal.items as SelectedProduct[]).map((item, idx) => (
               <div

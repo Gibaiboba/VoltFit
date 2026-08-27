@@ -15,10 +15,24 @@ import AsyncBoundary from "@/components/shared/AsyncBoundary";
 import { MealType } from "@/types/food";
 import { MEAL_SLOTS } from "@/constants/mealTypes";
 import WaterTrackerCard from "@/components/student/WaterTrackerCard";
+import { ActivitySection } from "@/components/student/activity-section";
+import { ActivityModal } from "@/components/student/activity-modal";
+import { useActivityModalStore } from "@/store/useActivityModalStore";
+import { useStudentDashboard } from "@/hooks/use-student-dashboard/index";
 
 export default function DiaryPage() {
   const selectedDate = useUserStore((state) => state.selectedDate);
   const setSelectedDate = useUserStore((state) => state.setSelectedDate);
+  const { user } = useUserStore();
+  const currentUserId = user?.id || "";
+
+  // инициализация личного дашборда активностей и модалки
+  const { state: dashState, actions: dashActions } = useStudentDashboard(
+    currentUserId,
+    selectedDate,
+  );
+  const { isActivityModalOpen, closeActivityModal, openActivityModal } =
+    useActivityModalStore();
 
   const activeMealType = useMealStore((state) => state.activeMealType);
   const setMealType = useMealStore((state) => state.setMealType);
@@ -79,7 +93,7 @@ export default function DiaryPage() {
     removeItem,
   } = useDiaryLogic(selectedDate, todayStr);
 
-  //  Передаем динамические цели, приходящие из useDiaryLogic
+  // Передаем динамические цели, приходящие из useDiaryLogic
   const macroStats = useMacroStats(
     { p: goals.p || 0, f: goals.f || 0, c: goals.c || 0 },
     { p: consumed.p || 0, f: consumed.f || 0, c: consumed.c || 0 },
@@ -117,6 +131,15 @@ export default function DiaryPage() {
     [displayMeals, clearItems, loadItems, setMealType],
   );
 
+  // Обработчик сохранения активности из модалки
+  const handleSaveActivity = async () => {
+    try {
+      dashActions.handleSave();
+      closeActivityModal();
+    } catch (err) {
+      console.error(err);
+    }
+  };
   return (
     <div className="p-2 bg-[var(--background)] min-h-screen pt-18 text-slate-900 relative">
       <AsyncBoundary
@@ -155,6 +178,12 @@ export default function DiaryPage() {
             <WaterTrackerCard serverToday={todayStr} />
           </section>
 
+          {/* секция активностей */}
+          <ActivitySection
+            activities={dashState.formData.activities}
+            onOpenModal={openActivityModal}
+          />
+
           <section className="space-y-2">
             <div className="px-1">
               <h2 className="text-xl mt-5 font-black text-slate-900 uppercase italic tracking-tight">
@@ -178,6 +207,20 @@ export default function DiaryPage() {
           </section>
         </div>
       </AsyncBoundary>
+
+      {/*глобальная модалка активностей */}
+      <ActivityModal
+        isOpen={isActivityModalOpen}
+        onClose={closeActivityModal}
+        formData={dashState.formData}
+        setFormData={dashActions.setFormData}
+        burnedCalories={dashState.burnedCalories}
+        currentCalories={dashState.currentCalories}
+        targetCalories={dashState.targetCalories}
+        calProgress={dashState.calProgress}
+        onSave={handleSaveActivity}
+        isSaving={dashState.isSaving}
+      />
     </div>
   );
 }

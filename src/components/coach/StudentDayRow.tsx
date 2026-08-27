@@ -1,20 +1,10 @@
 "use client";
 import { MealCard } from "@/components/history/meal-card";
-import { SavedMeal } from "@/types/food";
-import { DailyLog } from "@/types/shared";
 import { useDayRowCalculations } from "@/hooks/coach/use-day-row-calculations";
 import { DayActivitiesList } from "./DayActivitiesList";
 import { MacroBox } from "./MacroBox";
 import { Footprints, Moon, Weight, Pizza, Droplets } from "lucide-react";
-
-interface StudentDayRowProps {
-  date: string;
-  log?: DailyLog;
-  meals: SavedMeal[];
-  baseCalories: number;
-  studentWeight: number;
-  studentGender: string;
-}
+import { StudentDayRowProps } from "@/types/coach";
 
 export function StudentDayRow({
   date,
@@ -44,18 +34,17 @@ export function StudentDayRow({
   };
 
   return (
-    <div className="bg-white rounded-[32px] border border-slate-100 shadow-sm overflow-hidden mb-6 animate-in fade-in duration-200">
-      {/* Шапка дня с балансом калорий */}
-      <div className="bg-slate-50/40 px-6 py-4 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+    /* Убраны border и border-slate-100 */
+    <div className="bg-white rounded-[32px] shadow-sm overflow-hidden mb-6 animate-in fade-in duration-200">
+      {/* Шапка дня с балансом калорий. Убрана нижняя рамка border-b */}
+      <div className="bg-slate-50/40 px-6 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div className="flex items-center gap-2.5">
-          <div className="w-1.5 h-4 bg-blue-600 rounded-full shrink-0" />{" "}
-          {/* Стильный вертикальный акцент */}
+          <div className="w-1.5 h-4 bg-blue-600 rounded-full shrink-0" />
           <h3 className="font-black text-slate-800 text-sm tracking-tight">
             {displayDate}
           </h3>
         </div>
 
-        {/* Аккуратный текстовый баланс калорий в стиле фитнес-трекеров */}
         <div className="flex items-center gap-1.5 text-xs text-slate-400 font-bold">
           <span className="text-slate-800 font-black">
             {Math.round(
@@ -65,7 +54,8 @@ export function StudentDayRow({
           <span className="font-medium text-slate-300">/</span>
           <span className="flex items-center gap-1 font-medium text-slate-500">
             {Math.round(dynamicTargetCalories).toLocaleString()} ккал
-            <span className="text-[10px] text-slate-400 font-normal bg-slate-100 px-1.5 py-0.5 rounded-md border border-slate-200/60">
+            {/* Убрана рамка у тега "цель" */}
+            <span className="text-[10px] text-slate-400 font-normal bg-slate-100 px-1.5 py-0.5 rounded-md">
               цель
             </span>
           </span>
@@ -76,8 +66,8 @@ export function StudentDayRow({
         {/* Блок показателей (Логи) */}
         {log && (
           <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
-            {/* Вес */}
-            <div className="bg-slate-50/60 border border-slate-100/80 p-3 rounded-[20px] flex items-center gap-3 text-left transition-all hover:bg-slate-50">
+            {/* Вес. Убрана рамка border */}
+            <div className="bg-slate-50/60 p-3 rounded-[20px] flex items-center gap-3 text-left transition-all hover:bg-slate-50">
               <div className="w-8 h-8 rounded-xl bg-orange-100/70 text-orange-600 flex items-center justify-center shrink-0">
                 <Weight size={15} className="stroke-[2.5]" />
               </div>
@@ -91,8 +81,8 @@ export function StudentDayRow({
               </div>
             </div>
 
-            {/* Шаги */}
-            <div className="bg-slate-50/60 border border-slate-100/80 p-3 rounded-[20px] flex items-center gap-3 text-left transition-all hover:bg-slate-50">
+            {/* Шаги. Убрана рамка border */}
+            <div className="bg-slate-50/60 p-3 rounded-[20px] flex items-center gap-3 text-left transition-all hover:bg-slate-50">
               <div className="w-8 h-8 rounded-xl bg-blue-100/70 text-blue-600 flex items-center justify-center shrink-0">
                 <Footprints size={15} className="stroke-[2.5]" />
               </div>
@@ -106,8 +96,8 @@ export function StudentDayRow({
               </div>
             </div>
 
-            {/* Сон */}
-            <div className="bg-slate-50/60 border border-slate-100/80 p-3 rounded-[20px] flex items-center gap-3 text-left transition-all hover:bg-slate-50">
+            {/* Сон. Убрана рамка border */}
+            <div className="bg-slate-50/60 p-3 rounded-[20px] flex items-center gap-3 text-left transition-all hover:bg-slate-50">
               <div className="w-8 h-8 rounded-xl bg-indigo-100/70 text-indigo-600 flex items-center justify-center shrink-0">
                 <Moon size={15} className="stroke-[2.5]" />
               </div>
@@ -121,8 +111,8 @@ export function StudentDayRow({
               </div>
             </div>
 
-            {/* Вода */}
-            <div className="bg-slate-50/60 border border-slate-100/80 p-3 rounded-[20px] flex items-center gap-3 text-left transition-all hover:bg-slate-50">
+            {/* Вода. Убрана рамка border */}
+            <div className="bg-slate-50/60 p-3 rounded-[20px] flex items-center gap-3 text-left transition-all hover:bg-slate-50">
               <div className="w-8 h-8 rounded-xl bg-cyan-100/70 text-cyan-600 flex items-center justify-center shrink-0">
                 <Droplets size={15} className="stroke-[2.5]" />
               </div>
@@ -136,8 +126,8 @@ export function StudentDayRow({
               </div>
             </div>
 
-            {/* Еда лог */}
-            <div className="bg-slate-50/60 border border-slate-100/80 p-3 rounded-[20px] flex items-center gap-3 text-left transition-all hover:bg-slate-50 col-span-2 sm:col-span-1">
+            {/* Еда лог. Убрана рамка border */}
+            <div className="bg-slate-50/60 p-3 rounded-[20px] flex items-center gap-3 text-left transition-all hover:bg-slate-50 col-span-2 sm:col-span-1">
               <div className="w-8 h-8 rounded-xl bg-green-100/70 text-green-600 flex items-center justify-center shrink-0">
                 <Pizza size={15} className="stroke-[2.5]" />
               </div>

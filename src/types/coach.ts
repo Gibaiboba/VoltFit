@@ -1,6 +1,7 @@
 import { UserProfile } from "./user";
 import { DailyLog } from "./shared";
 import { UseMutationOptions } from "@tanstack/react-query";
+import { SavedMeal } from "@/types/food";
 
 export interface StudentData {
   student: UserProfile & {
@@ -22,3 +23,12 @@ export type AddStudentOptions = UseMutationOptions<
   Error,
   AddStudentVariables
 >;
+
+export interface StudentDayRowProps {
+  date: string;
+  log?: DailyLog;
+  meals: SavedMeal[];
+  baseCalories: number;
+  studentWeight: number;
+  studentGender: string;
+}
