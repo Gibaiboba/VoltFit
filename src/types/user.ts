@@ -19,6 +19,7 @@ export interface UserProfile {
   weight: number | null;
   height?: number;
   age?: number;
+  birth_date?: string;
   goal?: Goal;
   target_weight?: number;
   activity_level?: number;
@@ -31,5 +32,6 @@ export interface UserProfile {
   chest?: number;
   waist?: number;
   hips?: number;
+  water_target?: number;
   steps_goal?: number; // пока нет в таблице на supabase
 }

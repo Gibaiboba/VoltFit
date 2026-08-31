@@ -5,6 +5,7 @@ interface InputProps {
   type?: string;
   placeholder?: string;
   step?: string;
+  disabled?: boolean;
 }
 
 const Input = ({
@@ -26,10 +27,7 @@ const Input = ({
         step={step}
         placeholder={placeholder}
         onChange={(e) => onChange(e.target.value)}
-        className="w-full px-6 py-4 bg-slate-50 border border-slate-100 rounded-[24px] 
-                   text-slate-900 font-bold outline-none transition-all
-                   focus:bg-white focus:border-blue-400 focus:ring-4 focus:ring-blue-50
-                   placeholder:text-slate-300"
+        className="w-full px-6 py-4 bg-slate-50 border border-slate-100 rounded-[24px] text-slate-900 font-bold outline-none transition-all focus:bg-white focus:border-blue-400 focus:ring-4 focus:ring-blue-50 placeholder:text-slate-300"
       />
     </div>
   );

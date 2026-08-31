@@ -6,7 +6,7 @@ import AddStudentForm from "@/components/coach/AddStudentForm";
 import StudentCard from "@/components/coach/StudentCard";
 import StudentModal from "@/components/coach/StudentModal";
 import { StudentView } from "@/types/coach";
-import { X } from "lucide-react";
+import { X, Search } from "lucide-react";
 
 export default function CoachDashboard() {
   const { state, actions } = useCoachDashboard();
@@ -31,12 +31,12 @@ export default function CoachDashboard() {
         {/* Шапка панели */}
         <div className="flex flex-col gap-6">
           {/* Заголовок со встроенным бэйджем количества */}
-          <h1 className="text-3xl font-black text-slate-800 tracking-tight text-center flex items-center justify-center gap-3">
+          <h1 className="text-2xl font-black text-slate-800 tracking-tight text-center flex items-center justify-center gap-3">
             <span>Панель тренера</span>
 
             {/* Бэйдж рендерится только если данные загружены и ученики есть */}
             {!state.isLoading && !state.isError && state.totalCount > 0 && (
-              <span className="inline-flex items-center justify-center px-3 py-1 text-sm font-extrabold bg-blue-50 text-blue-600 rounded-full border border-blue-100 animate-in fade-in zoom-in-95 duration-200">
+              <span className="inline-flex items-center justify-center px-3 py-1 text-sm font-extrabold bg-[#1e5039] text-white rounded-full border border-blue-100 animate-in fade-in zoom-in-95 duration-200">
                 {state.totalCount}
               </span>
             )}
@@ -45,15 +45,16 @@ export default function CoachDashboard() {
           {/* Строка поиска и кнопка добавления в один ряд */}
           <div className="flex flex-row items-center gap-3 w-full">
             <div className="relative flex-1">
-              <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">
-                🔍
-              </span>
+              <Search
+                size={18}
+                className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"
+              />
               <input
                 type="text"
                 placeholder="Поиск ученика по имени..."
                 value={state.searchQuery}
                 onChange={handleSearchChange}
-                className="w-full p-4 pl-12 bg-white border border-slate-200 rounded-2xl outline-none focus:border-blue-500 shadow-sm font-semibold text-slate-700"
+                className="w-full p-4 pl-11 bg-white border border-slate-200 rounded-2xl outline-none focus:border-[#1e5039] shadow-sm font-semibold text-slate-700 placeholder:text-slate-400"
               />
 
               {state.searchQuery && (

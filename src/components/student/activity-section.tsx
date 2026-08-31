@@ -20,8 +20,7 @@ export function ActivitySection({
   return (
     <button
       onClick={onOpenModal}
-      className="flex items-start justify-between w-full p-4 bg-white border border-slate-100 
- rounded-xl shadow-sm hover:border-slate-200 hover:bg-slate-50/50 transition-all group cursor-pointer text-left gap-4"
+      className="flex items-start justify-between w-full p-4 bg-white border border-slate-100 rounded-xl shadow-sm hover:border-slate-200 hover:bg-slate-50/50 transition-all group cursor-pointer text-left gap-4"
     >
       {/* Левая часть: Название секции и список активностей */}
       <div className="flex-1 min-w-0">

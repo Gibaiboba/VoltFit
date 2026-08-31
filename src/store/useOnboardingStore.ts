@@ -2,10 +2,15 @@
 import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
 import { OnboardingData, Goal, ActivityLevel } from "../types/onboarding";
+import {
+  getAgeFromBirthDate,
+  calculateDailyCalories,
+  calculateMacros,
+} from "@/lib/fitnessCalculators";
 
 interface OnboardingState {
   step: number;
-  data: Partial<OnboardingData>;
+  data: Partial<OnboardingData> & { birth_date?: string };
   currentInsight: string | null;
 
   setStep: (step: number) => void;
@@ -13,81 +18,41 @@ interface OnboardingState {
   setActivity: (level: ActivityLevel) => void;
   nextStep: () => void;
   prevStep: () => void;
-  updateData: (newData: Partial<OnboardingData>) => void;
+  updateData: (
+    newData: Partial<OnboardingData> & { birth_date?: string },
+  ) => void;
   setCurrentInsight: (insight: string | null) => void;
   reset: () => void;
 }
 
-// 1. Вспомогательная функция для БЖУ по твоим пропорциям
-const calculateMacros = (data: Partial<OnboardingData>, calories: number) => {
-  const weight = Number(data.weight) || 0;
-  const { gender, goal } = data;
+// Вспомогательный хелпер для запуска сквозного пересчета КБЖУ внутри Zustand
+const runCalculations = (
+  updatedData: Partial<OnboardingData> & { birth_date?: string },
+) => {
+  // Вычисляем возраст из даты рождения, если она есть, иначе страхуемся полем age
+  const age = updatedData.birth_date
+    ? getAgeFromBirthDate(updatedData.birth_date)
+    : Number(updatedData.age || 0);
 
-  if (!weight || calories <= 0) return { protein: 0, fat: 0, carbs: 0 };
+  const calories = calculateDailyCalories({
+    weight: Number(updatedData.weight || 0),
+    height: Number(updatedData.height || 0),
+    age: age,
+    gender: updatedData.gender || "female",
+    activityLevel: Number(updatedData.activityLevel || 0),
+    goal: updatedData.goal || "maintain",
+    bodyType: updatedData.bodyType,
+    massQuality: updatedData.massQuality,
+  });
 
-  let p_rate = 1.5;
-  let f_rate = 1.0;
+  const macros = calculateMacros({
+    weight: Number(updatedData.weight || 0),
+    gender: updatedData.gender || "female",
+    goal: updatedData.goal || "maintain",
+    calories: calories,
+  });
 
-  if (gender === "male") {
-    if (goal === "lose_weight") {
-      p_rate = 2.0;
-      f_rate = 0.75;
-    } else if (goal === "gain_muscle") {
-      p_rate = 1.7;
-      f_rate = 0.9;
-    } else {
-      p_rate = 1.6;
-      f_rate = 1.0;
-    } // maintain
-  } else {
-    if (goal === "lose_weight") {
-      p_rate = 1.7;
-      f_rate = 0.9;
-    } else if (goal === "gain_muscle") {
-      p_rate = 1.5;
-      f_rate = 1.0;
-    } else {
-      p_rate = 1.3;
-      f_rate = 1.1;
-    } // maintain
-  }
-
-  const protein = Math.round(weight * p_rate);
-  const fat = Math.round(weight * f_rate);
-  // Углеводы — остаток калорий
-  const carbs = Math.round((calories - protein * 4 - fat * 9) / 4);
-
-  return { protein, fat, carbs };
-};
-
-const calculateDailyCalories = (data: Partial<OnboardingData>): number => {
-  const {
-    weight,
-    height,
-    age,
-    gender,
-    activityLevel,
-    goal,
-    bodyType,
-    massQuality,
-  } = data;
-
-  if (!weight || !height || !age || !gender || !activityLevel) return 0;
-
-  let bmr = 10 * Number(weight) + 6.25 * Number(height) - 5 * Number(age);
-  bmr = gender === "male" ? bmr + 5 : bmr - 161;
-
-  let total = Math.round(bmr * Number(activityLevel));
-
-  if (goal === "lose_weight") total -= 500;
-  if (goal === "gain_muscle") {
-    let surplus = 300;
-    if (bodyType === "ectomorph") surplus += 200;
-    if (massQuality === "fast") surplus += 200;
-    total += surplus;
-  }
-
-  return total;
+  return { calories, macros };
 };
 
 export const useOnboardingStore = create<OnboardingState>()(
@@ -106,8 +71,7 @@ export const useOnboardingStore = create<OnboardingState>()(
 
       setActivity: (activityLevel) => {
         const updatedData = { ...get().data, activityLevel };
-        const calories = calculateDailyCalories(updatedData);
-        const macros = calculateMacros(updatedData, calories); // Расчет БЖУ
+        const { calories, macros } = runCalculations(updatedData);
 
         set({
           data: {
@@ -128,8 +92,7 @@ export const useOnboardingStore = create<OnboardingState>()(
       updateData: (newData) => {
         const currentData = get().data;
         const updatedData = { ...currentData, ...newData };
-        const calories = calculateDailyCalories(updatedData);
-        const macros = calculateMacros(updatedData, calories); // Расчет БЖУ
+        const { calories, macros } = runCalculations(updatedData);
 
         set({
           data: {

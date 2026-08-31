@@ -6,6 +6,8 @@ import { ActivityModal } from "@/components/student/activity-modal";
 import { useTabsLayoutLogic } from "@/hooks/use-tabs-layout-logic";
 import { QuickMenu } from "@/components/coach/quick-menu";
 import { BottomTabBar } from "@/components/coach/bottom-tab-bar";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/lib/supabase";
 
 const LEFT_TABS = [
   { id: "/coach", label: "Ученики", icon: Users },
@@ -39,6 +41,28 @@ export default function CoachTabsLayout({
     handleFastWaterAdd,
   } = useTabsLayoutLogic();
 
+  // Запрашиваем из базы вес и пол ТРЕНЕРА
+  const { data: profile } = useQuery({
+    queryKey: ["user-profile-current"],
+    queryFn: async () => {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) return null;
+
+      const { data } = await supabase
+        .from("profiles")
+        .select("weight, gender")
+        .eq("id", user.id)
+        .single();
+      return data;
+    },
+  });
+
+  // Запасные фитнес-дефолты на время первичной загрузки данных тренера
+  const userWeight = Number(profile?.weight) || 70;
+  const userGender = (profile?.gender as "male" | "female") || "female";
+
   return (
     <div className="min-h-screen bg-[#F8F9FA]">
       <main
@@ -64,15 +88,14 @@ export default function CoachTabsLayout({
       )}
 
       {/* Глобальное окно добавления активности для тренера */}
+
       <ActivityModal
         isOpen={isActivityModalOpen}
         onClose={closeActivityModal}
         formData={dashState.formData}
         setFormData={dashActions.setFormData}
-        burnedCalories={dashState.burnedCalories}
-        currentCalories={dashState.currentCalories}
-        targetCalories={dashState.targetCalories}
-        calProgress={dashState.calProgress}
+        userWeight={userWeight}
+        userGender={userGender}
         onSave={async () => {
           dashActions.handleSave();
           closeActivityModal();

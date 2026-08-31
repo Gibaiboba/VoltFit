@@ -19,12 +19,39 @@ import { ActivitySection } from "@/components/student/activity-section";
 import { ActivityModal } from "@/components/student/activity-modal";
 import { useActivityModalStore } from "@/store/useActivityModalStore";
 import { useStudentDashboard } from "@/hooks/use-student-dashboard/index";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/lib/supabase";
 
-export default function DiaryPage() {
+interface DiaryPageProps {
+  serverToday: string;
+}
+
+export default function DiaryPage({ serverToday }: DiaryPageProps) {
   const selectedDate = useUserStore((state) => state.selectedDate);
   const setSelectedDate = useUserStore((state) => state.setSelectedDate);
   const { user } = useUserStore();
   const currentUserId = user?.id || "";
+
+  const { data: profile } = useQuery({
+    queryKey: ["user-profile-current"],
+    queryFn: async () => {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      if (!session?.user) return null;
+
+      const { data } = await supabase
+        .from("profiles")
+        .select("weight, gender")
+        .eq("id", session.user.id)
+        .single();
+      return data;
+    },
+    staleTime: 1000 * 60 * 5,
+  });
+
+  const userWeight = Number(profile?.weight) || 70;
+  const userGender = (profile?.gender as "male" | "female") || "female";
 
   // инициализация личного дашборда активностей и модалки
   const { state: dashState, actions: dashActions } = useStudentDashboard(
@@ -39,7 +66,7 @@ export default function DiaryPage() {
   const loadItems = useMealStore((state) => state.loadItems);
   const clearItems = useMealStore((state) => state.clearItems);
 
-  const todayStr = useMemo(() => toISODate(new Date()), []);
+  const todayStr = serverToday;
 
   const [expandedSlots, setExpandedSlots] = useState<Record<string, boolean>>({
     breakfast: false,
@@ -214,10 +241,8 @@ export default function DiaryPage() {
         onClose={closeActivityModal}
         formData={dashState.formData}
         setFormData={dashActions.setFormData}
-        burnedCalories={dashState.burnedCalories}
-        currentCalories={dashState.currentCalories}
-        targetCalories={dashState.targetCalories}
-        calProgress={dashState.calProgress}
+        userWeight={userWeight}
+        userGender={userGender}
         onSave={handleSaveActivity}
         isSaving={dashState.isSaving}
       />

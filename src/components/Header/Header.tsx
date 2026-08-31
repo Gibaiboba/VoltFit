@@ -59,7 +59,7 @@ export default function Header({ initialUser, initialProfile }: HeaderProps) {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
         <Link
           href="/"
-          className="flex items-center justify-center px-3 py-1.5 bg-yellow-400 text-slate-950 font-black text-xl italic tracking-wider rounded-xl hover:bg-yellow-300 transition-colors"
+          className="flex items-center justify-center px-3 py-1.5 bg-[#1e5039] text-white font-black text-xl italic tracking-wider rounded-xl hover:bg-yellow-300 transition-colors"
         >
           VitGo
         </Link>

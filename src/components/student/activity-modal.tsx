@@ -3,42 +3,26 @@
 import { useEffect, useState } from "react";
 import { X, Plus, Trash2, Flame, Check } from "lucide-react";
 import { ACTIVITIES_MAP } from "@/constants/activities";
-import {
-  FormUpdater,
-  FormDataType,
-  LoggedActivity,
-} from "@/hooks/use-student-dashboard/types";
-import { useOnboardingStore } from "@/store/useOnboardingStore";
-import CaloriesBanner from "@/components/student/calories-banner";
+import { LoggedActivity } from "@/hooks/use-student-dashboard/types";
+import { ActivityModalProps } from "@/types/activity";
 
-interface ActivityModalProps {
-  isOpen: boolean;
-  onClose: () => void;
-  formData: FormDataType;
-  setFormData: (updater: FormUpdater) => void;
-  burnedCalories: number; // Оставляем в пропсах для обратной совместимости с родителем
-  currentCalories: number;
-  targetCalories: number;
-  calProgress: number;
-  onSave: () => void;
-  isSaving: boolean;
-}
-
+// Из пропсов и типов полностью удалены: currentCalories, targetCalories, calProgress
 export function ActivityModal({
   isOpen,
   onClose,
   formData,
   setFormData,
-  currentCalories,
-  targetCalories,
-  calProgress,
   onSave,
   isSaving,
-}: ActivityModalProps) {
-  const onboardingData = useOnboardingStore((state) => state.data);
-  const userWeight = Number(onboardingData?.weight) || 70;
-  const userGender = onboardingData?.gender || "female";
-
+  userWeight, // Передаем вес текущего пользователя из профиля/БД
+  userGender, // Передаем пол текущего пользователя из профиля/БД
+}: Omit<
+  ActivityModalProps,
+  "currentCalories" | "targetCalories" | "calProgress"
+> & {
+  userWeight: number;
+  userGender: "male" | "female";
+}) {
   // Локальные стейты для конструирования ОДНОЙ текущей добавляемой сессии
   const [localActivityId, setLocalActivityId] = useState("");
   const [localDuration, setLocalDuration] = useState("");
@@ -66,14 +50,14 @@ export function ActivityModal({
     new Set(Object.values(ACTIVITIES_MAP).map((a) => a.category)),
   );
 
-  //  Добавление новой сессии в массив активностей дня
+  // Добавление новой сессии в массив активностей дня
   const handleAddSession = () => {
     if (!localActivityId || Number(localDuration) <= 0) return;
 
     const config = ACTIVITIES_MAP[localActivityId];
     if (!config) return;
 
-    // Считаем калории конкретно этой добавляемой сессии
+    // Считаем калории конкретно этой добавляемой сессии на основе пропсов из БД
     const genderFactor = userGender === "female" ? 0.014 : 0.015;
     const sessionBurned = Math.round(
       config.met * genderFactor * userWeight * Number(localDuration),
@@ -123,12 +107,6 @@ export function ActivityModal({
             {userGender === "female" ? "женский" : "мужской"} пол.
           </p>
         </div>
-
-        <CaloriesBanner
-          current={currentCalories}
-          target={targetCalories}
-          progress={calProgress}
-        />
 
         {/* БЛОК 1. КОНСТРУКТОР СЕССИИ (ДОБАВЛЕНИЕ) */}
         <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm space-y-3">

@@ -56,6 +56,10 @@ export default function StudentClient({
     targetCarbs,
   } = state;
 
+  // извлекаем вес и пол из уже загруженного профиля
+  const userWeight = Number(profile?.weight) || 70;
+  const userGender = (profile?.gender as "male" | "female") || "female";
+
   const {
     handleDateChange,
     handleSave,
@@ -65,7 +69,7 @@ export default function StudentClient({
     refetch,
   } = actions;
 
-  // сложная логика валидации и дебаунса здесь
+  // логика валидации и дебаунса здесь
   const {
     fieldErrors,
     setFieldErrors,
@@ -193,10 +197,8 @@ export default function StudentClient({
         onClose={closeActivityModal}
         formData={formData}
         setFormData={setFormData}
-        burnedCalories={burnedCalories}
-        currentCalories={currentCalories}
-        targetCalories={targetCalories}
-        calProgress={calProgress}
+        userWeight={userWeight}
+        userGender={userGender}
         onSave={handleSaveActivity}
         isSaving={isSaving}
       />

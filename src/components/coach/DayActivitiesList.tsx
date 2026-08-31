@@ -2,7 +2,7 @@
 import { DailyLog } from "@/types/shared";
 import { LoggedActivity } from "@/hooks/use-student-dashboard/types";
 import { ACTIVITIES_MAP } from "@/constants/activities";
-import { Dumbbell, Flame } from "lucide-react";
+import { Flame } from "lucide-react";
 
 interface DayActivitiesListProps {
   log?: DailyLog;
@@ -30,9 +30,6 @@ export function DayActivitiesList({
                   className="flex items-center justify-between p-3.5 bg-amber-50/40 border border-amber-100 rounded-2xl shadow-inner animate-in fade-in duration-150"
                 >
                   <div className="flex items-center gap-3">
-                    <div className="p-2 bg-amber-100 text-amber-600 rounded-xl">
-                      <Dumbbell className="w-4 h-4" />
-                    </div>
                     <div className="text-left">
                       <p className="text-xs font-black text-slate-700">
                         {config ? config.name : "Тренировка"}

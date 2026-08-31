@@ -1,20 +1,13 @@
 "use client";
 
-import { useRef, useState, useMemo } from "react";
-import { supabase } from "@/lib/supabase";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { toast } from "sonner";
-import {
-  Camera,
-  User as UserIcon,
-  Save,
-  Loader2,
-  Activity,
-} from "lucide-react";
-import Image from "next/image";
-import imageCompression from "browser-image-compression";
+import { Save, Loader2, Calendar } from "lucide-react";
 import Input from "@/components/shared/input";
 import { UserProfile } from "@/types/user";
+import { Goal } from "@/types/onboarding";
+import { useSettingsForm } from "@/hooks/settings/useSettingsForm";
+import { AvatarUpload } from "./AvatarUpload";
+import { MetricsDisplay } from "./MetricsDisplay";
+import { BodyMeasurements } from "./BodyMeasurements";
 
 export default function SettingsForm({
   initialProfile,
@@ -23,157 +16,124 @@ export default function SettingsForm({
   initialProfile: UserProfile | null;
   userId: string;
 }) {
-  const queryClient = useQueryClient();
-  const fileInputRef = useRef<HTMLInputElement>(null);
-
-  // Локальное состояние формы
-  const [formData, setFormData] = useState({
-    full_name: initialProfile?.full_name || "",
-    weight: initialProfile?.weight?.toString() || "",
-    height: initialProfile?.height?.toString() || "",
-    chest: initialProfile?.chest?.toString() || "",
-    waist: initialProfile?.waist?.toString() || "",
-    hips: initialProfile?.hips?.toString() || "",
-    avatar_url: initialProfile?.avatar_url || "",
-  });
-
-  // 1. МУТАЦИЯ ДЛЯ ОБНОВЛЕНИЯ ПРОФИЛЯ
-  const { mutate: updateProfile, isPending: isUpdating } = useMutation({
-    mutationFn: async (updates: Partial<UserProfile>) => {
-      const { data, error } = await supabase
-        .from("profiles")
-        .update(updates)
-        .eq("id", userId)
-        .select()
-        .single();
-
-      if (error) throw error;
-      return data;
-    },
-    onSuccess: (updatedData) => {
-      queryClient.setQueryData(["user-profile", userId], updatedData);
-      toast.success("Данные успешно сохранены!");
-
-      if (updatedData.avatar_url) {
-        setFormData((prev) => ({
-          ...prev,
-          avatar_url: updatedData.avatar_url!,
-        }));
-      }
-    },
-    onError: () => {
-      toast.error("Ошибка при сохранении");
-    },
-  });
-
-  const bmi = useMemo(() => {
-    const w = parseFloat(formData.weight);
-    const h = parseFloat(formData.height) / 100;
-    if (w > 0 && h > 0) return (w / (h * h)).toFixed(1);
-    return null;
-  }, [formData.weight, formData.height]);
-
-  const updateField = (field: keyof typeof formData) => (value: string) => {
-    setFormData((prev) => ({ ...prev, [field]: value }));
-  };
-
-  // 2. ЗАГРУЗКА ФОТО
-  const handleUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-
-    const uploadPromise = async () => {
-      const options = {
-        maxSizeMB: 0.1,
-        maxWidthOrHeight: 400,
-        useWebWorker: true,
-      };
-      const compressedFile = await imageCompression(file, options);
-      const filePath = `${userId}/avatar.png`;
-
-      const { error: uploadError } = await supabase.storage
-        .from("avatars")
-        .upload(filePath, compressedFile, { upsert: true });
-
-      if (uploadError) throw uploadError;
-
-      const {
-        data: { publicUrl },
-      } = supabase.storage.from("avatars").getPublicUrl(filePath);
-      const urlWithTimestamp = `${publicUrl}?t=${Date.now()}`;
-
-      updateProfile({ avatar_url: urlWithTimestamp });
-      return "Фото обновлено!";
-    };
-
-    toast.promise(uploadPromise(), {
-      loading: "Загружаем фото...",
-      success: (msg) => msg,
-      error: "Ошибка загрузки",
-    });
-  };
-
-  const handleSaveAll = () => {
-    updateProfile({
-      full_name: formData.full_name || undefined,
-      weight: parseFloat(formData.weight) || undefined,
-      height: parseFloat(formData.height) || undefined,
-      chest: parseFloat(formData.chest) || undefined,
-      waist: parseFloat(formData.waist) || undefined,
-      hips: parseFloat(formData.hips) || undefined,
-    });
-  };
+  const {
+    formData,
+    setFormData,
+    updateField,
+    calculatedCalories,
+    calculatedMacros,
+    bmi,
+    isUpdating,
+    fileInputRef,
+    handleUpload,
+    handleSaveAll,
+    currentAge,
+  } = useSettingsForm(initialProfile, userId);
 
   return (
-    /* Убран сжимающий max-w-2xl, теперь блок занимает честные max-w-4xl из родителя */
     <div className="w-full space-y-6">
-      {/* Главный блок формы с единым радиусом rounded-2xl и плоским брутальным стилем */}
       <div className="bg-white rounded-2xl p-6 border-2 border-slate-200">
-        {/* Аватар по центру */}
-        <div className="flex flex-col items-center mb-8">
-          <div
-            className="relative group cursor-pointer"
-            onClick={() => fileInputRef.current?.click()}
-          >
-            <div className="w-28 h-28 rounded-full overflow-hidden border-2 border-slate-200 bg-slate-50 relative">
-              {formData.avatar_url ? (
-                <Image
-                  src={formData.avatar_url}
-                  alt="Avatar"
-                  fill
-                  sizes="112px"
-                  className="object-cover"
-                />
-              ) : (
-                <div className="w-full h-full flex items-center justify-center">
-                  <UserIcon size={40} className="text-slate-300" />
-                </div>
-              )}
-              <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                <Camera className="text-white" size={20} />
-              </div>
-            </div>
-            <input
-              type="file"
-              ref={fileInputRef}
-              onChange={handleUpload}
-              accept="image/*"
-              className="hidden"
+        <AvatarUpload
+          avatarUrl={formData.avatar_url}
+          fileInputRef={fileInputRef}
+          onUpload={handleUpload}
+        />
+
+        <div className="space-y-6">
+          <div className="relative opacity-60 pointer-events-none select-none">
+            <Input
+              label="Email (нельзя изменить)"
+              type="email"
+              value={formData.email}
+              onChange={() => {}}
             />
           </div>
-          <p className="mt-3 text-[10px] font-black uppercase text-slate-400 tracking-widest">
-            Фото профиля
-          </p>
-        </div>
 
-        {/* Поля ввода */}
-        <div className="space-y-6">
           <Input
             label="Полное имя"
             type="text"
             value={formData.full_name}
             onChange={updateField("full_name")}
           />
+
+          {/* Персональные метрики покоя */}
+          <div className="space-y-2 opacity-80">
+            <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">
+              Персональные метрики
+            </label>
+            <div className="h-12 w-full px-4 bg-slate-50 border-2 border-slate-200 rounded-xl flex items-center justify-between text-xs font-bold text-slate-700 select-none">
+              <div className="flex items-center gap-2">
+                <Calendar size={14} className="text-slate-400" />
+                <span>
+                  Пол: {formData.gender === "male" ? "Мужской" : "Женский"}
+                </span>
+              </div>
+              <span className="bg-slate-200 px-2.5 py-1 rounded-md text-[11px] font-black text-slate-800 uppercase tracking-tight">
+                {currentAge > 0
+                  ? `${currentAge} лет`
+                  : "Дата рождения не указана"}
+              </span>
+            </div>
+          </div>
+
+          {/* Цель тренировок */}
+          <div className="space-y-2">
+            <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">
+              Цель тренировок
+            </label>
+            <select
+              value={formData.goal}
+              onChange={(e) =>
+                setFormData((p) => ({ ...p, goal: e.target.value as Goal }))
+              }
+              className="w-full h-12 px-4 bg-white border-2 border-slate-200 focus:border-slate-400 outline-none rounded-xl text-xs font-bold text-slate-700 transition-colors uppercase tracking-wider"
+            >
+              <option value="lose_weight">Похудеть</option>
+              <option value="maintain">Поддерживать вес</option>
+              <option value="gain_muscle">Набрать массу</option>
+            </select>
+          </div>
+
+          {/* Уровень активности */}
+          <div className="space-y-2">
+            <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">
+              Уровень активности
+            </label>
+            <select
+              value={formData.activity_level}
+              onChange={(e) =>
+                setFormData((p) => ({ ...p, activity_level: e.target.value }))
+              }
+              className="w-full h-12 px-4 bg-white border-2 border-slate-200 focus:border-slate-400 outline-none rounded-xl text-xs font-bold text-slate-700 transition-colors uppercase tracking-wider"
+            >
+              <option value="1.2">
+                Минимальная (Сидячая работа, почти нет нагрузок)
+              </option>
+              <option value="1.375">
+                Умеренная (Прогулки или спорт 1-3 раза в неделю)
+              </option>
+              <option value="1.55">
+                Активная (Интенсивный спорт 3-5 раз в неделю)
+              </option>
+              <option value="1.725">
+                Экстремальная (Физический труд или ежедневный спорт)
+              </option>
+            </select>
+          </div>
+
+          {/* Цель воды */}
+          <div className="space-y-1">
+            <Input
+              label="Базовая цель воды покоя (мл)"
+              type="number"
+              value={formData.water_target}
+              onChange={updateField("water_target")}
+            />
+            <p className="text-[10px] font-medium text-slate-400 px-1 leading-tight">
+              *Это норма дня без учета активности. Тренировки и шаги добавят
+              воду к этой цифре автоматически на главном экране.
+            </p>
+          </div>
 
           <div className="grid grid-cols-2 gap-4">
             <Input
@@ -189,48 +149,23 @@ export default function SettingsForm({
             />
           </div>
 
-          {/* Виджет ИМТ перерисован под стиль "Индикаторов" приложения */}
-          {bmi && (
-            <div className="bg-blue-50 p-4 rounded-xl flex items-center justify-between border-2 border-blue-200">
-              <div className="flex items-center gap-3 text-blue-900">
-                <Activity size={18} className="text-blue-600" />
-                <span className="text-xs font-black uppercase tracking-tight italic">
-                  Индекс массы тела:
-                </span>
-              </div>
-              <span className="text-xl font-black text-blue-700 italic">
-                {bmi}
-              </span>
-            </div>
-          )}
+          {/* Расчетные виджеты */}
+          <MetricsDisplay
+            calories={calculatedCalories}
+            macros={calculatedMacros}
+            bmi={bmi}
+          />
 
           {/* Обмеры тела */}
-          <div className="pt-2 space-y-3">
-            <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">
-              Обмеры тела (см)
-            </p>
-            <div className="grid grid-cols-3 gap-4">
-              <Input
-                label="Грудь"
-                value={formData.chest}
-                onChange={updateField("chest")}
-              />
-              <Input
-                label="Талия"
-                value={formData.waist}
-                onChange={updateField("waist")}
-              />
-              <Input
-                label="Бедра"
-                value={formData.hips}
-                onChange={updateField("hips")}
-              />
-            </div>
-          </div>
+          <BodyMeasurements
+            chest={formData.chest}
+            waist={formData.waist}
+            hips={formData.hips}
+            onChange={updateField}
+          />
         </div>
       </div>
 
-      {/* Кнопка сохранения вынесена из карточки, как SaveButton на главной */}
       <button
         onClick={handleSaveAll}
         disabled={isUpdating}

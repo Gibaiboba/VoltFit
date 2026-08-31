@@ -10,10 +10,9 @@ export const QUESTIONS = {
       ],
     },
     {
-      id: "age",
-      title: "Сколько вам лет?",
-      type: "input",
-      unit: "лет",
+      id: "birth_date",
+      title: "Укажите вашу дату рождения",
+      description: "Это необходимо для точного расчета метаболизма и калорий",
     },
     {
       id: "height",

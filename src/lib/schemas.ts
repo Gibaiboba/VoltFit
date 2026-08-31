@@ -4,11 +4,41 @@ export const MetricsSchema = z.object({
   gender: z.enum(["male", "female"], {
     errorMap: () => ({ message: "Выберите пол" }),
   }),
-  age: z
-    .number({ invalid_type_error: "Введите возраст числом" })
-    .int()
-    .min(12, "Минимум 12 лет")
-    .max(100, "Максимум 100 лет"),
+  birth_date: z
+    .string({ required_error: "Укажите дату рождения" })
+    .min(1, "Укажите дату рождения")
+    .refine(
+      (dateString) => {
+        const birth = new Date(dateString);
+        const now = new Date();
+        let age = now.getFullYear() - birth.getFullYear();
+        const monthDiff = now.getMonth() - birth.getMonth();
+        if (
+          monthDiff < 0 ||
+          (monthDiff === 0 && now.getDate() < birth.getDate())
+        ) {
+          age--;
+        }
+        return age >= 12;
+      },
+      { message: "Минимальный возраст — 12 лет" },
+    )
+    .refine(
+      (dateString) => {
+        const birth = new Date(dateString);
+        const now = new Date();
+        let age = now.getFullYear() - birth.getFullYear();
+        const monthDiff = now.getMonth() - birth.getMonth();
+        if (
+          monthDiff < 0 ||
+          (monthDiff === 0 && now.getDate() < birth.getDate())
+        ) {
+          age--;
+        }
+        return age <= 100;
+      },
+      { message: "Максимальный возраст — 100 лет" },
+    ),
   height: z
     .number({ invalid_type_error: "Введите рост числом" })
     .min(100, "Рост от 100 см")
@@ -23,5 +53,4 @@ export const MetricsSchema = z.object({
     .max(300, "Вес до 300 кг"),
 });
 
-// Тип, который мы вытаскиваем прямо из схемы
 export type MetricsFormData = z.infer<typeof MetricsSchema>;

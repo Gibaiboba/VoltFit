@@ -7,6 +7,7 @@ export interface OnboardingData {
   goal: Goal;
   gender: Gender;
   age: number;
+  birth_date?: string;
   weight: number;
   height: number;
   target_weight: number;

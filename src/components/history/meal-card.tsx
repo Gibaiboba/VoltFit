@@ -13,6 +13,7 @@ import {
   ChevronUp,
   ChevronDown,
   Utensils,
+  HelpCircle,
 } from "lucide-react";
 
 interface MealCardProps {
@@ -32,12 +33,14 @@ export function MealCard({ meal, onDelete, onRemoveItem }: MealCardProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [isConfirming, setIsConfirming] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [showFullComment, setShowFullComment] = useState(false);
 
   const typeLabel = MEAL_LABELS[meal.meal_type as string] || "Прием пищи";
   const hasComment = meal.meal_name && meal.meal_name.trim().length > 0;
 
-  const handleDelete = async () => {
-    if (!onDelete) return; // Защита
+  const handleDelete = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!onDelete) return;
     setIsDeleting(true);
     try {
       onDelete(meal.id);
@@ -49,108 +52,145 @@ export function MealCard({ meal, onDelete, onRemoveItem }: MealCardProps) {
 
   return (
     <div
-      className={`bg-white border transition-all duration-300 rounded-[32px] overflow-hidden ${
+      className={`w-full bg-white border transition-all duration-200 rounded-2xl overflow-hidden ${
         isExpanded
-          ? "ring-2 ring-blue-500 border-transparent shadow-xl translate-y-[-2px]"
-          : "border-gray-100 shadow-sm hover:border-blue-200"
+          ? "ring-1 ring-blue-500 border-transparent shadow-md"
+          : "border-gray-100 shadow-sm hover:border-gray-200"
       }`}
     >
+      {/* Шапка карточки */}
       <div
-        onClick={() => setIsExpanded(!isExpanded)}
-        className="p-6 cursor-pointer select-none"
+        onClick={() => {
+          setIsExpanded(!isExpanded);
+          setShowFullComment(false);
+        }}
+        className="p-4 cursor-pointer select-none flex flex-col gap-2"
       >
-        <div className="flex justify-between items-start mb-3">
-          <div className="flex items-center gap-2 text-[10px] text-gray-400 font-black uppercase tracking-widest">
-            <Calendar size={12} className="text-blue-400" />
-            {formatMealTime(meal.created_at)}
-          </div>
-
-          {/* Кнопка корзины рендерится только если передан проп onDelete */}
-          {onDelete && (
-            <div className="relative" onClick={(e) => e.stopPropagation()}>
-              {isConfirming ? (
-                <div className="flex items-center gap-1 bg-red-50 p-1 rounded-xl border border-red-100 animate-in fade-in zoom-in duration-200">
-                  <button
-                    onClick={handleDelete}
-                    className="p-1.5 text-red-600 hover:bg-red-100 rounded-lg transition-colors"
-                    disabled={isDeleting}
-                  >
-                    {isDeleting ? (
-                      <Loader2 size={16} className="animate-spin" />
-                    ) : (
-                      <Check size={16} />
-                    )}
-                  </button>
-                  <button
-                    onClick={() => setIsConfirming(false)}
-                    className="p-1.5 text-gray-400 hover:bg-gray-100 rounded-lg transition-colors"
-                  >
-                    <X size={16} />
-                  </button>
-                </div>
-              ) : (
-                <button
-                  onClick={() => setIsConfirming(true)}
-                  className="text-gray-200 hover:text-red-500 transition-colors p-2"
-                >
-                  <Trash2 size={18} />
-                </button>
-              )}
-            </div>
-          )}
-        </div>
-
-        <div className="flex justify-between items-start">
-          <div className="text-left">
-            <h3 className="font-black text-xl text-gray-900 leading-tight uppercase tracking-tighter">
+        <div className="flex justify-between items-center gap-2">
+          <div className="text-left min-w-0">
+            <h3 className="font-extrabold text-base text-gray-900 leading-tight uppercase tracking-tight truncate">
               {typeLabel}
             </h3>
-            {hasComment && (
-              <p className="text-sm font-bold text-gray-400 mt-1 flex items-center gap-1.5">
-                <Utensils size={12} className="text-gray-300" />
-                {meal.meal_name}
-              </p>
-            )}
           </div>
 
-          <div className="text-right leading-none pt-1">
-            <span className="text-3xl font-black text-gray-900 italic">
-              {Math.round(meal.total_kcal)}
-            </span>
-            <span className="text-[10px] text-gray-400 ml-1 uppercase font-black">
-              ккал
-            </span>
+          <div className="flex items-center gap-2 shrink-0">
+            <div className="text-right leading-none">
+              <span className="text-xl font-black text-gray-900 italic">
+                {Math.round(meal.total_kcal)}
+              </span>
+              <span className="text-[9px] text-gray-400 ml-0.5 uppercase font-black">
+                ккал
+              </span>
+            </div>
+
+            {onDelete && (
+              <div
+                className="relative z-10"
+                onClick={(e) => e.stopPropagation()}
+              >
+                {isConfirming ? (
+                  <div className="flex items-center gap-0.5 bg-red-50 p-0.5 rounded-lg border border-red-100 animate-in fade-in zoom-in-95 duration-150">
+                    <button
+                      onClick={handleDelete}
+                      className="p-1 text-red-600 hover:bg-red-100 rounded-md transition-colors"
+                      disabled={isDeleting}
+                    >
+                      {isDeleting ? (
+                        <Loader2 size={14} className="animate-spin" />
+                      ) : (
+                        <Check size={14} />
+                      )}
+                    </button>
+                    <button
+                      onClick={() => setIsConfirming(false)}
+                      className="p-1 text-gray-400 hover:bg-gray-100 rounded-md transition-colors"
+                    >
+                      <X size={14} />
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => setIsConfirming(true)}
+                    className="text-gray-300 hover:text-red-500 transition-colors p-1.5 rounded-lg hover:bg-gray-50"
+                  >
+                    <Trash2 size={16} />
+                  </button>
+                )}
+              </div>
+            )}
           </div>
         </div>
 
-        <div className="flex items-center gap-4 mt-5 pt-5 border-t border-gray-50">
-          <div className="flex gap-3">
-            <span className="text-[10px] font-black text-orange-500 bg-orange-50 px-2 py-0.5 rounded-md uppercase">
+        {/* БЖУ и стрелка */}
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex gap-1.5">
+            <span className="text-[9px] font-black text-orange-600 bg-orange-50 px-1.5 py-0.5 rounded uppercase">
               Б: {meal.total_p.toFixed(0)}
             </span>
-            <span className="text-[10px] font-black text-rose-500 bg-rose-50 px-2 py-0.5 rounded-md uppercase">
+            <span className="text-[9px] font-black text-rose-600 bg-rose-50 px-1.5 py-0.5 rounded uppercase">
               Ж: {meal.total_f.toFixed(0)}
             </span>
-            <span className="text-[10px] font-black text-indigo-500 bg-indigo-50 px-2 py-0.5 rounded-md uppercase">
+            <span className="text-[9px] font-black text-indigo-600 bg-indigo-50 px-1.5 py-0.5 rounded uppercase">
               У: {meal.total_c.toFixed(0)}
             </span>
           </div>
-          <div className="ml-auto text-blue-400 bg-blue-50 w-8 h-8 rounded-full flex items-center justify-center">
-            {isExpanded ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
+          <div className="text-gray-400 bg-gray-50 w-6 h-6 rounded-full flex items-center justify-center shrink-0">
+            {isExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
           </div>
         </div>
       </div>
 
+      {/* Контент аккордеона */}
       {isExpanded && (
-        <div className="px-6 pb-6 bg-slate-50/50 border-t border-gray-50 animate-in slide-in-from-top-2 duration-300">
-          <div className="space-y-2">
+        <div className="px-4 pb-4 pt-3 bg-slate-50/40 border-t border-gray-50/50 animate-in slide-in-from-top-1 duration-200">
+          {/* Блок мета-информации */}
+          <div className="flex flex-col gap-2 mb-3">
+            <div className="flex justify-between items-center gap-4 text-[10px] font-bold text-gray-400 uppercase tracking-wider px-0.5">
+              {/* Слева: Кнопка-комментарий */}
+              {hasComment ? (
+                <button
+                  onClick={() => setShowFullComment(!showFullComment)}
+                  className="flex items-center gap-1 text-xs font-semibold text-gray-500 hover:text-blue-600 normal-case tracking-normal min-w-0 transition-colors select-none text-left"
+                >
+                  <Utensils size={11} className="text-gray-400 shrink-0" />
+                  <span className="truncate max-w-[140px] sm:max-w-[200px]">
+                    {meal.meal_name}
+                  </span>
+                  <HelpCircle size={10} className="text-gray-300 shrink-0" />
+                </button>
+              ) : (
+                <div />
+              )}
+
+              {/* Справа: Время создания */}
+              <div className="flex items-center gap-1 shrink-0 ml-auto">
+                <Calendar size={10} className="text-blue-400" />
+                <span>{formatMealTime(meal.created_at)}</span>
+              </div>
+            </div>
+
+            {/* Встроенное раскрывающееся облако полного комментария */}
+            {hasComment && showFullComment && (
+              <div className="bg-blue-50/60 border border-blue-100/50 p-2.5 rounded-xl text-xs font-medium text-gray-700 shadow-2xs animate-in fade-in slide-in-from-top-1 duration-150 break-words relative">
+                <button
+                  onClick={() => setShowFullComment(false)}
+                  className="absolute top-2 right-2 text-gray-400 hover:text-gray-600"
+                >
+                  <X size={12} />
+                </button>
+                <p className="pr-4 leading-relaxed">{meal.meal_name}</p>
+              </div>
+            )}
+          </div>
+
+          {/* Список продуктов */}
+          <div className="space-y-1.5">
             {(meal.items as SelectedProduct[]).map((item, idx) => (
               <div
                 key={item.id || item.food_id || idx}
-                className="flex justify-between items-center text-sm bg-white p-4 rounded-[20px] border border-gray-100 shadow-sm group"
+                className="flex justify-between items-center text-xs bg-white p-2.5 rounded-xl border border-gray-100 shadow-2xs group"
               >
-                <div className="flex items-center gap-3">
-                  {/* Маленький крестик удаления ингредиента рендерится только при наличии onRemoveItem */}
+                <div className="flex items-center gap-2 min-w-0">
                   {onRemoveItem && (
                     <button
                       onClick={(e) => {
@@ -163,23 +203,25 @@ export function MealCard({ meal, onDelete, onRemoveItem }: MealCardProps) {
                           });
                         }
                       }}
-                      className="w-6 h-6 flex items-center justify-center rounded-full bg-red-50 text-red-400 opacity-0 group-hover:opacity-100 transition-all hover:bg-red-500 hover:text-white"
+                      className="w-5 h-5 flex items-center justify-center rounded-full bg-red-50 text-red-400 md:opacity-0 group-hover:opacity-100 transition-all hover:bg-red-500 hover:text-white shrink-0"
                     >
-                      <X size={12} />
+                      <X size={10} />
                     </button>
                   )}
 
-                  <div className="text-left">
-                    <p className="font-bold text-gray-700">{item.name}</p>
-                    <p className="text-[10px] text-gray-400 font-medium flex items-center gap-1">
-                      <Scale size={10} /> {item.weight}г
+                  <div className="text-left min-w-0">
+                    <p className="font-bold text-gray-700 truncate">
+                      {item.name}
+                    </p>
+                    <p className="text-[10px] text-gray-400 font-medium flex items-center gap-0.5 mt-0.5">
+                      <Scale size={9} /> {item.weight}г
                     </p>
                   </div>
                 </div>
 
-                <div className="font-black text-gray-900 text-right">
+                <div className="font-black text-gray-900 text-right shrink-0 pl-2">
                   {Math.round((item.kcal / 100) * item.weight)}{" "}
-                  <span className="text-[9px] text-gray-400 uppercase">
+                  <span className="text-[8px] text-gray-400 uppercase font-bold">
                     ккал
                   </span>
                 </div>

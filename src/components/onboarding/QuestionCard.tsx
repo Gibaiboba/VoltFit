@@ -13,28 +13,21 @@ export const QuestionCard = ({ question }: QuestionCardProps) => {
   const { updateData, nextStep, setCurrentInsight, data } =
     useOnboardingStore();
   const [isProcessing, setIsProcessing] = useState(false);
-
-  // Стейт для хранения ошибки валидации
   const [error, setError] = useState<string | null>(null);
 
   const currentValue = data[question.id as keyof typeof data] || "";
+  const isBirthDateQuestion = question.id === "birth_date";
 
-  // Логика валидации перед переходом
   const handleNext = () => {
-    // Проверяем, есть ли правила для этого ID в нашей Zod схеме
     const fieldSchema =
       MetricsSchema.shape[question.id as keyof typeof MetricsSchema.shape];
-
     if (fieldSchema) {
       const result = fieldSchema.safeParse(currentValue);
       if (!result.success) {
-        // Если Zod вернул ошибку — записываем её текст в стейт
         setError(result.error.errors[0].message);
         return;
       }
     }
-
-    // Если ошибок нет — идем дальше
     setError(null);
     nextStep();
   };
@@ -42,7 +35,6 @@ export const QuestionCard = ({ question }: QuestionCardProps) => {
   const handleSelect = (option: QuestionOption) => {
     if (isProcessing) return;
     updateData({ [question.id]: option.value });
-
     if (option.insight) {
       setIsProcessing(true);
       setCurrentInsight(option.insight);
@@ -58,12 +50,13 @@ export const QuestionCard = ({ question }: QuestionCardProps) => {
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = e.target.value;
-    const numericValue = val === "" ? "" : Number(val);
-
-    // Сбрасываем ошибку, когда пользователь начал вводить заново
+    const finalValue = isBirthDateQuestion
+      ? val
+      : val === ""
+        ? ""
+        : Number(val);
     if (error) setError(null);
-
-    updateData({ [question.id]: numericValue });
+    updateData({ [question.id]: finalValue });
   };
 
   return (
@@ -89,34 +82,29 @@ export const QuestionCard = ({ question }: QuestionCardProps) => {
           <div className="flex flex-col gap-4">
             <div className="relative">
               <input
-                type="number"
+                type={isBirthDateQuestion ? "date" : "number"}
                 autoFocus
                 value={currentValue}
-                // Красная рамка при ошибке
                 className={`w-full p-5 bg-gray-50 border-2 rounded-2xl outline-none focus:border-blue-500 text-2xl font-black transition-all ${
                   error ? "border-red-400 bg-red-50" : "border-gray-100"
-                }`}
-                placeholder="0"
+                } ${isBirthDateQuestion ? "text-base font-bold py-6 text-gray-700" : ""}`}
+                placeholder={isBirthDateQuestion ? "" : "0"}
                 onKeyDown={(e) => {
                   if (e.key === "Enter" && currentValue) handleNext();
                 }}
                 onChange={handleInputChange}
               />
-              {/* Юнит (кг/см) справа в инпуте */}
-              {question.unit && (
+              {!isBirthDateQuestion && question.unit && (
                 <span className="absolute right-5 top-1/2 -translate-y-1/2 font-black text-gray-300 text-xl pointer-events-none">
                   {question.unit}
                 </span>
               )}
             </div>
-
-            {/* Вывод текста ошибки под инпутом */}
             {error && (
-              <p className="text-red-500 text-xs font-bold px-4 uppercase tracking-wider animate-shake">
+              <p className="text-red-500 text-xs font-bold px-4 uppercase tracking-wider">
                 {error}
               </p>
             )}
-
             <button
               onClick={handleNext}
               disabled={!currentValue}

@@ -8,6 +8,10 @@ import { useOnboardingStore } from "@/store/useOnboardingStore";
 import { supabase } from "@/lib/supabase";
 import { STAGES } from "@/constants/Stages";
 import { toast } from "sonner";
+import {
+  getAgeFromBirthDate,
+  calculateBaseWaterTarget,
+} from "@/lib/fitnessCalculators";
 
 export default function ProcessingStep() {
   const router = useRouter();
@@ -18,6 +22,9 @@ export default function ProcessingStep() {
   );
   const isSaving = useRef(false);
   const isSuccess = useRef(false);
+
+  // Храним роль для финального перенаправления
+  const [userRole, setUserRole] = useState<string>("student");
 
   const currentStages = useMemo(() => {
     return STAGES[data.goal as keyof typeof STAGES] || STAGES.lose_weight;
@@ -42,11 +49,16 @@ export default function ProcessingStep() {
         } = await supabase.auth.getUser();
         if (!user) throw new Error("Пользователь не авторизован");
 
-        // 1. ИЗВЛЕКАЕМ БЖУ ИЗ DATA
+        // Вытаскиваем роль пользователя из метаданных авторизации Supabase
+        const role =
+          user?.app_metadata?.role || user?.user_metadata?.role || "student";
+        setUserRole(role);
+
+        // 1. ИЗВЛЕКАЕМ ДАННЫЕ (Заменили age на birth_date для профиля)
         const {
           goal,
           gender,
-          age,
+          birth_date, // Извлекаем сохраненную дату рождения из стора онбординга
           weight,
           height,
           target_weight,
@@ -58,21 +70,36 @@ export default function ProcessingStep() {
           ...metadata
         } = data;
 
-        // отправляем колонки в supabase
+        // Вычисляем возраст для корректного расчета базовой воды
+        const calculatedAge = birth_date ? getAgeFromBirthDate(birth_date) : 25;
+
+        // 2. ВЫЧИСЛЯЕМ БАЗОВУЮ ЦЕЛЬ ПО ВОДЕ (в миллилитрах)
+        // Наша утилита возвращает литры (например 2.15), умножаем на 1000, чтобы получить мл (2150 мл)
+        const baseWaterLiters = calculateBaseWaterTarget({
+          weight: Number(weight || 70),
+          gender: (gender as "male" | "female") || "female",
+          age: calculatedAge,
+          activityLevel: Number(activityLevel || 1.2),
+        });
+        const calculatedWaterTarget = Math.round(baseWaterLiters * 1000);
+
+        // Отправляем синхронизированные колонки в supabase
         const { error: profileError } = await supabase
           .from("profiles")
           .update({
             goal,
             gender,
-            age,
-            weight,
-            height,
-            target_weight,
-            activity_level: activityLevel,
-            daily_calories,
-            protein,
-            fat,
-            carbs,
+            birth_date, // Записываем дату рождения в базу вместо возраста числом
+            weight: Number(weight) || undefined,
+            height: Number(height) || undefined,
+            target_weight: Number(target_weight) || undefined,
+            activity_level: Number(activityLevel) || undefined,
+            daily_calories: Number(daily_calories) || undefined,
+            protein: Number(protein) || undefined,
+            fat: Number(fat) || undefined,
+            carbs: Number(carbs) || undefined,
+            // Записываем базовую норму воды в мл в созданную колонку profiles
+            water_target: calculatedWaterTarget,
             onboarding_metadata: metadata,
             onboarding_completed: true,
             updated_at: new Date().toISOString(),
@@ -95,7 +122,7 @@ export default function ProcessingStep() {
     };
 
     finalize();
-  }, [data, router]);
+  }, [data]);
 
   useEffect(() => {
     return () => {
@@ -104,25 +131,14 @@ export default function ProcessingStep() {
   }, [reset]);
 
   const handleFinish = () => {
-    // 2. Обновляем серверные данные (чтобы Middleware увидел onboarding_completed)
+    // Обновляем серверные куки и токены для Middleware
     router.refresh();
 
-    // 3. Определяем цель редиректа
-    const target = data.goal === "gain_muscle" ? "/student" : "/student";
-
-    // 4. Совершаем переход
+    // Роутинг: тренера в /coach, студента в /student
+    const target = userRole === "coach" ? "/coach" : "/student";
     router.replace(target);
   };
 
-  // Этот эффект сработает, когда пользователь УЖЕ ПЕРЕШЕЛ на другую страницу
-  useEffect(() => {
-    return () => {
-      // Если сохранение прошло успешно, очищаем стор ПРИ УХОДЕ со страницы
-      if (isSuccess.current) {
-        reset();
-      }
-    };
-  }, [reset]);
   const handleShare = async () => {
     const shareData = {
       title: "Мой фитнес-план",
@@ -143,7 +159,6 @@ export default function ProcessingStep() {
       }
     }
   };
-
   return (
     <div className="flex flex-col items-center justify-center min-h-[550px] text-center p-6 bg-white rounded-[40px] shadow-sm overflow-hidden">
       <AnimatePresence mode="wait">
@@ -191,7 +206,7 @@ export default function ProcessingStep() {
                 <CheckCircle2 className="w-10 h-10 text-emerald-500" />
               </div>
               <h2 className="text-4xl font-black text-gray-900 uppercase tracking-tighter">
-                Твой план готов
+                Твой plan готов
               </h2>
             </div>
 

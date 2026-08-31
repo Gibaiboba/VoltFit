@@ -44,10 +44,10 @@ export default function AddStudentForm({
 
   return (
     <div className="relative inline-block" ref={popoverRef}>
-      {/* Кнопка: идеально совпадает по высоте с поиском (h-14) */}
+      {/* Кнопка */}
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="flex items-center justify-center gap-2 h-14 w-14 sm:w-auto sm:px-5 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl font-bold text-sm transition-all shadow-sm active:scale-95 whitespace-nowrap"
+        className="flex items-center justify-center gap-2 h-14 w-14 sm:w-auto sm:px-5 bg-[#1e5039] hover:bg-blue-700 text-white rounded-2xl font-bold text-sm transition-all shadow-sm active:scale-95 whitespace-nowrap"
         title="Добавить ученика"
       >
         {isPending ? (
@@ -60,7 +60,7 @@ export default function AddStudentForm({
 
       {/* Всплывающее меню падает строго вниз от кнопки */}
       {isOpen && (
-        <div className="absolute right-0 mt-2 w-72 sm:w-80 bg-white p-4 rounded-2xl border border-slate-100 shadow-2xl z-50 animate-in fade-in slide-in-from-top-2 origin-top-right duration-200">
+        <div className="absolute right-0 mt-2 w-72 sm:w(h-14)-80 bg-white p-4 rounded-2xl border border-slate-100 shadow-2xl z-50 animate-in fade-in slide-in-from-top-2 origin-top-right duration-200">
           <div className="flex items-center justify-between mb-3">
             <span className="text-xs font-black uppercase tracking-wider text-slate-400">
               Новый ученик

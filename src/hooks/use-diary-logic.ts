@@ -5,11 +5,10 @@ import { sortMeals } from "@/lib/utils/meal-utils";
 import { useNutritionStats } from "./use-nutrition-stats";
 import { getErrorMessage } from "@/lib/utils/error-helper";
 import { toISODate } from "@/lib/utils/date-utils";
-// 🟢 ИМПОРТИРУЕМ ХУК ЗАПРОСОВ ЛОГОВ (тот же, что и на главной)
 import { useDashboardQueries } from "@/hooks/use-student-dashboard/use-queries";
 
 export function useDiaryLogic(selectedDate: string, serverToday: string) {
-  // УМНОЕ КВАНТОВАНИЕ: Округляем архивный хвост до начала месяца для стабильности кэша
+  // Округляем архивный хвост до начала месяца для стабильности кэша
   const fromDateDynamic = useMemo(() => {
     const today = new Date(serverToday);
     const selected = new Date(selectedDate);
@@ -45,8 +44,7 @@ export function useDiaryLogic(selectedDate: string, serverToday: string) {
     refetch: refetchProfile,
   } = useUserProfile();
 
-  // 🟢 3. Загружаем логи активности пользователя за этот же период
-  // (Предполагается, что в профиле лежит userId. Если в useUserProfile лежит id, берем его)
+  //  3. Загружаем логи активности пользователя за этот же период
   const userId = profile?.id || "";
   const { history, logsQuery } = useDashboardQueries(
     userId,
@@ -54,7 +52,7 @@ export function useDiaryLogic(selectedDate: string, serverToday: string) {
     selectedDate,
   );
 
-  // 🟢 4. Вычисляем сожженные калории за выбранный день
+  //  Вычисляем сожженные калории за выбранный день
   const burnedCalories = useMemo(() => {
     const currentLog = history.find((l) => l.log_date === selectedDate);
     return currentLog?.burned_calories || 0;
@@ -71,7 +69,7 @@ export function useDiaryLogic(selectedDate: string, serverToday: string) {
     return baseTargetCalories + burnedCalories;
   }, [baseTargetCalories, burnedCalories]);
 
-  // 🟢 5. Используем общий хук для расчетов БЖУ и калорий с передачей динамической цели
+  // 5. Используем общий хук для расчетов БЖУ и калорий с передачей динамической цели
   const { dayMeals, progress, roundedStats, targetMacros } = useNutritionStats(
     meals,
     selectedDate,
@@ -90,7 +88,7 @@ export function useDiaryLogic(selectedDate: string, serverToday: string) {
     [targetCalories, targetMacros],
   );
 
-  // ОПТИМИЗАЦИЯ: Мемоизируем сортировку и трансформируем массив в объект-карту.
+  // Мемоизируем сортировку и трансформируем массив в объект-карту.
   const displayMealsMap = useMemo(() => {
     const sorted = sortMeals(dayMeals);
 
