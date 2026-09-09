@@ -1,51 +1,59 @@
 import { UserProfile } from "@/types/user";
 import { LoggedActivity } from "@/hooks/use-student-dashboard/types";
+import {
+  calculateBaseWaterTarget,
+  getAgeFromBirthDate,
+} from "@/lib/fitnessCalculators";
+import { ActivityLevel } from "@/types/onboarding";
 
 export function calculateDynamicWaterTarget(
   profile: UserProfile | null,
   steps: number,
   activities: LoggedActivity[],
 ): number {
-  const weight = profile?.weight ?? 70;
-  const gender = profile?.gender ?? "female";
-  const age = profile?.age ?? 30;
+  let waterTarget = 2000; // Дефолт на случай полной пустоты профиля
 
-  // 1. Базовая норма по весу
-  const baseCoefficient = gender === "female" ? 30 : 35;
-  let waterTarget = weight * baseCoefficient;
+  // 1. Извлекаем БАЗОВУЮ норму из онбординга
+  if (profile?.water_target) {
+    waterTarget = profile.water_target;
+  } else if (profile) {
+    //  Если в БД пусто, используем наш единый калькулятор из онбординга
+    const calculatedAge = profile.birth_date
+      ? getAgeFromBirthDate(profile.birth_date)
+      : (profile.age ?? 25);
 
-  // 2. Учет базового образа жизни из PROFILE (activity_level)
-  const palValue = Number(profile?.activity_level) || 1.2;
-  if (palValue >= 1.725) {
-    waterTarget += 500;
-  } else if (palValue >= 1.55) {
-    waterTarget += 350;
-  } else if (palValue >= 1.375) {
-    waterTarget += 150;
+    const baseWaterLiters = calculateBaseWaterTarget({
+      weight: profile.weight ?? 70,
+      gender: (profile.gender as "male" | "female") || "female",
+      age: calculatedAge,
+      activityLevel: (Number(profile.activity_level) || 1.2) as ActivityLevel,
+    });
+    waterTarget = Math.round(baseWaterLiters * 1000);
   }
 
-  // 3. Коррекция по возрасту
-  if (age > 55) waterTarget *= 0.9;
-  if (age < 18) waterTarget *= 1.1;
+  // 2. ДИНАМИЧЕСКИЕ НАДБАВКИ
 
-  // 4. Динамическая надбавка за шаги дня (+50 мл за каждые 1000 шагов)
-  if (steps > 0) {
-    waterTarget += Math.floor(steps / 1000) * 50;
+  // Шаги: Начисляем воду за шаги, которые превышают базовый минимум сидячего человека (~4000 шагов).
+
+  const activeSteps = Math.max(0, steps - 4000);
+  if (activeSteps > 0) {
+    waterTarget += Math.floor(activeSteps / 1000) * 50; // +50 мл за каждую 1000 активных шагов
   }
 
-  // 5. Динамическая надбавка за текущие тренировки из массива activities
+  // Тренировки: Динамическое увеличение от добавленной активности
   if (activities && activities.length > 0) {
     const totalDuration = activities.reduce(
       (sum, act) => sum + (act.duration || 0),
       0,
     );
-    waterTarget += totalDuration * 11; // ~11 мл за минуту спорта
+    waterTarget += totalDuration * 11; // ~11 мл за каждую минуту спорта (или ~330 мл за 30 мин)
   }
 
-  // Безопасные лимиты
+  // 3. Безопасные лимиты
+  const gender = profile?.gender ?? "female";
   const minLimit = gender === "female" ? 1200 : 1500;
   if (waterTarget < minLimit) waterTarget = minLimit;
-  if (waterTarget > 4500) waterTarget = 4500;
+  if (waterTarget > 5000) waterTarget = 5000;
 
   return Math.round(waterTarget / 50) * 50;
 }

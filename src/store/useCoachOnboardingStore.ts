@@ -1,7 +1,7 @@
 "use client";
 import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
-import { OnboardingData, Goal, ActivityLevel } from "../types/onboarding";
+import { Goal, ActivityLevel } from "../types/onboarding";
 import {
   getAgeFromBirthDate,
   calculateDailyCalories,
@@ -10,13 +10,31 @@ import {
   calculateBaseStepsTarget,
 } from "@/lib/fitnessCalculators";
 
-interface OnboardingState {
+// Чистые типы исключительно под данные тренера
+export interface CoachOnboardingData {
+  goal: Goal;
+  coach_specialization: string;
+  experience_years: string;
+  is_diary_public: "public" | "private";
+  gender: "male" | "female";
+  birth_date: string;
+  height: string;
+  weight: string;
+  target_weight: string;
+  activityLevel: ActivityLevel;
+  daily_calories?: number;
+  protein?: number;
+  fat?: number;
+  carbs?: number;
+  water_target?: number;
+  steps_target?: number;
+  coach_bio?: string;
+  coach_motivation_style?: string;
+}
+
+interface CoachOnboardingState {
   step: number;
-  data: Partial<OnboardingData> & {
-    birth_date?: string;
-    water_target?: number;
-    steps_target?: number;
-  };
+  data: Partial<CoachOnboardingData>;
   currentInsight: string | null;
 
   setStep: (step: number) => void;
@@ -24,21 +42,16 @@ interface OnboardingState {
   setActivity: (level: ActivityLevel) => void;
   nextStep: () => void;
   prevStep: () => void;
-  updateData: (
-    newData: Partial<OnboardingData> & { birth_date?: string },
-  ) => void;
+  updateData: (newData: Partial<CoachOnboardingData>) => void;
   setCurrentInsight: (insight: string | null) => void;
   reset: () => void;
 }
 
-// Вспомогательный хелпер для запуска сквозного пересчета КБЖУ, Воды и Шагов
-const runCalculations = (
-  updatedData: Partial<OnboardingData> & { birth_date?: string },
-) => {
+// Автономный расчет для тренера (переиспользованы общие формулы)
+const runCoachCalculations = (updatedData: Partial<CoachOnboardingData>) => {
   const age = updatedData.birth_date
     ? getAgeFromBirthDate(updatedData.birth_date)
-    : Number(updatedData.age || 0);
-
+    : 25;
   const gender = updatedData.gender || "female";
   const activityLevel = Number(
     updatedData.activityLevel || 1.2,
@@ -46,7 +59,7 @@ const runCalculations = (
   const goal = updatedData.goal || "maintain";
   const weight = Number(updatedData.weight || 0);
 
-  // 1. Расчет КБЖУ
+  // 1. КБЖУ
   const calories = calculateDailyCalories({
     weight,
     height: Number(updatedData.height || 0),
@@ -54,8 +67,6 @@ const runCalculations = (
     gender,
     activityLevel,
     goal,
-    bodyType: updatedData.bodyType,
-    massQuality: updatedData.massQuality,
   });
 
   const macros = calculateMacros({
@@ -65,16 +76,16 @@ const runCalculations = (
     calories,
   });
 
-  // 2. Расчет ВОДЫ (переводим литры из утилиты в миллилитры)
+  // 2. Вода в мл
   const baseWaterLiters = calculateBaseWaterTarget({
     weight: weight || 70,
     gender,
-    age: age || 25,
+    age,
     activityLevel,
   });
   const waterTarget = Math.round(baseWaterLiters * 1000);
 
-  // 3. Расчет ШАГОВ
+  // 3. Шаги
   const stepsTarget = calculateBaseStepsTarget({
     goal,
     activityLevel,
@@ -83,7 +94,7 @@ const runCalculations = (
   return { calories, macros, waterTarget, stepsTarget };
 };
 
-export const useOnboardingStore = create<OnboardingState>()(
+export const useCoachOnboardingStore = create<CoachOnboardingState>()(
   persist(
     (set, get) => ({
       step: 1,
@@ -100,7 +111,7 @@ export const useOnboardingStore = create<OnboardingState>()(
       setActivity: (activityLevel) => {
         const updatedData = { ...get().data, activityLevel };
         const { calories, macros, waterTarget, stepsTarget } =
-          runCalculations(updatedData);
+          runCoachCalculations(updatedData);
 
         set({
           data: {
@@ -124,7 +135,7 @@ export const useOnboardingStore = create<OnboardingState>()(
         const currentData = get().data;
         const updatedData = { ...currentData, ...newData };
         const { calories, macros, waterTarget, stepsTarget } =
-          runCalculations(updatedData);
+          runCoachCalculations(updatedData);
 
         set({
           data: {
@@ -144,11 +155,11 @@ export const useOnboardingStore = create<OnboardingState>()(
 
       reset: () => {
         set({ step: 1, data: {}, currentInsight: null });
-        localStorage.removeItem("onboarding-storage");
+        localStorage.removeItem("coach-onboarding-storage");
       },
     }),
     {
-      name: "onboarding-storage",
+      name: "coach-onboarding-storage", // <-- Уникальный ключ в LocalStorage
       storage: createJSONStorage(() => localStorage),
     },
   ),

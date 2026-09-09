@@ -1,4 +1,6 @@
-import { useState, useMemo, useRef } from "react";
+"use client";
+
+import { useState, useMemo, useRef, useEffect } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase";
 import { toast } from "sonner";
@@ -9,6 +11,8 @@ import {
   getAgeFromBirthDate,
   calculateDailyCalories,
   calculateMacros,
+  calculateBaseWaterTarget,
+  calculateBaseStepsTarget,
 } from "@/lib/fitnessCalculators";
 
 export function useSettingsForm(
@@ -18,25 +22,52 @@ export function useSettingsForm(
   const queryClient = useQueryClient();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Флаги, чтобы понимать, меняет ли пользователь воду/шаги руками прямо сейчас
+  const isUserEditingWater = useRef(false);
+  const isUserEditingSteps = useRef(false);
+
   const normalizeGoal = (g: string | undefined): Goal => {
     if (g === "lose" || g === "lose_weight") return "lose_weight";
     if (g === "gain" || g === "gain_muscle") return "gain_muscle";
     return "maintain";
   };
 
+  // Вспомогательный расчет стартовой базовой воды
   const getInitialBaseWater = (): string => {
     if (initialProfile?.water_target)
       return initialProfile.water_target.toString();
-    const w = initialProfile?.weight || 70;
-    const g = initialProfile?.gender || "female";
-    const act = initialProfile?.activity_level || 1.2;
-    let base = w * (g === "female" ? 30 : 35);
-    if (act >= 1.725) base += 500;
-    else if (act >= 1.55) base += 350;
-    else if (act >= 1.375) base += 150;
-    return (Math.round(base / 50) * 50).toString();
+
+    const profileAge = getAgeFromBirthDate(initialProfile?.birth_date);
+    const initialAge = profileAge > 0 ? profileAge : 25;
+
+    const baseWaterLiters = calculateBaseWaterTarget({
+      weight: initialProfile?.weight || 70,
+      gender: (initialProfile?.gender as "male" | "female") || "female",
+      age: initialAge,
+      activityLevel: parseFloat(
+        initialProfile?.activity_level?.toString() || "1.2",
+      ),
+    });
+
+    return Math.round(baseWaterLiters * 1000).toString();
   };
 
+  // Вспомогательный расчет стартовых шагов
+  const getInitialBaseSteps = (): string => {
+    if (initialProfile?.steps_target)
+      return initialProfile.steps_target.toString();
+
+    const baseSteps = calculateBaseStepsTarget({
+      goal: normalizeGoal(initialProfile?.goal),
+      activityLevel: parseFloat(
+        initialProfile?.activity_level?.toString() || "1.2",
+      ) as ActivityLevel,
+    });
+
+    return baseSteps.toString();
+  };
+
+  // 2. ИНИЦИАЛИЗАЦИЯ СОСТОЯНИЯ ФОРМЫ
   const [formData, setFormData] = useState({
     full_name: initialProfile?.full_name || "",
     email: initialProfile?.email || "",
@@ -47,16 +78,50 @@ export function useSettingsForm(
     weight: initialProfile?.weight?.toString() || "",
     height: initialProfile?.height?.toString() || "",
     water_target: getInitialBaseWater(),
+    steps_target: getInitialBaseSteps(),
     chest: initialProfile?.chest?.toString() || "",
     waist: initialProfile?.waist?.toString() || "",
     hips: initialProfile?.hips?.toString() || "",
     avatar_url: initialProfile?.avatar_url || "",
   });
 
-  const currentAge = useMemo(() => {
-    const age = getAgeFromBirthDate(formData.birth_date);
-    return age > 0 ? age : 25;
-  }, [formData.birth_date]);
+  // 3. ВЫЧИСЛЕHИЕ ТЕКУЩЕГО ВОЗРАСТА
+  const age = getAgeFromBirthDate(formData.birth_date);
+  const currentAge = age > 0 ? age : 25;
+
+  // 4. РЕАКТИВНЫЙ ПЕРЕСЧЕТ ВОДЫ И ШАГОВ НА ЛЕТУ ПРИ СМЕНЕ СЕЛЕКТОРОВ
+  useEffect(() => {
+    const numericWeight = parseFloat(formData.weight) || 70;
+    const numericActivity = (parseFloat(formData.activity_level) ||
+      1.2) as ActivityLevel;
+
+    // Пересчитываем воду, если пользователь не заблокировал ее ручным вводом
+    if (!isUserEditingWater.current) {
+      const baseWaterLiters = calculateBaseWaterTarget({
+        weight: numericWeight,
+        gender: formData.gender,
+        age: currentAge,
+        activityLevel: numericActivity,
+      });
+      const waterMl = Math.round(baseWaterLiters * 1000).toString();
+      setFormData((prev) => ({ ...prev, water_target: waterMl }));
+    }
+
+    // Пересчитываем шаги, если пользователь не заблокировал их ручным вводом
+    if (!isUserEditingSteps.current) {
+      const baseSteps = calculateBaseStepsTarget({
+        goal: formData.goal,
+        activityLevel: numericActivity,
+      }).toString();
+      setFormData((prev) => ({ ...prev, steps_target: baseSteps }));
+    }
+  }, [
+    formData.goal,
+    formData.activity_level,
+    formData.weight,
+    formData.gender,
+    currentAge,
+  ]);
 
   const calculatedCalories = useMemo(() => {
     const numericWeight = parseFloat(formData.weight) || 70;
@@ -114,7 +179,20 @@ export function useSettingsForm(
     onError: () => toast.error("Ошибка при сохранении"),
   });
 
+  // Кастомные хендлеры для инпутов, чтобы отслеживать ручное изменение
+  const handleWaterInputChange = (value: string) => {
+    isUserEditingWater.current = true;
+    setFormData((prev) => ({ ...prev, water_target: value }));
+  };
+
+  const handleStepsInputChange = (value: string) => {
+    isUserEditingSteps.current = true;
+    setFormData((prev) => ({ ...prev, steps_target: value }));
+  };
+
   const updateField = (field: keyof typeof formData) => (value: string) => {
+    if (field === "water_target") return handleWaterInputChange(value);
+    if (field === "steps_target") return handleStepsInputChange(value);
     setFormData((prev) => ({ ...prev, [field]: value }));
   };
 
@@ -156,19 +234,29 @@ export function useSettingsForm(
       maintain: "maintain",
       gain: "gain_muscle",
     };
-    const rawWater = formData.water_target;
-    let processedWater = 2000;
 
-    if (rawWater !== "" && rawWater !== undefined && rawWater !== null) {
-      const sanitized =
-        typeof rawWater === "string"
-          ? rawWater.trim().replace(",", ".")
-          : String(rawWater);
+    // Санитизация воды
+    let processedWater = 2000;
+    if (formData.water_target) {
+      const sanitized = formData.water_target.trim().replace(",", ".");
       processedWater = sanitized === "" ? 2000 : Math.round(Number(sanitized));
     }
-
     if (isNaN(processedWater) || processedWater < 1000) processedWater = 1000;
     if (processedWater > 5000) processedWater = 5000;
+
+    // Санитизация шагов
+    let processedSteps = 8000;
+    if (formData.steps_target) {
+      const sanitizedSteps = formData.steps_target.trim();
+      processedSteps =
+        sanitizedSteps === "" ? 8000 : Math.round(Number(sanitizedSteps));
+    }
+    if (isNaN(processedSteps) || processedSteps < 1000) processedSteps = 1000;
+    if (processedSteps > 50000) processedSteps = 50000;
+
+    // После сохранения сбрасываем ручные триггеры, чтобы формулы ожили при следующем рендере
+    isUserEditingWater.current = false;
+    isUserEditingSteps.current = false;
 
     updateProfile({
       full_name: formData.full_name || undefined,
@@ -184,6 +272,7 @@ export function useSettingsForm(
       fat: calculatedMacros.fat || undefined,
       carbs: calculatedMacros.carbs || undefined,
       water_target: processedWater,
+      steps_target: processedSteps,
     });
   };
 

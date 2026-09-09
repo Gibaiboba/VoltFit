@@ -20,16 +20,8 @@ import { useActivityModalStore } from "@/store/useActivityModalStore";
 import { useDailyLogValidation } from "@/hooks/use-daily-log-validation";
 import SleepMetricInput from "@/components/student/sleep-metric-input";
 
-interface StudentClientProps {
-  userId: string;
-  serverToday: string;
-}
-
-export default function StudentClient({
-  userId,
-  serverToday,
-}: StudentClientProps) {
-  const { state, actions } = useStudentDashboard(userId, serverToday);
+export default function StudentClient() {
+  const { state, actions } = useStudentDashboard();
   const { selectedDate } = useUserStore();
   const { isActivityModalOpen, closeActivityModal, openActivityModal } =
     useActivityModalStore();
@@ -156,7 +148,7 @@ export default function StudentClient({
                 icon={Footprints}
                 color="green"
                 value={formData.steps}
-                footer={`Цель: ${profile?.steps_goal || "10 000"} шагов`}
+                footer={`Цель: ${profile?.steps_target ? profile.steps_target.toLocaleString() : "10 000"} шагов`}
                 onChange={(v) => handleFieldChange("steps", v)}
                 error={fieldErrors.steps}
               />

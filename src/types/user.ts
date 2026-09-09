@@ -33,5 +33,5 @@ export interface UserProfile {
   waist?: number;
   hips?: number;
   water_target?: number;
-  steps_goal?: number; // пока нет в таблице на supabase
+  steps_target: number;
 }

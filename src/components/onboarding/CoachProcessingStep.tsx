@@ -4,14 +4,14 @@ import { useEffect, useState, useRef, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { CheckCircle2, Loader2, AlertCircle } from "lucide-react";
-import { useOnboardingStore } from "@/store/useOnboardingStore";
+import { useCoachOnboardingStore } from "@/store/useCoachOnboardingStore";
 import { supabase } from "@/lib/supabase";
 import { STAGES } from "@/constants/Stages";
 import { toast } from "sonner";
 
-export default function ProcessingStep() {
+export default function CoachProcessingStep() {
   const router = useRouter();
-  const { data, reset } = useOnboardingStore();
+  const { data, reset } = useCoachOnboardingStore();
   const [stage, setStage] = useState(0);
   const [status, setStatus] = useState<"loading" | "success" | "error">(
     "loading",
@@ -19,10 +19,8 @@ export default function ProcessingStep() {
   const isSaving = useRef(false);
   const isSuccess = useRef(false);
 
-  // Храним роль для финального перенаправления
-  const [userRole, setUserRole] = useState<string>("student");
-
   const currentStages = useMemo(() => {
+    // Ветки стадий расчетов (если нет специальной, берем lose_weight как заглушку анимации)
     return STAGES[data.goal as keyof typeof STAGES] || STAGES.lose_weight;
   }, [data.goal]);
 
@@ -45,12 +43,7 @@ export default function ProcessingStep() {
         } = await supabase.auth.getUser();
         if (!user) throw new Error("Пользователь не авторизован");
 
-        // Вытаскиваем роль пользователя из метаданных авторизации Supabase
-        const role =
-          user?.app_metadata?.role || user?.user_metadata?.role || "student";
-        setUserRole(role);
-
-        // 1. ИЗВЛЕКАЕМ ДАННЫЕ (Они уже посчитаны стором на лету)
+        // 1. ИЗВЛЕКАЕМ ДАННЫЕ ТРЕНЕРА
         const {
           goal,
           gender,
@@ -63,12 +56,12 @@ export default function ProcessingStep() {
           protein,
           fat,
           carbs,
-          water_target, // Извлекаем посчитанную воду в мл
-          steps_target, // Извлекаем посчитанные шаги
+          water_target,
+          steps_target,
           ...metadata
         } = data;
 
-        // 2. ОТПРАВЛЯЕМ СИНХРОНИЗИРОВАННЫЕ КОЛОНКИ В SUPABASE
+        // 2. ОТПРАВЛЯЕМ КОЛОНКИ В SUPABASE
         const { error: profileError } = await supabase
           .from("profiles")
           .update({
@@ -83,8 +76,8 @@ export default function ProcessingStep() {
             protein: Number(protein) || undefined,
             fat: Number(fat) || undefined,
             carbs: Number(carbs) || undefined,
-            water_target: Number(water_target) || undefined, // Записываем мл
-            steps_target: Number(steps_target) || undefined, // Записываем целевые шаги
+            water_target: Number(water_target) || undefined,
+            steps_target: Number(steps_target) || undefined,
             onboarding_metadata: metadata,
             onboarding_completed: true,
             updated_at: new Date().toISOString(),
@@ -93,8 +86,9 @@ export default function ProcessingStep() {
 
         if (profileError) throw profileError;
 
+        // Принудительно ставим роль coach в метаданных юзера, если это не сделано триггером базы
         await supabase.auth.updateUser({
-          data: { onboarding_completed: true },
+          data: { onboarding_completed: true, role: "coach" },
         });
 
         isSuccess.current = true;
@@ -116,18 +110,14 @@ export default function ProcessingStep() {
   }, [reset]);
 
   const handleFinish = () => {
-    // Обновляем серверные куки и токены для Middleware
     router.refresh();
-
-    // Роутинг: тренера в /coach, студента в /student
-    const target = userRole === "coach" ? "/coach" : "/student";
-    router.replace(target);
+    router.replace("/coach");
   };
 
   const handleShare = async () => {
     const shareData = {
-      title: "Мой фитнес-план",
-      text: `Моя норма: ${data.daily_calories} ккал! Б: ${data.protein}г, Ж: ${data.fat}г, У: ${data.carbs}г. Вода: ${data.water_target} мл. Шаги: ${data.steps_target}. Давай со мной!`,
+      title: "Дневник тренера VoltFit",
+      text: `Я настроил свой публичный дневник! Моя норма: ${data.daily_calories} ккал. Вода: ${data.water_target} мл. Шаги: ${data.steps_target}. Подключайся!`,
       url: window.location.origin,
     };
 
@@ -136,11 +126,11 @@ export default function ProcessingStep() {
         await navigator.share(shareData);
       } else {
         await navigator.clipboard.writeText(shareData.text);
-        toast.success("Данные скопированы в буфер!");
+        toast.success("Ссылка скопирована!");
       }
     } catch (error) {
       if ((error as Error).name !== "AbortError") {
-        toast.error("Не удалось поделиться. Попробуйте позже.");
+        toast.error("Не удалось поделиться.");
       }
     }
   };
@@ -148,7 +138,7 @@ export default function ProcessingStep() {
     <div className="flex flex-col items-center justify-center min-h-[550px] text-center p-6 bg-white rounded-[40px] shadow-sm overflow-hidden">
       <AnimatePresence mode="wait">
         {status === "loading" ? (
-          /* ЭТАП 1: ТОЛЬКО ЛОАДЕР И СТАДИИ  */
+          /* ЭТАП 1: ЛОАДЕР И СТАДИИ РАСЧЕТА */
           <motion.div
             key="loading-state"
             initial={{ opacity: 0, scale: 0.9 }}
@@ -157,7 +147,7 @@ export default function ProcessingStep() {
             className="flex flex-col items-center gap-12"
           >
             <div className="relative">
-              <Loader2 className="w-24 h-24 text-blue-600 animate-spin stroke-" />
+              <Loader2 className="w-24 h-24 text-blue-600 animate-spin stroke-[3]" />
               <div className="absolute inset-0 flex items-center justify-center">
                 <div className="w-3 h-3 bg-blue-600 rounded-full animate-ping" />
               </div>
@@ -178,20 +168,19 @@ export default function ProcessingStep() {
             </div>
           </motion.div>
         ) : status === "success" ? (
-          /* ЭТАП 2: ФИНАЛЬНЫЙ РЕЗУЛЬТАТ (КАРТОЧКИ БЖУ + КНОПКИ) */
+          /* ЭТАП 2: ФИНАЛЬНЫЙ РЕЗУЛЬТАТ ТРЕНЕРА */
           <motion.div
             key="success-state"
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
             className="w-full max-w-sm flex flex-col gap-6"
           >
-            {/* Иконка и заголовок */}
             <div className="space-y-3">
               <div className="inline-flex p-4 bg-emerald-50 rounded-full">
                 <CheckCircle2 className="w-10 h-10 text-emerald-500" />
               </div>
               <h2 className="text-4xl font-black text-gray-900 uppercase tracking-tighter">
-                Твой plan готов
+                Профиль настроен
               </h2>
             </div>
 
@@ -199,7 +188,7 @@ export default function ProcessingStep() {
             <div className="bg-slate-900 text-white p-10 rounded-[45px] shadow-2xl shadow-slate-200 relative overflow-hidden text-left">
               <div className="absolute -right-6 -bottom-6 w-32 h-32 bg-blue-500/20 rounded-full blur-3xl" />
               <span className="text-[10px] font-black uppercase tracking-[0.3em] text-blue-400">
-                Суточная норма
+                Ваша суточная норма
               </span>
               <div className="text-6xl font-black italic mt-2 tracking-tighter">
                 {data.daily_calories}
@@ -207,7 +196,7 @@ export default function ProcessingStep() {
               </div>
             </div>
 
-            {/* Сетка БЖУ (Цветные карточки) */}
+            {/* Сетка БЖУ */}
             <div className="grid grid-cols-3 gap-3">
               {[
                 {
@@ -252,13 +241,13 @@ export default function ProcessingStep() {
                 onClick={handleFinish}
                 className="w-full py-6 bg-blue-600 text-white rounded-[28px] font-black uppercase tracking-widest text-sm shadow-xl shadow-blue-100 active:scale-95 transition-all"
               >
-                Всё ясно, поехали! 🚀
+                Открыть кабинет тренера 🚀
               </button>
               <button
                 onClick={handleShare}
                 className="w-full py-4 text-slate-400 font-bold uppercase tracking-widest text-[10px] hover:text-slate-600 transition-colors"
               >
-                Поделиться результатом
+                Поделиться профилем
               </button>
             </div>
           </motion.div>

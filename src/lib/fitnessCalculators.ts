@@ -1,4 +1,4 @@
-import { Goal } from "@/types/onboarding";
+import { Goal, ActivityLevel } from "@/types/onboarding";
 
 /**
  * 1. Автоматический расчет возраста на основе строки даты рождения
@@ -110,7 +110,7 @@ export const calculateMacros = (params: {
 
 /**
  * 4. Расчет оптимальной суточной нормы воды в литрах (Старая базовая версия)
- * ОСТАВЛЕНА БЕЗ ИЗМЕНЕНИЙ для обратной совместимости с другими частями приложения
+
  */
 export const calculateWaterTarget = (
   weight: number,
@@ -154,8 +154,43 @@ export const calculateBaseWaterTarget = (params: {
   // Безопасные лимиты
   const minLimit = gender === "female" ? 1200 : 1500;
   if (waterTarget < minLimit) waterTarget = minLimit;
-  if (waterTarget > 4500) waterTarget = 4500;
+  if (waterTarget > 5000) waterTarget = 5000;
 
-  // Переводим миллилитры в ЛИТРЫ с округлением (например, 2150 мл = 2.15)
-  return parseFloat((waterTarget / 1000).toFixed(2));
+  // Округляем до ближайших 50 мл и переводим в литры (например, 2125мл -> 2150мл -> 2.15л)
+  const roundedWaterMl = Math.round(waterTarget / 50) * 50;
+  return roundedWaterMl / 1000;
+};
+
+/**
+ * 6. Расчет БАЗОВОЙ суточной нормы шагов на основе точных коэффициентов активности
+ */
+export const calculateBaseStepsTarget = (params: {
+  goal: Goal;
+  activityLevel: ActivityLevel;
+}): number => {
+  const { goal, activityLevel } = params;
+  if (!goal || !activityLevel) return 6000; // Безопасный дефолт
+
+  const stepsMatrix: Record<Goal, Record<ActivityLevel, number>> = {
+    lose_weight: {
+      1.2: 8000, // Минимальная
+      1.375: 10000, // Умеренная
+      1.55: 12000, // Активная
+      1.725: 14000, // Экстремальная
+    },
+    gain_muscle: {
+      1.2: 5000,
+      1.375: 7000,
+      1.55: 9000,
+      1.725: 11000,
+    },
+    maintain: {
+      1.2: 6000,
+      1.375: 8500,
+      1.55: 11000,
+      1.725: 13000,
+    },
+  };
+
+  return stepsMatrix[goal]?.[activityLevel] || 7000;
 };

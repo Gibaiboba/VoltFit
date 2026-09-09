@@ -37,7 +37,6 @@ export async function middleware(request: NextRequest) {
         getAll: () => request.cookies.getAll(),
         setAll: (cookiesToSet) => {
           cookiesToSet.forEach(({ name, value, options }) => {
-            // Синхронизируем куки и в запросе, и в ответе
             request.cookies.set(name, value);
             response.cookies.set(name, value, options);
           });
@@ -69,14 +68,13 @@ export async function middleware(request: NextRequest) {
     const redirectResponse = NextResponse.redirect(
       new URL(targetPath, request.url),
     );
-    // Важно: переносим все установленные куки из основного response в редирект
     response.cookies.getAll().forEach((cookie) => {
       redirectResponse.cookies.set(cookie.name, cookie.value, cookie);
     });
     return redirectResponse;
   };
 
-  // --- ЛОГИКА ПРОВЕРОК ---
+  // --- ЛОГИКА ПР ПРОВЕРОК ---
 
   // 1. Если не авторизован и страница приватная
   if (!user && !isPublicPage) {
@@ -97,33 +95,28 @@ export async function middleware(request: NextRequest) {
     return createRedirect("/coach?error=no_access");
   }
 
-  // 4. Проверка онбординга (если не пройден — только на онбординг)
-  // Проверка онбординга срабатывает ТОЛЬКО для учеников
+  // 4. Проверка онбординга (ОБЩАЯ ДЛЯ ВСЕХ РОЛЕЙ)
+  if (user && !onboardingDone && !isPublicPage) {
+    const onboardingPath =
+      userRole === "coach" ? "/coach/onboarding" : "/onboarding";
 
-  if (
-    user &&
-    userRole === "student" &&
-    !onboardingDone &&
-    !path.startsWith("/onboarding") &&
-    !isPublicPage
-  ) {
-    return createRedirect("/onboarding");
+    if (!path.startsWith(onboardingPath)) {
+      return createRedirect(onboardingPath);
+    }
   }
 
-  // А это защитит от возврата на onboarding, если он пройден
-  if (user && onboardingDone && path.startsWith("/onboarding")) {
-    const target = userRole === "coach" ? "/coach" : "/student";
-    return createRedirect(target);
+  // 5. Защита от возврата на онбординг, если он уже ПРОЙДЕН
+  if (user && onboardingDone) {
+    if (
+      path.startsWith("/onboarding") ||
+      path.startsWith("/coach/onboarding")
+    ) {
+      const target = userRole === "coach" ? "/coach" : "/student";
+      return createRedirect(target);
+    }
   }
 
-  // 5. Если опрос пройден, но юзер пытается зайти на страницу опроса
-  if (user && onboardingDone && path.startsWith("/onboarding")) {
-    const target = userRole === "coach" ? "/coach" : "/student";
-    return createRedirect(target);
-  }
-
-  // 1. Если не удалось получить юзера (ошибка или его просто нет)
-  // и страница приватная — на выход.
+  // 6. Если не удалось получить юзера (ошибка сессии)
   if ((!user || error) && !isPublicPage) {
     return createRedirect("/login?error=session_expired");
   }
@@ -131,7 +124,6 @@ export async function middleware(request: NextRequest) {
   return response;
 }
 
-// Оптимизация: запускаем Middleware только на нужных маршрутах
 export const config = {
   matcher: [
     "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",

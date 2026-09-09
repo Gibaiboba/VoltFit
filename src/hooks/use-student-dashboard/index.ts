@@ -1,3 +1,5 @@
+"use client";
+
 import { useState, useCallback } from "react";
 import { useUserStore } from "@/store/useUserStore";
 import { useMealHistory } from "@/hooks/use-meal-history";
@@ -6,13 +8,16 @@ import { useDashboardMutations } from "./use-mutations";
 import { useDashboardCalculations } from "./use-calculations";
 import { FormDataType, StudentDashboardHook, FormUpdater } from "./types";
 import { getErrorMessage } from "@/lib/utils/error-helper";
+import { useServerToday } from "@/providers/DateProvider";
 
-export const useStudentDashboard = (
-  userId: string,
-  serverToday: string,
-): StudentDashboardHook => {
+export const useStudentDashboard = (): StudentDashboardHook => {
+  //  Извлекаем стабильную дату сервера напрямую из контекста
+  const serverToday = useServerToday();
+
   // 1. Глобальное состояние даты из Zustand
-  const { selectedDate, setSelectedDate } = useUserStore();
+  const { selectedDate, setSelectedDate, user } = useUserStore();
+
+  const userId = user?.id || "";
 
   // Локальное состояние для черновика ввода (веса, шагов, сна, тренировок)
   const [userInput, setUserInput] = useState<Partial<FormDataType>>({});
@@ -44,7 +49,7 @@ export const useStudentDashboard = (
   const handleDateChange = useCallback(
     (date: string): void => {
       setSelectedDate(date); // Меняем дату в Zustand-сторе
-      setUserInput({}); // Сбрасываем локальный черновик при переходе на другой день
+      setUserInput({}); // Сбрасываем локальный черновик при переключении дней
     },
     [setSelectedDate],
   );
@@ -98,10 +103,8 @@ export const useStudentDashboard = (
       carbs: stats.currentCarbs,
       sleep_hours: parseFloat(stats.formData.sleep_hours) || 0,
       water: stats.formData.water,
-
-      // Передаем весь массив активностей для сохранения в jsonb колонку
       activities: stats.formData.activities,
-      burned_calories: stats.burnedCalories, // Общая сумма сожженного за день
+      burned_calories: stats.burnedCalories,
     });
   }, [selectedDate, stats, saveMutation]);
 
@@ -109,24 +112,18 @@ export const useStudentDashboard = (
     state: {
       ...stats,
       meals,
-      // Загрузка активна только при первичном запросе диапазона, если в кэше пусто
       burnedCalories: stats.burnedCalories,
       loading:
         (logsQuery.isLoading || profileQuery.isLoading) && history.length === 0,
-
-      // Вывод ошибок: мутации в приоритете, затем ошибки чтения
       error: saveMutation.error
         ? getErrorMessage(saveMutation.error)
         : logsQuery.error || profileQuery.error
           ? getErrorMessage(logsQuery.error || (profileQuery.error as Error))
           : null,
-
       history,
       profile,
       isSaving: saveMutation.isPending,
       todayStr: serverToday,
-
-      // ЯВНО ПРОПИСЫВАЕМ ПОЛЯ ДЛЯ СИНХРОНИЗАЦИИ С ТИПАМИ
       targetProteins: stats.targetProteins,
       targetFats: stats.targetFats,
       targetCarbs: stats.targetCarbs,

@@ -1,4 +1,5 @@
 "use client";
+
 import { motion, AnimatePresence } from "framer-motion";
 import { useOnboardingStore } from "@/store/useOnboardingStore";
 import { ReactNode } from "react";
@@ -14,46 +15,46 @@ export const QuestionWrapper = ({
   description,
   children,
 }: QuestionWrapperProps) => {
-  // Достаем текущий инсайт из твоего стора
   const currentInsight = useOnboardingStore((state) => state.currentInsight);
 
   return (
-    <div className="flex flex-col h-full w-full max-w-md mx-auto">
-      {/* Секция заголовка */}
-      <div className="mb-8">
-        <h2 className="text-3xl font-black text-gray-900 leading-tight tracking-tight uppercase">
+    <div className="flex flex-col w-full max-w-md mx-auto min-h-[450px] justify-between">
+      <div className="mb-6 shrink-0 min-h-[90px] flex flex-col justify-end">
+        <h2 className="text-3xl font-black text-gray-900 leading-tight tracking-tight uppercase line-clamp-2">
           {title}
         </h2>
-        {description && (
-          <p className="mt-3 text-gray-500 font-medium leading-relaxed">
+        {description ? (
+          <p className="mt-2 text-gray-500 font-medium leading-relaxed text-sm">
             {description}
           </p>
+        ) : (
+          <div className="h-4" />
         )}
       </div>
 
-      {/* Контент вопроса (кнопки или инпуты) */}
-      <div className="flex-1">{children}</div>
+      <div className="flex-1 flex flex-col justify-start">{children}</div>
 
-      {/* Всплывающая плашка с инсайтом (💡) */}
-      <AnimatePresence>
-        {currentInsight && (
-          <motion.div
-            initial={{ opacity: 0, y: 40, scale: 0.95 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: 20, scale: 0.95 }}
-            className="fixed bottom-10 left-6 right-6 z-50"
-          >
-            <div className="bg-blue-600 text-white p-5 rounded-3xl shadow-2xl border-t-4 border-blue-400 flex items-start gap-4">
-              <div className="bg-white/20 p-2 rounded-full">
-                <span className="text-xl">💡</span>
+      <div className="h-16 shrink-0 relative mt-4">
+        <AnimatePresence>
+          {currentInsight && (
+            <motion.div
+              initial={{ opacity: 0, y: 20, scale: 0.95 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 10, scale: 0.95 }}
+              className="absolute inset-x-0 bottom-0 z-40"
+            >
+              <div className="bg-blue-600 text-white p-4 rounded-3xl shadow-xl border-t-4 border-blue-400 flex items-start gap-3">
+                <div className="bg-white/20 p-1.5 rounded-full shrink-0">
+                  <span className="text-base">💡</span>
+                </div>
+                <p className="text-xs font-bold leading-snug pt-0.5">
+                  {currentInsight}
+                </p>
               </div>
-              <p className="text-sm font-bold leading-snug pt-1">
-                {currentInsight}
-              </p>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
     </div>
   );
 };

@@ -21,17 +21,16 @@ import { useActivityModalStore } from "@/store/useActivityModalStore";
 import { useStudentDashboard } from "@/hooks/use-student-dashboard/index";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase";
+import { useServerToday } from "@/providers/DateProvider"; // ИМПОРТ ВАШЕГО ХУКА КОНТЕКСТА
 
-interface DiaryPageProps {
-  serverToday: string;
-}
+export default function DiaryPage() {
+  // Достаем стабильную дату сервера, посчитанную с учетом таймзоны юзера в MainLayout
+  const serverToday = useServerToday();
 
-export default function DiaryPage({ serverToday }: DiaryPageProps) {
   const selectedDate = useUserStore((state) => state.selectedDate);
   const setSelectedDate = useUserStore((state) => state.setSelectedDate);
-  const { user } = useUserStore();
-  const currentUserId = user?.id || "";
 
+  // Запрашиваем профиль из TanStack Query для получения веса и пола
   const { data: profile } = useQuery({
     queryKey: ["user-profile-current"],
     queryFn: async () => {
@@ -54,10 +53,7 @@ export default function DiaryPage({ serverToday }: DiaryPageProps) {
   const userGender = (profile?.gender as "male" | "female") || "female";
 
   // инициализация личного дашборда активностей и модалки
-  const { state: dashState, actions: dashActions } = useStudentDashboard(
-    currentUserId,
-    selectedDate,
-  );
+  const { state: dashState, actions: dashActions } = useStudentDashboard();
   const { isActivityModalOpen, closeActivityModal, openActivityModal } =
     useActivityModalStore();
 
@@ -66,8 +62,6 @@ export default function DiaryPage({ serverToday }: DiaryPageProps) {
   const loadItems = useMealStore((state) => state.loadItems);
   const clearItems = useMealStore((state) => state.clearItems);
 
-  const todayStr = serverToday;
-
   const [expandedSlots, setExpandedSlots] = useState<Record<string, boolean>>({
     breakfast: false,
     lunch: false,
@@ -75,7 +69,7 @@ export default function DiaryPage({ serverToday }: DiaryPageProps) {
     snack: false,
   });
 
-  // 1. Блокировка скролла
+  // Блокировка скролла
   useEffect(() => {
     document.body.style.overflow = activeMealType ? "hidden" : "";
     return () => {
@@ -93,7 +87,7 @@ export default function DiaryPage({ serverToday }: DiaryPageProps) {
     });
   }, [setMealType]);
 
-  // 2. Обработчик системной кнопки «Назад»
+  // Обработчик системной кнопки «Назад»
   useEffect(() => {
     const handlePopState = () => {
       if (activeMealType) {
@@ -105,6 +99,7 @@ export default function DiaryPage({ serverToday }: DiaryPageProps) {
     return () => window.removeEventListener("popstate", handlePopState);
   }, [activeMealType, handleCloseConstructor]);
 
+  // Передаем serverToday из контекста в хук логики дневника
   const {
     displayMeals,
     allMeals,
@@ -118,7 +113,7 @@ export default function DiaryPage({ serverToday }: DiaryPageProps) {
     refetch,
     deleteMeal,
     removeItem,
-  } = useDiaryLogic(selectedDate, todayStr);
+  } = useDiaryLogic(selectedDate, serverToday);
 
   // Передаем динамические цели, приходящие из useDiaryLogic
   const macroStats = useMacroStats(
@@ -184,10 +179,11 @@ export default function DiaryPage({ serverToday }: DiaryPageProps) {
 
           <section className="space-y-3">
             <div className="flex items-center justify-between">
+              {/* Синхронизировано через ваш контекст */}
               <DateNavigation
                 selectedDate={selectedDate}
-                todayStr={todayStr}
-                isToday={selectedDate === todayStr}
+                todayStr={serverToday}
+                isToday={selectedDate === serverToday}
                 onDateChange={setSelectedDate}
                 daysWithData={daysWithData}
               />
@@ -202,7 +198,8 @@ export default function DiaryPage({ serverToday }: DiaryPageProps) {
           </section>
 
           <section className="w-full">
-            <WaterTrackerCard serverToday={todayStr} />
+            {/* Синхронизировано через ваш контекст */}
+            <WaterTrackerCard serverToday={serverToday} />
           </section>
 
           {/* секция активностей */}
@@ -235,7 +232,6 @@ export default function DiaryPage({ serverToday }: DiaryPageProps) {
         </div>
       </AsyncBoundary>
 
-      {/*глобальная модалка активностей */}
       <ActivityModal
         isOpen={isActivityModalOpen}
         onClose={closeActivityModal}

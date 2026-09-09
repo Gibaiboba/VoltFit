@@ -39,17 +39,20 @@ export default function OnboardingPage() {
     // 4. Финальный расчет и сохранение в базу
     return <ProcessingStep />;
   };
-
   return (
-    <main className="max-w-md mx-auto min-h-screen flex flex-col p-6">
-      <div className="w-full bg-gray-100 h-2 mb-8 rounded-full overflow-hidden">
+    <div className="w-full flex-1 flex flex-col">
+      {/* Полоска прогресса */}
+      <div className="w-full bg-gray-100 h-1.5 mb-6 rounded-full overflow-hidden shrink-0">
         <div
           className="bg-blue-600 h-full transition-all duration-700 ease-in-out"
           style={{ width: `${progressPercentage}%` }}
         />
       </div>
 
-      <FramerWrapper activeKey={step}>{renderStep(step)}</FramerWrapper>
-    </main>
+      {/* Обертка шагов с анимацией */}
+      <div className="flex-1 flex flex-col justify-start">
+        <FramerWrapper activeKey={step}>{renderStep(step)}</FramerWrapper>
+      </div>
+    </div>
   );
 }

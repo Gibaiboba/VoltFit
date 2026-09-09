@@ -135,6 +135,19 @@ export default function SettingsForm({
             </p>
           </div>
 
+          {/*  Цель шагов  */}
+          <div className="space-y-1">
+            <Input
+              label="Базовая цель шагов (в сутки)"
+              type="number"
+              value={formData.steps_target || ""}
+              onChange={updateField("steps_target")}
+            />
+            <p className="text-[10px] font-medium text-slate-400 px-1 leading-tight">
+              *Будет отображаться ориентиром в вашем дневнике активности.
+            </p>
+          </div>
+
           <div className="grid grid-cols-2 gap-4">
             <Input
               label="Рост (см)"
