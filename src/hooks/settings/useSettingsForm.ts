@@ -23,8 +23,8 @@ export function useSettingsForm(
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Флаги, чтобы понимать, меняет ли пользователь воду/шаги руками прямо сейчас
-  const isUserEditingWater = useRef(false);
-  const isUserEditingSteps = useRef(false);
+  const isUserEditingWater = useRef(!!initialProfile?.water_target);
+  const isUserEditingSteps = useRef(!!initialProfile?.steps_target);
 
   const normalizeGoal = (g: string | undefined): Goal => {
     if (g === "lose" || g === "lose_weight") return "lose_weight";
@@ -90,12 +90,18 @@ export function useSettingsForm(
   const currentAge = age > 0 ? age : 25;
 
   // 4. РЕАКТИВНЫЙ ПЕРЕСЧЕТ ВОДЫ И ШАГОВ НА ЛЕТУ ПРИ СМЕНЕ СЕЛЕКТОРОВ
+  const isFirstRender = useRef(true);
+
   useEffect(() => {
+    if (isFirstRender.current) {
+      isFirstRender.current = false;
+      return;
+    }
+
     const numericWeight = parseFloat(formData.weight) || 70;
     const numericActivity = (parseFloat(formData.activity_level) ||
       1.2) as ActivityLevel;
 
-    // Пересчитываем воду, если пользователь не заблокировал ее ручным вводом
     if (!isUserEditingWater.current) {
       const baseWaterLiters = calculateBaseWaterTarget({
         weight: numericWeight,
@@ -107,7 +113,6 @@ export function useSettingsForm(
       setFormData((prev) => ({ ...prev, water_target: waterMl }));
     }
 
-    // Пересчитываем шаги, если пользователь не заблокировал их ручным вводом
     if (!isUserEditingSteps.current) {
       const baseSteps = calculateBaseStepsTarget({
         goal: formData.goal,
