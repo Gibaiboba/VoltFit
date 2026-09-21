@@ -1,54 +1,82 @@
 "use client";
 import { useState } from "react";
 import { useOnboardingStore } from "@/store/useOnboardingStore";
+import { useCoachOnboardingStore } from "@/store/useCoachOnboardingStore";
 import { QuestionWrapper } from "./QuestionWrapper";
 import { Option, Question } from "@/constants/questions";
 import { MetricsSchema } from "@/lib/schemas";
 
 interface QuestionCardProps {
   question: Question;
+  isCoach?: boolean;
 }
 
-export const QuestionCard = ({ question }: QuestionCardProps) => {
-  const { updateData, nextStep, setCurrentInsight, data } =
-    useOnboardingStore();
+export const QuestionCard = ({
+  question,
+  isCoach = false,
+}: QuestionCardProps) => {
+  // Динамически выбираем нужный стор на основе роли
+  const studentStore = useOnboardingStore();
+  const coachStore = useCoachOnboardingStore();
+
+  const currentStore = isCoach ? coachStore : studentStore;
+  const { updateData, nextStep, setCurrentInsight, data } = currentStore;
+
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Локальное состояние для раскрытия календаря внутри карточки дедлайна
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [localDate, setLocalDate] = useState("");
 
-  const currentValue = data[question.id as keyof typeof data] || "";
+  const safeData = data as Record<string, string | number | undefined>;
+  const currentValue = safeData[question.id] || "";
   const isBirthDateQuestion =
     question.type === "date" || question.id === "birth_date";
 
-  // Хендлер валидации и перехода для обычных текстовых инпутов
   const handleNext = () => {
-    const fieldSchema =
-      MetricsSchema.shape[question.id as keyof typeof MetricsSchema.shape];
-    if (fieldSchema) {
-      const result = fieldSchema.safeParse(currentValue);
-      if (!result.success) {
-        setError(result.error.errors[0].message);
+    // Валидация через Zod для ученика (если есть схема)
+    if (!isCoach) {
+      const fieldSchema =
+        MetricsSchema.shape[question.id as keyof typeof MetricsSchema.shape];
+      if (fieldSchema) {
+        const result = fieldSchema.safeParse(currentValue);
+        if (!result.success) {
+          setError(result.error.errors[0].message);
+          return;
+        }
+      }
+    } else {
+      // Кастомная чистая валидация для тренера
+      if (!currentValue || String(currentValue).trim() === "") {
+        setError("Пожалуйста, заполните это поле");
         return;
       }
+      if (
+        ["experience_years", "height", "weight", "target_weight"].includes(
+          question.id,
+        )
+      ) {
+        const num = Number(currentValue);
+        if (isNaN(num) || num <= 0) {
+          setError("Введите корректное числовое значение больше нуля");
+          return;
+        }
+      }
     }
+
     setError(null);
     nextStep();
   };
 
-  // Хендлер клика по обычным кнопкам вариантов (options)
   const handleSelect = (option: Option) => {
     if (isProcessing) return;
 
-    // Специфическая логика для селектора дедлайна похудения
+    // Специфическая логика для селектора дедлайна
     if (question.type === "deadline_selector" && option.value === "event") {
-      setShowDatePicker(true); // Показываем календарь на этом же экране
+      setShowDatePicker(true);
       return;
     }
 
-    // Стандартное сохранение ответа
     updateData({ [question.id]: option.value });
 
     if (option.insight) {
@@ -64,7 +92,6 @@ export const QuestionCard = ({ question }: QuestionCardProps) => {
     }
   };
 
-  // Хендлер подтверждения выбранной даты в календаре дедлайна
   const handleConfirmDeadlineDate = () => {
     if (!localDate) return;
 
@@ -78,7 +105,6 @@ export const QuestionCard = ({ question }: QuestionCardProps) => {
     }
 
     setError(null);
-    // Сохраняем в стор: тип дедлайна "event" и саму выбранную строку target_date
     updateData({
       [question.id]: "event",
       target_date: localDate,
@@ -88,11 +114,10 @@ export const QuestionCard = ({ question }: QuestionCardProps) => {
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = e.target.value;
-    const finalValue = isBirthDateQuestion
-      ? val
-      : val === ""
-        ? ""
-        : Number(val);
+    const isTextField = question.id === "coach_bio";
+    const finalValue =
+      isBirthDateQuestion || isTextField ? val : val === "" ? "" : Number(val);
+
     if (error) setError(null);
     updateData({ [question.id]: finalValue });
   };
@@ -102,7 +127,7 @@ export const QuestionCard = ({ question }: QuestionCardProps) => {
       <div
         className={`space-y-3 ${isProcessing ? "opacity-50 pointer-events-none" : ""}`}
       >
-        {/* КЕЙС 1: КАСТОМНЫЙ ДЕДЛАЙН С КАЛЕНДАРЕМ */}
+        {/* КЕЙС 1: КАЛЕНДАРЬ ДЕДЛАЙНА */}
         {question.type === "deadline_selector" && showDatePicker ? (
           <div className="flex flex-col gap-4 animate-fadeIn">
             <div className="relative">
@@ -136,14 +161,14 @@ export const QuestionCard = ({ question }: QuestionCardProps) => {
               <button
                 onClick={handleConfirmDeadlineDate}
                 disabled={!localDate}
-                className="w-2/3 bg-blue-600 text-white p-5 rounded-2xl font-extrabold uppercase tracking-tight hover:bg-blue-700 active:scale-95 transition-all shadow-lg shadow-blue-100 disabled:bg-gray-300 disabled:shadow-none"
+                className="w-2/3 bg-blue-600 text-white p-5 rounded-2xl font-extrabold uppercase tracking-tight hover:bg-blue-700 active:scale-95 transition-all shadow-lg shadow-blue-100"
               >
                 Подтвердить
               </button>
             </div>
           </div>
         ) : question.options ? (
-          /* КЕЙС 2: СТАНДАРТНЫЙ ВЫБОР ВАРИАНТОВ (КНОПКИ) */
+          /* КЕЙС 2: ВЫБОР ВАРИАНТОВ (КНОПКИ) */
           question.options.map((opt: Option) => (
             <button
               key={opt.value}
@@ -158,7 +183,7 @@ export const QuestionCard = ({ question }: QuestionCardProps) => {
             </button>
           ))
         ) : (
-          /* КЕЙС 3: СТАНДАРТНЫЕ ИНПУТЫ (РОСТ, ВЕС, ДАТА РОЖДЕНИЯ) */
+          /* КЕЙС 3: СТАНДАРТНЫЕ ИНПУТЫ */
           <div className="flex flex-col gap-4">
             <div className="relative">
               <input
@@ -188,7 +213,7 @@ export const QuestionCard = ({ question }: QuestionCardProps) => {
             <button
               onClick={handleNext}
               disabled={!currentValue}
-              className="w-full bg-blue-600 text-white p-5 rounded-2xl font-extrabold uppercase tracking-tight hover:bg-blue-700 active:scale-95 transition-all shadow-lg shadow-blue-100 disabled:bg-gray-300 disabled:shadow-none"
+              className="w-full bg-blue-600 text-white p-5 rounded-2xl font-extrabold uppercase tracking-tight hover:bg-blue-700 active:scale-95 transition-all shadow-lg shadow-blue-100"
             >
               Продолжить
             </button>

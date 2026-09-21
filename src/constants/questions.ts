@@ -1,6 +1,6 @@
 export interface Option {
   label: string;
-  value: string;
+  value: string | number;
   insight?: string;
 }
 

@@ -1,7 +1,7 @@
-import { Question } from "@/types/onboarding";
+import { Question } from "@/constants/questions";
 
 export const COACH_QUESTIONS: Question[] = [
-  // ШАГ 1: Старт анкеты (Профессиональный фокус)
+  // ШАГ 1: Профессиональный фокус
   {
     id: "coach_specialization",
     title: "Ваша экспертная специализация",
@@ -22,6 +22,7 @@ export const COACH_QUESTIONS: Question[] = [
       },
     ],
   },
+  // ШАГ 2: Стиль работы
   {
     id: "coach_motivation_style",
     title: "Ваш стиль мотивации",
@@ -35,14 +36,15 @@ export const COACH_QUESTIONS: Question[] = [
       { label: "📊 Научный подход, цифры и биохимия", value: "scientific" },
     ],
   },
-
+  // ШАГ 3: Стаж
   {
     id: "experience_years",
     title: "Ваш тренерский стаж",
     description: "Сколько полных лет вы успешно тренируете людей?",
+    type: "input",
     unit: "лет",
   },
-  // ШАГ 3
+  // ШАГ 4: Настройки приватности
   {
     id: "is_diary_public",
     title: "Публичность вашего дневника",
@@ -59,7 +61,7 @@ export const COACH_QUESTIONS: Question[] = [
       },
     ],
   },
-  // ШАГ 4
+  // ШАГ 5: Биометрия
   {
     id: "gender",
     title: "Укажите ваш пол",
@@ -69,20 +71,22 @@ export const COACH_QUESTIONS: Question[] = [
       { label: "🌐 Мужской", value: "male" },
     ],
   },
-  // ШАГ 5
+  // ШАГ 6: Дата рождения
   {
     id: "birth_date",
     title: "Укажите вашу дату рождения",
     description: "Возраст будет рассчитываться автоматически в вашем профиле",
+    type: "date",
   },
-  // ШАГ 6
+  // ШАГ 7: Рост
   {
     id: "height",
     title: "Какой у вас рост?",
     description: "Укажите ваш текущий рост в сантиметрах",
+    type: "input",
     unit: "см",
   },
-  // ШАГ 7
+  // ШАГ 8: Личная цель дневника
   {
     id: "goal",
     title: "Какая ваша главная цель?",
@@ -93,21 +97,34 @@ export const COACH_QUESTIONS: Question[] = [
       { label: "🧘‍♂️ Поддержание формы", value: "maintain" },
     ],
   },
-  // ШАГ 8
+  // ШАГ 9: Текущий вес
   {
     id: "weight",
     title: "Какой у вас текущий вес?",
     description: "Укажите ваш вес в килограммах для стартовой точки дневника",
+    type: "input",
     unit: "кг",
   },
-  // ШАГ 9
+  // ШАГ 10: Целевой вес
   {
     id: "target_weight",
     title: "Ваш целевой вес",
     description: "К какому весу вы стремитесь в данный момент?",
+    type: "input",
     unit: "кг",
   },
-  // ШАГ 10
+  // 🔥 ШАГ 11: ДОБАВИЛИ ДЕДЛАЙН ТРЕНЕРА
+  {
+    id: "deadline",
+    title: "Дедлайн вашей цели",
+    description: "Вы хотите достичь целевого веса к определенной дате?",
+    type: "deadline_selector",
+    options: [
+      { label: "📅 Да, поставить четкую дату дедлайна", value: "event" },
+      { label: "🔄 Нет, вести дневник в плавном режиме", value: "healthy" },
+    ],
+  },
+  // ШАГ 12: Коэффициент активности
   {
     id: "activityLevel",
     title: "Ваша бытовая активность",

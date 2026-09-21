@@ -3,35 +3,82 @@
 import { useEffect, useState, useRef, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
-import { CheckCircle2, Loader2, AlertCircle } from "lucide-react";
+import { CheckCircle2, Loader2, AlertCircle, Info } from "lucide-react";
 import { useCoachOnboardingStore } from "@/store/useCoachOnboardingStore";
 import { supabase } from "@/lib/supabase";
 import { STAGES } from "@/constants/Stages";
 import { toast } from "sonner";
+import { calculateDailyCalories } from "@/lib/fitnessCalculators";
 
 export default function CoachProcessingStep() {
   const router = useRouter();
   const { data, reset } = useCoachOnboardingStore();
+
   const [stage, setStage] = useState(0);
   const [status, setStatus] = useState<"loading" | "success" | "error">(
     "loading",
   );
+
+  // Безопасный реф для предотвращения каскадных рендеров и ошибок React
+  const dbSavingFinishedRef = useRef(false);
   const isSaving = useRef(false);
   const isSuccess = useRef(false);
 
   const currentStages = useMemo(() => {
-    // Ветки стадий расчетов (если нет специальной, берем lose_weight как заглушку анимации)
     return STAGES[data.goal as keyof typeof STAGES] || STAGES.lose_weight;
   }, [data.goal]);
 
+  // Вычисляем фидбек от умного калькулятора калорий (поддерживает и дедлайны тренера)
+  const calcFeedback = useMemo(() => {
+    if (!data.weight || !data.height || !data.birth_date) return "";
+
+    const birth = new Date(data.birth_date);
+    const now = new Date();
+    let calculatedAge = now.getFullYear() - birth.getFullYear();
+    if (
+      now.getMonth() < birth.getMonth() ||
+      (now.getMonth() === birth.getMonth() && now.getDate() < birth.getDate())
+    ) {
+      calculatedAge--;
+    }
+
+    const res = calculateDailyCalories({
+      weight: Number(data.weight),
+      height: Number(data.height),
+      age: calculatedAge > 0 ? calculatedAge : 25,
+      gender: data.gender || "female",
+      activityLevel: Number(data.activityLevel || 1.2),
+      goal: data.goal || "maintain",
+      targetWeight: data.target_weight ? Number(data.target_weight) : undefined,
+      targetDate: data.target_date,
+    });
+    return res.feedbackMessage;
+  }, [data]);
+
+  // 1. УПРАВЛЕНИЕ АНИМАЦИЕЙ СТАДИЙ
   useEffect(() => {
     if (status !== "loading") return;
+
     const interval = setInterval(() => {
-      setStage((prev) => (prev < currentStages.length - 1 ? prev + 1 : prev));
-    }, 700);
+      setStage((prev) => {
+        if (prev < currentStages.length - 1) {
+          return prev + 1;
+        } else {
+          // Мы дошли до последней стадии расчетов!
+          // Если база данных к этому моменту уже ответила — плавно завершаем
+          if (dbSavingFinishedRef.current) {
+            setStatus("success");
+            clearInterval(interval);
+          }
+          return prev;
+        }
+      });
+    }, 850);
+
     return () => clearInterval(interval);
   }, [currentStages.length, status]);
 
+  // 2. ОТПРАВКА ДАННЫХ В SUPABASE
   useEffect(() => {
     const finalize = async () => {
       if (isSaving.current) return;
@@ -43,7 +90,7 @@ export default function CoachProcessingStep() {
         } = await supabase.auth.getUser();
         if (!user) throw new Error("Пользователь не авторизован");
 
-        // 1. ИЗВЛЕКАЕМ ДАННЫЕ ТРЕНЕРА
+        // Явно извлекаем дедлайн тренера target_date из стора
         const {
           goal,
           gender,
@@ -51,6 +98,7 @@ export default function CoachProcessingStep() {
           weight,
           height,
           target_weight,
+          target_date,
           activityLevel,
           daily_calories,
           protein,
@@ -61,7 +109,11 @@ export default function CoachProcessingStep() {
           ...metadata
         } = data;
 
-        // 2. ОТПРАВЛЯЕМ КОЛОНКИ В SUPABASE
+        const updatedMetadata = {
+          ...metadata,
+          target_date: goal === "lose_weight" ? target_date : undefined,
+        };
+
         const { error: profileError } = await supabase
           .from("profiles")
           .update({
@@ -78,7 +130,7 @@ export default function CoachProcessingStep() {
             carbs: Number(carbs) || undefined,
             water_target: Number(water_target) || undefined,
             steps_target: Number(steps_target) || undefined,
-            onboarding_metadata: metadata,
+            onboarding_metadata: updatedMetadata,
             onboarding_completed: true,
             updated_at: new Date().toISOString(),
           })
@@ -86,13 +138,20 @@ export default function CoachProcessingStep() {
 
         if (profileError) throw profileError;
 
-        // Принудительно ставим роль coach в метаданных юзера, если это не сделано триггером базы
         await supabase.auth.updateUser({
           data: { onboarding_completed: true, role: "coach" },
         });
 
         isSuccess.current = true;
-        setStatus("success");
+        dbSavingFinishedRef.current = true;
+
+        // Если анимация стадий к этому моменту уже на последнем элементе — мгновенно открываем результат
+        setStage((currentStage) => {
+          if (currentStage === currentStages.length - 1) {
+            setStatus("success");
+          }
+          return currentStage;
+        });
       } catch (error) {
         console.error("Save error:", error);
         setStatus("error");
@@ -101,14 +160,13 @@ export default function CoachProcessingStep() {
     };
 
     finalize();
-  }, [data]);
+  }, [data, currentStages.length]);
 
   useEffect(() => {
     return () => {
       if (isSuccess.current) reset();
     };
   }, [reset]);
-
   const handleFinish = () => {
     router.refresh();
     router.replace("/coach");
@@ -134,8 +192,9 @@ export default function CoachProcessingStep() {
       }
     }
   };
+
   return (
-    <div className="flex flex-col items-center justify-center min-h-[550px] text-center p-6 bg-white rounded-[40px] shadow-sm overflow-hidden">
+    <div className="flex flex-col items-center justify-center min-h-[550px] text-center p-6 bg-white rounded-[40px] shadow-sm overflow-hidden w-full">
       <AnimatePresence mode="wait">
         {status === "loading" ? (
           /* ЭТАП 1: ЛОАДЕР И СТАДИИ РАСЧЕТА */
@@ -147,7 +206,7 @@ export default function CoachProcessingStep() {
             className="flex flex-col items-center gap-12"
           >
             <div className="relative">
-              <Loader2 className="w-24 h-24 text-blue-600 animate-spin stroke-[3]" />
+              <Loader2 className="w-24 h-24 text-blue-600 animate-spin" />
               <div className="absolute inset-0 flex items-center justify-center">
                 <div className="w-3 h-3 bg-blue-600 rounded-full animate-ping" />
               </div>
@@ -234,6 +293,16 @@ export default function CoachProcessingStep() {
                 </motion.div>
               ))}
             </div>
+
+            {/* ПОДСКАЗКА КАЛЬКУЛЯТОРА ДЛЯ ТРЕНЕРА */}
+            {calcFeedback && (
+              <div className="flex gap-3 text-left p-4 rounded-2xl bg-blue-50/50 border border-blue-100 items-start">
+                <Info size={16} className="text-blue-500 shrink-0 mt-0.5" />
+                <p className="text-[11px] font-bold text-blue-900/80 leading-snug">
+                  {calcFeedback}
+                </p>
+              </div>
+            )}
 
             {/* Кнопки действий */}
             <div className="flex flex-col gap-3 mt-4">
