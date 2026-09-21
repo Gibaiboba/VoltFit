@@ -20,6 +20,7 @@ export const getAgeFromBirthDate = (birthDateString?: string): number => {
 /**
  * 2. Расчет суточной нормы калорий по формуле Миффлина-Сан Жеора
  */
+
 export const calculateDailyCalories = (params: {
   weight: number;
   height: number;
@@ -29,7 +30,13 @@ export const calculateDailyCalories = (params: {
   goal: Goal;
   bodyType?: string;
   massQuality?: string;
-}): number => {
+  targetWeight?: number; // Добавили
+  targetDate?: string; // Добавили (строка YYYY-MM-DD)
+}): {
+  calories: number;
+  adjustedDate: string | null;
+  feedbackMessage: string;
+} => {
   const {
     weight,
     height,
@@ -39,27 +46,110 @@ export const calculateDailyCalories = (params: {
     goal,
     bodyType,
     massQuality,
+    targetWeight,
+    targetDate,
   } = params;
 
-  if (!weight || !height || !age || !gender || !activityLevel) return 0;
+  if (!weight || !height || !age || !gender || !activityLevel) {
+    return { calories: 0, adjustedDate: null, feedbackMessage: "" };
+  }
 
   // Базовый метаболизм (BMR)
   let bmr = 10 * weight + 6.25 * height - 5 * age;
   bmr = gender === "male" ? bmr + 5 : bmr - 161;
 
-  // Умножаем на коэффициент активности
-  let total = Math.round(bmr * activityLevel);
+  // Расход с учетом активности (TDEE)
+  const tdee = Math.round(bmr * activityLevel);
 
-  // Корректировка под цель пользователя
-  if (goal === "lose_weight") total -= 500;
+  let totalCalories = tdee;
+  let adjustedDate: string | null = null;
+  let feedbackMessage = "Базовый план готов.";
+
+  // КЕЙС 1: НАБОР МЫШЦ
   if (goal === "gain_muscle") {
     let surplus = 300;
     if (bodyType === "ectomorph") surplus += 200;
     if (massQuality === "fast") surplus += 200;
-    total += surplus;
+    totalCalories = tdee + surplus;
+    return {
+      calories: totalCalories,
+      adjustedDate,
+      feedbackMessage: "План набора массы успешно сформирован.",
+    };
   }
 
-  return total > 0 ? total : 0;
+  // КЕЙС 2: ЗОЖ / ПОДДЕРЖАНИЕ
+  if (goal === "maintain") {
+    return {
+      calories: tdee,
+      adjustedDate,
+      feedbackMessage: "Сбалансированный план питания готов.",
+    };
+  }
+
+  // КЕЙС 3: ПОХУДЕНИЕ
+  if (goal === "lose_weight") {
+    // 3a. Если выбрано похудение к определенной дате
+    if (targetWeight && targetDate) {
+      const weightDelta = weight - targetWeight;
+
+      if (weightDelta <= 0) {
+        return {
+          calories: Math.round(tdee * 0.8),
+          adjustedDate,
+          feedbackMessage: "Целевой вес должен быть меньше текущего.",
+        };
+      }
+
+      const today = new Date();
+      const target = new Date(targetDate);
+      const timeDiff = target.getTime() - today.getTime();
+      const daysToTarget = Math.ceil(timeDiff / (1000 * 60 * 60 * 24));
+
+      const validDays = daysToTarget > 2 ? daysToTarget : 7; // Защита от багов с датами
+
+      const totalDeficitRequired = weightDelta * 7700; // 1кг жира = 7700 ккал
+      const dailyDeficitRequired = totalDeficitRequired / validDays;
+
+      totalCalories = tdee - dailyDeficitRequired;
+
+      const weeklyLossKg = (dailyDeficitRequired * 7) / 7700;
+      const weeklyLossPercentage = (weeklyLossKg / weight) * 100;
+      const absoluteMinCalories = gender === "male" ? 1500 : 1200;
+
+      // Проверка безопасности дефицита
+      if (totalCalories >= bmr && weeklyLossPercentage <= 1.0) {
+        feedbackMessage =
+          "Отличная цель! План абсолютно безопасен для здоровья.";
+      } else if (
+        totalCalories >= absoluteMinCalories &&
+        weeklyLossPercentage <= 1.5
+      ) {
+        feedbackMessage =
+          "Интенсивный темп. Потребуется строгое соблюдение режима.";
+      } else {
+        // Опасно: заставляем худеть по верхней безопасной планке (до BMR)
+        totalCalories = bmr;
+        const safeDailyDeficit = tdee - bmr;
+        const realDaysRequired = Math.ceil(
+          totalDeficitRequired / safeDailyDeficit,
+        );
+
+        const newTargetDate = new Date();
+        newTargetDate.setDate(today.getDate() + realDaysRequired);
+
+        adjustedDate = newTargetDate.toISOString().split("T")[0]; // YYYY-MM-DD
+        feedbackMessage = `Выбранный темп опасен. Мы скорректировали дату на ${newTargetDate.toLocaleDateString("ru-RU")}`;
+      }
+    } else {
+      // 3b. Обычное похудение (дефолтный дефицит)
+      totalCalories = tdee - 500;
+      feedbackMessage = "Комфортный план снижения веса готов.";
+    }
+  }
+
+  const finalCalories = totalCalories > 0 ? Math.round(totalCalories) : 0;
+  return { calories: finalCalories, adjustedDate, feedbackMessage };
 };
 
 /**

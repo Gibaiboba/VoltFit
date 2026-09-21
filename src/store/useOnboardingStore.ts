@@ -33,7 +33,11 @@ interface OnboardingState {
 
 // Вспомогательный хелпер для запуска сквозного пересчета КБЖУ, Воды и Шагов
 const runCalculations = (
-  updatedData: Partial<OnboardingData> & { birth_date?: string },
+  updatedData: Partial<OnboardingData> & {
+    birth_date?: string;
+    target_date?: string;
+    target_weight?: number;
+  },
 ) => {
   const age = updatedData.birth_date
     ? getAgeFromBirthDate(updatedData.birth_date)
@@ -46,8 +50,8 @@ const runCalculations = (
   const goal = updatedData.goal || "maintain";
   const weight = Number(updatedData.weight || 0);
 
-  // 1. Расчет КБЖУ
-  const calories = calculateDailyCalories({
+  // 1. Расчет КБЖУ с учетом дедлайнов
+  const { calories, adjustedDate, feedbackMessage } = calculateDailyCalories({
     weight,
     height: Number(updatedData.height || 0),
     age,
@@ -56,6 +60,8 @@ const runCalculations = (
     goal,
     bodyType: updatedData.bodyType,
     massQuality: updatedData.massQuality,
+    targetWeight: updatedData.target_weight, // передаем
+    targetDate: updatedData.target_date, // передаем
   });
 
   const macros = calculateMacros({
@@ -65,7 +71,7 @@ const runCalculations = (
     calories,
   });
 
-  // 2. Расчет ВОДЫ (переводим литры из утилиты в миллилитры)
+  // 2. Расчет ВОДЫ
   const baseWaterLiters = calculateBaseWaterTarget({
     weight: weight || 70,
     gender,
@@ -80,7 +86,14 @@ const runCalculations = (
     activityLevel,
   });
 
-  return { calories, macros, waterTarget, stepsTarget };
+  return {
+    calories,
+    macros,
+    waterTarget,
+    stepsTarget,
+    adjustedDate,
+    feedbackMessage,
+  };
 };
 
 export const useOnboardingStore = create<OnboardingState>()(
@@ -99,7 +112,7 @@ export const useOnboardingStore = create<OnboardingState>()(
 
       setActivity: (activityLevel) => {
         const updatedData = { ...get().data, activityLevel };
-        const { calories, macros, waterTarget, stepsTarget } =
+        const { calories, macros, waterTarget, stepsTarget, adjustedDate } =
           runCalculations(updatedData);
 
         set({
@@ -111,8 +124,8 @@ export const useOnboardingStore = create<OnboardingState>()(
             carbs: macros.carbs,
             water_target: waterTarget,
             steps_target: stepsTarget,
+            target_date: adjustedDate || updatedData.target_date,
           },
-          step: get().step + 1,
         });
       },
 

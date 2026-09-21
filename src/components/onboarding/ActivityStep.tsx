@@ -1,7 +1,7 @@
 "use client";
 
 import { useOnboardingStore } from "@/store/useOnboardingStore";
-import { ActivityLevel } from "@/types/onboarding"; // Импортируем из общего файла типов
+import { ActivityLevel } from "@/types/onboarding";
 import { motion } from "framer-motion";
 import {
   Coffee,
@@ -48,9 +48,20 @@ const activities: ActivityOption[] = [
 ];
 
 export default function ActivityStep() {
-  // Используем специализированный метод из стора
   const setActivity = useOnboardingStore((state) => state.setActivity);
+  const nextStep = useOnboardingStore((state) => state.nextStep);
   const currentValue = useOnboardingStore((state) => state.data.activityLevel);
+
+  const handleSelectActivity = (value: ActivityLevel) => {
+    // 1. Сохраняем значение в стор (это запускает перерасчет КБЖУ, воды и шагов)
+    setActivity(value);
+
+    // 2. микротаймаут в 100мс для плавного завершения анимации кнопок
+    // и гарантированного обновления стейта перед переходом на ProcessingStep
+    setTimeout(() => {
+      nextStep();
+    }, 100);
+  };
 
   return (
     <QuestionWrapper
@@ -62,7 +73,7 @@ export default function ActivityStep() {
           <motion.button
             key={item.value}
             whileTap={{ scale: 0.98 }}
-            onClick={() => setActivity(item.value)}
+            onClick={() => handleSelectActivity(item.value)}
             className={`flex items-center p-5 border-2 rounded-3xl text-left transition-all duration-300 group relative ${
               currentValue === item.value
                 ? "border-blue-600 bg-blue-50 shadow-md shadow-blue-100"
@@ -80,7 +91,7 @@ export default function ActivityStep() {
               <item.icon size={28} />
             </div>
 
-            {/* Текст */}
+            {/* Текстовый блок */}
             <div className="flex flex-col pr-8">
               <span
                 className={`font-black text-lg uppercase tracking-tight leading-none mb-1 ${
@@ -96,18 +107,14 @@ export default function ActivityStep() {
               </span>
             </div>
 
-            {/* Галочка выбора */}
+            {/* Индикатор-галочка выбора */}
             {currentValue === item.value && (
               <motion.div
                 initial={{ scale: 0 }}
                 animate={{ scale: 1 }}
                 className="ml-auto text-blue-600"
               >
-                <CheckCircle2
-                  size={24}
-                  fill="currentColor"
-                  className="text-white fill-blue-600"
-                />
+                <CheckCircle2 size={24} className="text-white fill-blue-600" />
               </motion.div>
             )}
           </motion.button>

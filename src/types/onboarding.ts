@@ -23,6 +23,7 @@ export interface OnboardingData {
   skinHairStatus?: "dry" | "hair_loss" | "acne" | "normal";
   symptoms?: string[];
   recommendedProducts?: string[];
+  target_date?: string;
 }
 
 export interface QuestionOption {

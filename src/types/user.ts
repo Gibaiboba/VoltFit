@@ -7,6 +7,7 @@ export interface OnboardingMetadata {
   fail_reason?: "strict" | "no_progress" | "boredom";
   stress_level?: "low" | "high";
   training_mode?: "pro" | "disciplined" | "none";
+  target_date?: string;
 }
 
 export interface UserProfile {

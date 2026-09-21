@@ -30,6 +30,9 @@ export default function SettingsForm({
     currentAge,
   } = useSettingsForm(initialProfile, userId);
 
+  // Флаг: активен ли сейчас режим похудения
+  const isLossWeightGoal = formData.goal === "lose_weight";
+
   return (
     <div className="w-full space-y-6">
       <div className="bg-white rounded-2xl p-6 border-2 border-slate-200">
@@ -155,12 +158,49 @@ export default function SettingsForm({
               onChange={updateField("height")}
             />
             <Input
-              label="Вес (кг)"
+              label="Текущий вес (кг)"
               value={formData.weight}
               onChange={updateField("weight")}
               step="0.1"
             />
           </div>
+
+          {/* ДИНАМИЧЕСКИЙ БЛОК: НАСТРОЙКА ДЕДЛАЙНА ПОХУДЕНИЯ */}
+          {isLossWeightGoal && (
+            <div className="p-4 border-2 border-dashed border-blue-200 bg-blue-50/30 rounded-2xl space-y-4 transition-all animate-fadeIn">
+              <div className="text-[10px] font-black uppercase text-blue-500 tracking-widest px-1">
+                Настройки дедлайна похудения
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <Input
+                  label="Целевой вес (кг)"
+                  value={formData.target_weight || ""}
+                  onChange={updateField("target_weight")}
+                  step="0.1"
+                  placeholder="Желаемый вес"
+                />
+
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">
+                    Похудеть к дате
+                  </label>
+                  <input
+                    type="date"
+                    value={formData.target_date || ""}
+                    onChange={(e) => updateField("target_date")(e.target.value)}
+                    className="w-full h-12 px-4 bg-white border-2 border-slate-200 focus:border-slate-400 outline-none rounded-xl text-xs font-bold text-slate-700 transition-colors"
+                  />
+                </div>
+              </div>
+
+              <p className="text-[10px] font-medium text-blue-400 px-1 leading-tight">
+                *Если вы укажете слишком агрессивный или опасный дедлайн,
+                система безопасности приложения автоматически скорректирует дату
+                при сохранении, чтобы защитить здоровье вашего метаболизма.
+              </p>
+            </div>
+          )}
 
           {/* Расчетные виджеты */}
           <MetricsDisplay

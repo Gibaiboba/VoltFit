@@ -3,37 +3,87 @@
 import { useEffect, useState, useRef, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
-import { CheckCircle2, Loader2, AlertCircle } from "lucide-react";
+import { CheckCircle2, Loader2, AlertCircle, Info } from "lucide-react";
 import { useOnboardingStore } from "@/store/useOnboardingStore";
 import { supabase } from "@/lib/supabase";
 import { STAGES } from "@/constants/Stages";
 import { toast } from "sonner";
+import { calculateDailyCalories } from "@/lib/fitnessCalculators";
 
 export default function ProcessingStep() {
   const router = useRouter();
   const { data, reset } = useOnboardingStore();
+
   const [stage, setStage] = useState(0);
   const [status, setStatus] = useState<"loading" | "success" | "error">(
     "loading",
   );
+
+  // Используем useRef вместо useState для dbSavingFinished,
+  // чтобы избежать лишних рендеров и каскадных обновлений в интервале
+  const dbSavingFinishedRef = useRef(false);
   const isSaving = useRef(false);
   const isSuccess = useRef(false);
 
-  // Храним роль для финального перенаправления
   const [userRole, setUserRole] = useState<string>("student");
 
   const currentStages = useMemo(() => {
     return STAGES[data.goal as keyof typeof STAGES] || STAGES.lose_weight;
   }, [data.goal]);
 
+  // Получаем финальный фидбек от калькулятора, чтобы красиво отрендерить его юзеру
+  const calcFeedback = useMemo(() => {
+    if (!data.weight || !data.height || !data.birth_date) return "";
+
+    const birth = new Date(data.birth_date);
+    const now = new Date();
+    let calculatedAge = now.getFullYear() - birth.getFullYear();
+    if (
+      now.getMonth() < birth.getMonth() ||
+      (now.getMonth() === birth.getMonth() && now.getDate() < birth.getDate())
+    ) {
+      calculatedAge--;
+    }
+
+    const res = calculateDailyCalories({
+      weight: Number(data.weight),
+      height: Number(data.height),
+      age: calculatedAge > 0 ? calculatedAge : 25,
+      gender: data.gender || "female",
+      activityLevel: Number(data.activityLevel || 1.2),
+      goal: data.goal || "maintain",
+      bodyType: data.bodyType,
+      massQuality: data.massQuality,
+      targetWeight: data.target_weight,
+      targetDate: data.target_date,
+    });
+    return res.feedbackMessage;
+  }, [data]);
+
+  // 1. УПРАВЛЕНИЕ АНИМАЦИЕЙ СТАДИЙ
   useEffect(() => {
     if (status !== "loading") return;
+
     const interval = setInterval(() => {
-      setStage((prev) => (prev < currentStages.length - 1 ? prev + 1 : prev));
-    }, 700);
+      setStage((prev) => {
+        if (prev < currentStages.length - 1) {
+          return prev + 1;
+        } else {
+          // Мы дошли до последней стадии!
+          // Если база данных к этому моменту УЖЕ ответила — завершаем загрузку
+          if (dbSavingFinishedRef.current) {
+            setStatus("success");
+            clearInterval(interval);
+          }
+          return prev;
+        }
+      });
+    }, 850);
+
     return () => clearInterval(interval);
   }, [currentStages.length, status]);
 
+  // 2. ОТПРАВКА ДАННЫХ В SUPABASE
   useEffect(() => {
     const finalize = async () => {
       if (isSaving.current) return;
@@ -45,12 +95,10 @@ export default function ProcessingStep() {
         } = await supabase.auth.getUser();
         if (!user) throw new Error("Пользователь не авторизован");
 
-        // Вытаскиваем роль пользователя из метаданных авторизации Supabase
         const role =
           user?.app_metadata?.role || user?.user_metadata?.role || "student";
         setUserRole(role);
 
-        // 1. ИЗВЛЕКАЕМ ДАННЫЕ (Они уже посчитаны стором на лету)
         const {
           goal,
           gender,
@@ -58,17 +106,22 @@ export default function ProcessingStep() {
           weight,
           height,
           target_weight,
+          target_date,
           activityLevel,
           daily_calories,
           protein,
           fat,
           carbs,
-          water_target, // Извлекаем посчитанную воду в мл
-          steps_target, // Извлекаем посчитанные шаги
+          water_target,
+          steps_target,
           ...metadata
         } = data;
 
-        // 2. ОТПРАВЛЯЕМ СИНХРОНИЗИРОВАННЫЕ КОЛОНКИ В SUPABASE
+        const updatedMetadata = {
+          ...metadata,
+          target_date: goal === "lose_weight" ? target_date : undefined,
+        };
+
         const { error: profileError } = await supabase
           .from("profiles")
           .update({
@@ -83,9 +136,9 @@ export default function ProcessingStep() {
             protein: Number(protein) || undefined,
             fat: Number(fat) || undefined,
             carbs: Number(carbs) || undefined,
-            water_target: Number(water_target) || undefined, // Записываем мл
-            steps_target: Number(steps_target) || undefined, // Записываем целевые шаги
-            onboarding_metadata: metadata,
+            water_target: Number(water_target) || undefined,
+            steps_target: Number(steps_target) || undefined,
+            onboarding_metadata: updatedMetadata,
             onboarding_completed: true,
             updated_at: new Date().toISOString(),
           })
@@ -98,7 +151,14 @@ export default function ProcessingStep() {
         });
 
         isSuccess.current = true;
-        setStatus("success");
+        dbSavingFinishedRef.current = true;
+
+        setStage((currentStage) => {
+          if (currentStage === currentStages.length - 1) {
+            setStatus("success");
+          }
+          return currentStage;
+        });
       } catch (error) {
         console.error("Save error:", error);
         setStatus("error");
@@ -107,7 +167,7 @@ export default function ProcessingStep() {
     };
 
     finalize();
-  }, [data]);
+  }, [data, currentStages.length]);
 
   useEffect(() => {
     return () => {
@@ -116,10 +176,7 @@ export default function ProcessingStep() {
   }, [reset]);
 
   const handleFinish = () => {
-    // Обновляем серверные куки и токены для Middleware
     router.refresh();
-
-    // Роутинг: тренера в /coach, студента в /student
     const target = userRole === "coach" ? "/coach" : "/student";
     router.replace(target);
   };
@@ -144,11 +201,11 @@ export default function ProcessingStep() {
       }
     }
   };
+
   return (
-    <div className="flex flex-col items-center justify-center min-h-[550px] text-center p-6 bg-white rounded-[40px] shadow-sm overflow-hidden">
+    <div className="flex flex-col items-center justify-center min-h-[550px] text-center p-6 bg-white rounded-[40px] shadow-sm overflow-hidden w-full">
       <AnimatePresence mode="wait">
         {status === "loading" ? (
-          /* ЭТАП 1: ТОЛЬКО ЛОАДЕР И СТАДИИ  */
           <motion.div
             key="loading-state"
             initial={{ opacity: 0, scale: 0.9 }}
@@ -157,7 +214,7 @@ export default function ProcessingStep() {
             className="flex flex-col items-center gap-12"
           >
             <div className="relative">
-              <Loader2 className="w-24 h-24 text-blue-600 animate-spin stroke-" />
+              <Loader2 className="w-24 h-24 text-blue-600 animate-spin" />
               <div className="absolute inset-0 flex items-center justify-center">
                 <div className="w-3 h-3 bg-blue-600 rounded-full animate-ping" />
               </div>
@@ -178,20 +235,18 @@ export default function ProcessingStep() {
             </div>
           </motion.div>
         ) : status === "success" ? (
-          /* ЭТАП 2: ФИНАЛЬНЫЙ РЕЗУЛЬТАТ (КАРТОЧКИ БЖУ + КНОПКИ) */
           <motion.div
             key="success-state"
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
             className="w-full max-w-sm flex flex-col gap-6"
           >
-            {/* Иконка и заголовок */}
             <div className="space-y-3">
               <div className="inline-flex p-4 bg-emerald-50 rounded-full">
                 <CheckCircle2 className="w-10 h-10 text-emerald-500" />
               </div>
               <h2 className="text-4xl font-black text-gray-900 uppercase tracking-tighter">
-                Твой plan готов
+                Твой план готов
               </h2>
             </div>
 
@@ -207,7 +262,7 @@ export default function ProcessingStep() {
               </div>
             </div>
 
-            {/* Сетка БЖУ (Цветные карточки) */}
+            {/* Сетка БЖУ */}
             <div className="grid grid-cols-3 gap-3">
               {[
                 {
@@ -246,8 +301,18 @@ export default function ProcessingStep() {
               ))}
             </div>
 
+            {/* УМНЫЙ ВИДЖЕТ-ВЕРДИКТ КАЛЬКУЛЯТОРА ДЛЯ КЛИЕНТА */}
+            {calcFeedback && (
+              <div className="flex gap-3 text-left p-4 rounded-2xl bg-blue-50/50 border border-blue-100 items-start">
+                <Info size={16} className="text-blue-500 shrink-0 mt-0.5" />
+                <p className="text-[11px] font-bold text-blue-900/80 leading-snug">
+                  {calcFeedback}
+                </p>
+              </div>
+            )}
+
             {/* Кнопки действий */}
-            <div className="flex flex-col gap-3 mt-4">
+            <div className="flex flex-col gap-3 mt-2">
               <button
                 onClick={handleFinish}
                 className="w-full py-6 bg-blue-600 text-white rounded-[28px] font-black uppercase tracking-widest text-sm shadow-xl shadow-blue-100 active:scale-95 transition-all"
@@ -263,7 +328,6 @@ export default function ProcessingStep() {
             </div>
           </motion.div>
         ) : (
-          /* ЭТАП ОШИБКИ */
           <motion.div
             key="error-state"
             initial={{ opacity: 0 }}

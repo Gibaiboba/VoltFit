@@ -1,31 +1,52 @@
-export const QUESTIONS = {
-  // ВЕТКА: ПОХУДЕНИЕ
+export interface Option {
+  label: string;
+  value: string;
+  insight?: string;
+}
+
+export interface Question {
+  id: string;
+  title: string;
+  description?: string;
+  type?: "input" | "options" | "date" | "deadline_selector";
+  unit?: string;
+  options?: Option[];
+}
+
+// 1. БАЗОВЫЕ ВОПРОСЫ (Показываются абсолютно всем в самом начале, строго по очереди)
+export const BASE_QUESTIONS: Question[] = [
+  {
+    id: "gender",
+    title: "Ваш пол",
+    options: [
+      { label: "Мужчина", value: "male" },
+      { label: "Женщина", value: "female" },
+    ],
+  },
+  {
+    id: "birth_date",
+    title: "Укажите вашу дату рождения",
+    description: "Это необходимо для точного расчета метаболизма и калорий",
+    type: "date",
+  },
+  {
+    id: "height",
+    title: "Ваш рост",
+    type: "input",
+    unit: "см",
+  },
+  {
+    id: "weight",
+    title: "Текущий вес",
+    type: "input",
+    unit: "кг",
+  },
+];
+
+// 2. ДИНАМИЧЕСКИЕ ВЕТКИ (Подгружаются на лету сразу ПОСЛЕ экрана выбора цели "goal")
+export const TARGET_QUESTIONS: Record<string, Question[]> = {
+  // ================= ВЕТКА: ПОХУДЕНИЕ =================
   lose_weight: [
-    {
-      id: "gender",
-      title: "Ваш пол",
-      options: [
-        { label: "Мужчина", value: "male" },
-        { label: "Женщина", value: "female" },
-      ],
-    },
-    {
-      id: "birth_date",
-      title: "Укажите вашу дату рождения",
-      description: "Это необходимо для точного расчета метаболизма и калорий",
-    },
-    {
-      id: "height",
-      title: "Ваш рост",
-      type: "input",
-      unit: "см",
-    },
-    {
-      id: "weight",
-      title: "Текущий вес",
-      type: "input",
-      unit: "кг",
-    },
     {
       id: "target_weight",
       title: "Ваша цель",
@@ -49,8 +70,12 @@ export const QUESTIONS = {
     {
       id: "deadline",
       title: "Как быстро вы хотите достичь результата?",
+      type: "deadline_selector", // Кастомный тип для переключения на встроенный DatePicker
       options: [
-        { label: "К определенной дате или событию", value: "event" }, // Примечание: тут потом нужно показать DatePicker
+        {
+          label: "К определенной дате или событию",
+          value: "event",
+        },
         {
           label: "Плавно и без стресса для организма",
           value: "healthy",
@@ -59,7 +84,6 @@ export const QUESTIONS = {
         },
       ],
     },
-
     {
       id: "diet_type",
       title: "Тип питания",
@@ -74,7 +98,7 @@ export const QUESTIONS = {
     {
       id: "main_enemy",
       title: "Ваш главный «враг» на пути к цели?",
-      description: "Что чаще всего мешает придерживаться плана?",
+      description: "What чаще всего мешает придерживаться плана?",
       options: [
         {
           label: "Тяга к сладкому",
@@ -154,74 +178,16 @@ export const QUESTIONS = {
         },
       ],
     },
-    {
-      id: "training_mode",
-      title: "Как вы относитесь к тренировкам?",
-      options: [
-        { label: "Обожаю спорт, занимаюсь регулярно", value: "pro" },
-        { label: "Умеренные тренировки 2-3 раза в неделю", value: "middle" },
-        { label: "Готов заниматься ради результата", value: "disciplined" },
-        {
-          label: "Не люблю тренировки",
-          value: "none",
-          insight:
-            "Ничего страшного! Основной результат в похудении дает именно питание.",
-        },
-      ],
-    },
-    {
-      id: "give_up",
-      title: "Что поможет вам не сдаться на этот раз?",
-      description: "Выберите то, что поддержит вас больше всего.",
-      options: [
-        { label: "Четкое и простое меню на каждый день", value: "menu" },
-        { label: "Наглядный трекер прогресса", value: "progress" },
-        { label: "Поддержка от нутрициолога", value: "nutritionist" },
-        {
-          label: "Возможность иногда баловать себя",
-          value: "possibilities",
-          insight:
-            "Отличный подход. Правило 80/20 (80% пользы, 20% для души) работает безотказно!",
-        },
-      ],
-    },
   ],
 
-  // ВЕТКА: НАБОР МЫШЦ
+  // ================= ВЕТКА: НАБОР МЫШЦ =================
   gain_muscle: [
-    {
-      id: "gender",
-      title: "Ваш пол",
-      options: [
-        { label: "Мужчина", value: "male" },
-        { label: "Женщина", value: "female" },
-      ],
-    },
-    {
-      id: "age",
-      title: "Сколько вам лет?",
-      type: "input",
-      unit: "лет",
-    },
-    {
-      id: "height",
-      title: "Ваш рост",
-      type: "input",
-      unit: "см",
-    },
-    {
-      id: "weight",
-      title: "Текущий вес",
-      type: "input",
-      unit: "кг",
-    },
     {
       id: "target_weight",
       title: "Целевой вес",
       type: "input",
       unit: "кг",
     },
-
     {
       id: "body_type",
       title: "Тип телосложения",
@@ -278,40 +244,14 @@ export const QUESTIONS = {
       id: "mass_quality",
       title: "Какое качество массы важно?",
       options: [
-        { label: "Максимально быстро (+жир)", value: "fast" },
-        { label: "«Чистый» набор (рельеф)", value: "clean" },
+        { label: "Максимальный объем", value: "fast" },
+        { label: "Сухая мышечная масса (Рельеф)", value: "clean" },
       ],
     },
   ],
 
-  // ВЕТКА: ЗОЖ И ДЕФИЦИТЫ
+  // ================= ВЕТКА: ЗОЖ И ДЕФИЦИТЫ =================
   maintain: [
-    {
-      id: "gender",
-      title: "Ваш пол",
-      options: [
-        { label: "Мужчина", value: "male" },
-        { label: "Женщина", value: "female" },
-      ],
-    },
-    {
-      id: "age",
-      title: "Сколько вам лет?",
-      type: "input",
-      unit: "лет",
-    },
-    {
-      id: "height",
-      title: "Ваш рост",
-      type: "input",
-      unit: "см",
-    },
-    {
-      id: "weight",
-      title: "Текущий вес",
-      type: "input",
-      unit: "кг",
-    },
     {
       id: "energy_level",
       title: "Уровень энергии",

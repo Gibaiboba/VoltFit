@@ -22,7 +22,7 @@ export function useSettingsForm(
   const queryClient = useQueryClient();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Флаги, чтобы понимать, меняет ли пользователь воду/шаги руками прямо сейчас
+  // Флаги, чтобы понимать, меняет ли пользователь воду/шаги руками
   const isUserEditingWater = useRef(!!initialProfile?.water_target);
   const isUserEditingSteps = useRef(!!initialProfile?.steps_target);
 
@@ -31,6 +31,11 @@ export function useSettingsForm(
     if (g === "gain" || g === "gain_muscle") return "gain_muscle";
     return "maintain";
   };
+
+  // Безопасное извлечение метаданных онбординга
+  const onboardingMetadata = useMemo(() => {
+    return initialProfile?.onboarding_metadata || {};
+  }, [initialProfile]);
 
   // Вспомогательный расчет стартовой базовой воды
   const getInitialBaseWater = (): string => {
@@ -67,7 +72,7 @@ export function useSettingsForm(
     return baseSteps.toString();
   };
 
-  // 2. ИНИЦИАЛИЗАЦИЯ СОСТОЯНИЯ ФОРМЫ
+  // ИНИЦИАЛИЗАЦИЯ СОСТОЯНИЯ ФОРМЫ
   const [formData, setFormData] = useState({
     full_name: initialProfile?.full_name || "",
     email: initialProfile?.email || "",
@@ -77,6 +82,8 @@ export function useSettingsForm(
     activity_level: initialProfile?.activity_level?.toString() || "1.2",
     weight: initialProfile?.weight?.toString() || "",
     height: initialProfile?.height?.toString() || "",
+    target_weight: initialProfile?.target_weight?.toString() || "",
+    target_date: onboardingMetadata.target_date || "",
     water_target: getInitialBaseWater(),
     steps_target: getInitialBaseSteps(),
     chest: initialProfile?.chest?.toString() || "",
@@ -85,13 +92,30 @@ export function useSettingsForm(
     avatar_url: initialProfile?.avatar_url || "",
   });
 
-  // 3. ВЫЧИСЛЕHИЕ ТЕКУЩЕГО ВОЗРАСТА
   const age = getAgeFromBirthDate(formData.birth_date);
   const currentAge = age > 0 ? age : 25;
 
-  // 4. РЕАКТИВНЫЙ ПЕРЕСЧЕТ ВОДЫ И ШАГОВ НА ЛЕТУ ПРИ СМЕНЕ СЕЛЕКТОРОВ
-  const isFirstRender = useRef(true);
+  // ОПРЕДЕЛЕНИЕ МУТАЦИИ ДЛЯ ОБНОВЛЕНИЯ ПРОФИЛЯ
+  const { mutate: updateProfile, isPending: isUpdating } = useMutation({
+    mutationFn: async (updates: Partial<UserProfile>) => {
+      const { data, error } = await supabase
+        .from("profiles")
+        .update(updates)
+        .eq("id", userId)
+        .select()
+        .single();
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["user-profile", userId] });
+      toast.success("Данные успешно сохранены!");
+    },
+    onError: () => toast.error("Ошибка при сохранении"),
+  });
 
+  // РЕАКТИВНЫЙ ПЕРЕСЧЕТ ВОДЫ И ШАГОВ
+  const isFirstRender = useRef(true);
   useEffect(() => {
     if (isFirstRender.current) {
       isFirstRender.current = false;
@@ -128,10 +152,13 @@ export function useSettingsForm(
     currentAge,
   ]);
 
-  const calculatedCalories = useMemo(() => {
+  // СИНХРОННЫЕ ВЫЧИСЛЕНИЯ КАЛОРИЙ И МАКРОСОВ
+  const calculationResults = useMemo(() => {
     const numericWeight = parseFloat(formData.weight) || 70;
     const numericHeight = parseFloat(formData.height) || 170;
+    const numericTargetWeight = parseFloat(formData.target_weight) || undefined;
     const numericActivity = parseFloat(formData.activity_level) || 1.2;
+
     return calculateDailyCalories({
       weight: numericWeight,
       height: numericHeight,
@@ -139,15 +166,21 @@ export function useSettingsForm(
       gender: formData.gender,
       activityLevel: numericActivity,
       goal: formData.goal,
+      targetWeight: numericTargetWeight,
+      targetDate: formData.target_date || undefined,
     });
   }, [
     formData.weight,
     formData.height,
+    formData.target_weight,
+    formData.target_date,
     formData.activity_level,
     formData.goal,
     formData.gender,
     currentAge,
   ]);
+
+  const calculatedCalories = calculationResults.calories;
 
   const calculatedMacros = useMemo(() => {
     const numericWeight = parseFloat(formData.weight) || 70;
@@ -165,26 +198,7 @@ export function useSettingsForm(
     const h = parseFloat(formData.height) / 100;
     return w > 0 && h > 0 ? (w / (h * h)).toFixed(1) : null;
   }, [formData.weight, formData.height]);
-
-  const { mutate: updateProfile, isPending: isUpdating } = useMutation({
-    mutationFn: async (updates: Partial<UserProfile>) => {
-      const { data, error } = await supabase
-        .from("profiles")
-        .update(updates)
-        .eq("id", userId)
-        .select()
-        .single();
-      if (error) throw error;
-      return data;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["user-profile", userId] });
-      toast.success("Данные успешно сохранены!");
-    },
-    onError: () => toast.error("Ошибка при сохранении"),
-  });
-
-  // Кастомные хендлеры для инпутов, чтобы отслеживать ручное изменение
+  // ХЕНДЛЕРЫ ИЗМЕНЕНИЙ ВВОДА
   const handleWaterInputChange = (value: string) => {
     isUserEditingWater.current = true;
     setFormData((prev) => ({ ...prev, water_target: value }));
@@ -233,6 +247,7 @@ export function useSettingsForm(
     });
   };
 
+  // СОХРАНЕНИЕ ДАННЫХ С ПРОВЕРКОЙ БЕЗОПАСНОСТИ ДАТЫ ТУТ
   const handleSaveAll = () => {
     const goalMap: Record<string, Goal> = {
       lose: "lose_weight",
@@ -240,7 +255,6 @@ export function useSettingsForm(
       gain: "gain_muscle",
     };
 
-    // Санитизация воды
     let processedWater = 2000;
     if (formData.water_target) {
       const sanitized = formData.water_target.trim().replace(",", ".");
@@ -249,7 +263,6 @@ export function useSettingsForm(
     if (isNaN(processedWater) || processedWater < 1000) processedWater = 1000;
     if (processedWater > 5000) processedWater = 5000;
 
-    // Санитизация шагов
     let processedSteps = 8000;
     if (formData.steps_target) {
       const sanitizedSteps = formData.steps_target.trim();
@@ -259,16 +272,38 @@ export function useSettingsForm(
     if (isNaN(processedSteps) || processedSteps < 1000) processedSteps = 1000;
     if (processedSteps > 50000) processedSteps = 50000;
 
-    // После сохранения сбрасываем ручные триггеры, чтобы формулы ожили при следующем рендере
     isUserEditingWater.current = false;
     isUserEditingSteps.current = false;
 
+    const activeGoal = (goalMap[formData.goal] || formData.goal) as Goal;
+
+    // ПРОВЕРКА КОРРЕКТИРОВКИ ДАТЫ:
+    // Если калькулятор выявил опасный дефицит, мы берем его безопасную adjustedDate
+    let finalTargetDate = formData.target_date;
+    if (calculationResults.adjustedDate) {
+      finalTargetDate = calculationResults.adjustedDate;
+      // Меняем локальное состояние интерфейса, чтобы инпут даты тоже обновился
+      setFormData((prev) => ({
+        ...prev,
+        target_date: calculationResults.adjustedDate!,
+      }));
+      // Уведомляем пользователя
+      toast.warning(calculationResults.feedbackMessage);
+    }
+
+    const updatedMetadata = {
+      ...onboardingMetadata,
+      target_date:
+        activeGoal === "lose_weight" ? finalTargetDate || undefined : undefined,
+    };
+
     updateProfile({
       full_name: formData.full_name || undefined,
-      goal: (goalMap[formData.goal] || formData.goal) as Goal,
+      goal: activeGoal,
       activity_level: Number(formData.activity_level) as ActivityLevel,
       weight: parseFloat(formData.weight) || undefined,
       height: parseFloat(formData.height) || undefined,
+      target_weight: parseFloat(formData.target_weight) || undefined,
       chest: parseFloat(formData.chest) || undefined,
       waist: parseFloat(formData.waist) || undefined,
       hips: parseFloat(formData.hips) || undefined,
@@ -278,6 +313,7 @@ export function useSettingsForm(
       carbs: calculatedMacros.carbs || undefined,
       water_target: processedWater,
       steps_target: processedSteps,
+      onboarding_metadata: updatedMetadata,
     });
   };
 

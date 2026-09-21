@@ -5,17 +5,35 @@ import { useOnboardingStore } from "@/store/useOnboardingStore";
 import { ChevronLeft, LogOut } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { useRouter } from "next/navigation";
-import { QUESTIONS } from "@/constants/questions";
+import { BASE_QUESTIONS, TARGET_QUESTIONS } from "@/constants/questions";
 import { motion, AnimatePresence } from "framer-motion";
 import { ExitConfirmModal } from "@/components/ui/ExitConfirmModal";
 
-//цвета текста для логотипа
 const THEMES = {
   lose_weight: "text-rose-500",
   gain_muscle: "text-blue-600",
   maintain: "text-emerald-500",
   default: "text-blue-600",
 };
+
+const GOAL_LABELS: Record<string, string> = {
+  lose_weight: "Похудение",
+  gain_muscle: "Набор массы",
+  maintain: "ЗОЖ и тонус",
+};
+
+/**
+ * Хелпер пайплайна (точно такой же, как на главной странице опроса)
+ */
+function getOnboardingPipeline(goal?: string) {
+  const pipeline = [...BASE_QUESTIONS.map((q) => q.id), "goal"];
+  if (goal && TARGET_QUESTIONS[goal]) {
+    pipeline.push(...TARGET_QUESTIONS[goal].map((q) => q.id));
+  }
+  pipeline.push("activity");
+  pipeline.push("processing");
+  return pipeline;
+}
 
 export default function OnboardingLayout({
   children,
@@ -37,8 +55,12 @@ export default function OnboardingLayout({
     reset();
   };
 
-  const currentBranch = QUESTIONS[data.goal as keyof typeof QUESTIONS] || [];
-  const totalStepsInApp = currentBranch.length + 3;
+  // Динамически получаем пайплайн для точного расчета видимости кнопки «Назад»
+  const pipeline = getOnboardingPipeline(data.goal);
+  const totalSteps = pipeline.length;
+
+  // Кнопка «Назад» показывается со 2-го шага и ИСЧЕЗАЕТ на последнем экране
+  const shouldShowBackButton = step > 1 && step < totalSteps;
 
   const activeTheme =
     THEMES[data.goal as keyof typeof THEMES] || THEMES.default;
@@ -48,7 +70,7 @@ export default function OnboardingLayout({
       <header className="px-6 flex justify-between items-center max-w-md mx-auto w-full h-24 flex-shrink-0">
         <div className="w-10">
           <AnimatePresence mode="wait">
-            {step > 1 && step <= totalStepsInApp && (
+            {shouldShowBackButton && (
               <motion.button
                 key="back-btn"
                 initial={{ opacity: 0, x: -5 }}
@@ -93,10 +115,10 @@ export default function OnboardingLayout({
       </main>
 
       {/* FOOTER */}
-      {data.goal && step > 1 && (
-        <footer className="p-6 text-center mt-auto flex-shrink-0">
+      {data.goal && shouldShowBackButton && (
+        <footer className="p-6 text-center mt-auto flex-shrink-0 animate-fadeIn">
           <span className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-300">
-            Цель: {data.goal.replace("_", " ")}
+            Цель: {GOAL_LABELS[data.goal] || "Анализ параметров"}
           </span>
         </footer>
       )}
