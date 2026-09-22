@@ -1,6 +1,5 @@
 import { SupabaseClient, PostgrestError } from "@supabase/supabase-js";
 import { SelectedProduct, MealType } from "@/types/food";
-import { toISODate } from "@/lib/utils/date-utils";
 
 interface UserMealRow {
   id: string;
@@ -27,6 +26,10 @@ export const mealService = {
   ): Promise<{ success: boolean; data: UserMealRow }> {
     const totals = this.calculateTotals(items);
 
+    // Безопасное формирование ISO строки даты создания без привязки к таймзоне сервера Node.js
+    const currentUtcTime = new Date().toISOString().split("T")[1];
+    const finalCreatedAt = mealId ? undefined : `${date}T${currentUtcTime}`;
+
     const { data: meal, error: mealError } = await supabase
       .from("user_meals")
       .upsert({
@@ -39,12 +42,7 @@ export const mealService = {
         total_p: Number(totals.p.toFixed(1)),
         total_f: Number(totals.f.toFixed(1)),
         total_c: Number(totals.c.toFixed(1)),
-        // Гарантируем сохранение за нужную дату с текущим временем
-        created_at: mealId
-          ? undefined
-          : new Date(
-              `${date}T${new Date().toLocaleTimeString("en-GB")}`,
-            ).toISOString(),
+        created_at: finalCreatedAt,
       })
       .select()
       .single();
@@ -75,24 +73,24 @@ export const mealService = {
     userId: string,
     date: string,
   ): Promise<void> {
-    // 1. Запрашиваем ВСЕ записи пользователя (без жестких рамок времени, чтобы не потерять из-за часовых поясов)
-    const { data: allMeals, error: fetchError } = await supabase
+    //  База данных выбирает записи ТОЛЬКО за одни конкретные сутки по индексам
+    const startOfDay = `${date}T00:00:00.000Z`;
+    const endOfDay = `${date}T23:59:59.999Z`;
+
+    const { data: dailyMeals, error: fetchError } = await supabase
       .from("user_meals")
-      .select("total_kcal, total_p, total_f, total_c, created_at")
-      .eq("user_id", userId);
+      .select("total_kcal, total_p, total_f, total_c")
+      .eq("user_id", userId)
+      .gte("created_at", startOfDay)
+      .lte("created_at", endOfDay);
 
     if (fetchError) {
       const err = fetchError as PostgrestError;
-      console.error("Ошибка Supabase:", err.message);
+      console.error("Ошибка Supabase при расчете логов:", err.message);
       throw err;
     }
 
-    // 2. Фильтруем записи строго по выбранной дате, используя функцию toISODate
-    const dailyMeals = (allMeals || []).filter(
-      (m) => toISODate(new Date(m.created_at)) === date,
-    );
-
-    const dailyTotals = dailyMeals.reduce(
+    const dailyTotals = (dailyMeals || []).reduce(
       (acc, m) => ({
         kcal: acc.kcal + (m.total_kcal || 0),
         p: acc.p + (m.total_p || 0),
@@ -102,7 +100,6 @@ export const mealService = {
       { kcal: 0, p: 0, f: 0, c: 0 },
     );
 
-    // 3. Обновляем лог
     const { error: upsertError } = await supabase.from("daily_logs").upsert(
       {
         user_id: userId,
@@ -134,7 +131,6 @@ export const mealService = {
     if (fetchError || !data) throw new Error("Прием пищи не найден");
 
     const meal = data as UserMealRow;
-
     const updatedItems = meal.items.filter(
       (item) => (item.id || item.food_id) !== productId,
     );

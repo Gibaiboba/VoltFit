@@ -220,25 +220,58 @@ export function useSettingsForm(
     if (!file) return;
 
     const uploadPromise = async () => {
+      // 1. Сжимаем изображение на клиенте
       const options = {
         maxSizeMB: 0.1,
         maxWidthOrHeight: 400,
         useWebWorker: true,
       };
       const compressedFile = await imageCompression(file, options);
-      const filePath = `${userId}/avatar.png`;
 
+      const fileExt = file.name.split(".").pop() || "png";
+      const newFileName = `avatar_${Date.now()}.${fileExt}`;
+      const newFilePath = `${userId}/${newFileName}`;
+
+      // 💡 2. Удаляем старый файл из Supabase Storage, если он существует
+      if (formData.avatar_url) {
+        try {
+          // Вытаскиваем имя файла из текущего URL (все, что идет после названия бакета "/avatars/")
+          const urlParts = formData.avatar_url.split("/avatars/");
+          if (urlParts.length === 2) {
+            const oldFilePath = urlParts[1].split("?")[0]; // Убираем query-параметры, если они были
+
+            // Запускаем удаление старого файла
+            await supabase.storage.from("avatars").remove([oldFilePath]);
+          }
+        } catch (sliceError) {
+          // Ошибку удаления оборачиваем в try/catch, чтобы если файла не было или URL изменился,
+          // это не ломало пользователю загрузку нового аватара.
+          console.error("Не удалось удалить старый аватар:", sliceError);
+        }
+      }
+
+      // 3. Загружаем новый уникальный файл
       const { error: uploadError } = await supabase.storage
         .from("avatars")
-        .upload(filePath, compressedFile, { upsert: true });
+        .upload(newFilePath, compressedFile, { upsert: true });
       if (uploadError) throw uploadError;
 
+      // 4. Получаем новую чистую публичную ссылку
       const {
         data: { publicUrl },
-      } = supabase.storage.from("avatars").getPublicUrl(filePath);
-      updateProfile({ avatar_url: `${publicUrl}?t=${Date.now()}` });
+      } = supabase.storage.from("avatars").getPublicUrl(newFilePath);
+
+      // 5. Сохраняем в базу данных новый путь
+      updateProfile({ avatar_url: publicUrl });
+
       return "Фото обновлено!";
     };
+
+    toast.promise(uploadPromise(), {
+      loading: "Загружаем фото...",
+      success: (msg) => msg,
+      error: "Ошибка загрузки",
+    });
 
     toast.promise(uploadPromise(), {
       loading: "Загружаем фото...",

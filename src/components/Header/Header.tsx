@@ -1,6 +1,5 @@
 "use client";
 
-import { useEffect } from "react";
 import { useUserStore } from "@/store/useUserStore";
 import { supabase } from "@/lib/supabase";
 import Image from "next/image";
@@ -9,6 +8,7 @@ import Link from "next/link";
 import { User } from "@supabase/supabase-js";
 import { useQueryClient } from "@tanstack/react-query";
 import { UserProfile } from "@/types/user";
+import { useUserProfile } from "@/hooks/use-user-profile";
 
 interface HeaderProps {
   initialUser: User | null;
@@ -16,41 +16,22 @@ interface HeaderProps {
 }
 
 export default function Header({ initialUser, initialProfile }: HeaderProps) {
-  const { user, setUser, clearUser } = useUserStore();
+  const user = useUserStore((state) => state.user);
+  const clearUser = useUserStore((state) => state.clearUser);
   const queryClient = useQueryClient();
 
-  // Приоритет отдаем стору (клиенту), если там пусто — берем данные с сервера
+  // Приоритет пользователю из Zustand (клиент), если пуст — берем серверного
   const displayUser = user || initialUser;
-  const displayProfile = initialProfile;
 
-  useEffect(() => {
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((event, session) => {
-      if (event === "SIGNED_OUT") {
-        clearUser();
-        queryClient.setQueryData(["user-profile"], null); // очищаем кеш профиля
-      }
-      if (event === "SIGNED_IN" && session) {
-        setUser(session.user);
-        // Инвалидируем профиль, чтобы useUserProfile перезагрузил данные и обновил Zustand
-        queryClient.invalidateQueries({ queryKey: ["user-profile"] });
-      }
-      if (event === "USER_UPDATED" || event === "TOKEN_REFRESHED") {
-        // Обновляем пользователя в сторе, если изменились метаданные
-        supabase.auth.getUser().then(({ data }) => {
-          if (data.user) setUser(data.user);
-        });
-      }
-    });
-
-    return () => subscription.unsubscribe();
-  }, [clearUser, queryClient, setUser]);
+  //передаем ID и серверные данные в качестве initialData.
+  // Запрос в сеть при старте НЕ пойдет. Но если профиль обновится в настройках,
+  // шапка моментально перерисуется!
+  const { data: profile } = useUserProfile(displayUser?.id, initialProfile);
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
     clearUser();
-    queryClient.clear();
+    queryClient.clear(); // Полностью чистим кэш React Query при выходе
     window.location.href = "/";
   };
 
@@ -61,7 +42,7 @@ export default function Header({ initialUser, initialProfile }: HeaderProps) {
           href="/"
           className="flex items-center justify-center px-3 py-1.5 bg-[#1e5039] text-white font-black text-xl italic tracking-wider rounded-xl hover:bg-yellow-300 transition-colors"
         >
-          VitGo
+          VoltFit
         </Link>
 
         {displayUser ? (
@@ -71,9 +52,9 @@ export default function Header({ initialUser, initialProfile }: HeaderProps) {
               className="flex items-center gap-2 sm:gap-3 group"
             >
               <div className="w-9 h-9 rounded-full overflow-hidden border border-slate-700 bg-slate-800 relative group-hover:border-yellow-400 transition-colors shrink-0">
-                {displayProfile?.avatar_url ? (
+                {profile?.avatar_url ? (
                   <Image
-                    src={displayProfile.avatar_url}
+                    src={profile.avatar_url}
                     alt="Avatar"
                     height={40}
                     width={40}
@@ -87,10 +68,9 @@ export default function Header({ initialUser, initialProfile }: HeaderProps) {
                 )}
               </div>
 
-              {/* Блок с именем и ролью теперь отображается ВСЕГДА (убран класс hidden) */}
               <div className="flex flex-col text-left">
                 <span className="text-xs sm:text-sm font-bold text-black group-hover:text-yellow-400 transition-colors line-clamp-1 max-w-[80px] sm:max-w-[150px]">
-                  {displayProfile?.full_name || "Атлет"}
+                  {profile?.full_name || "Атлет"}
                 </span>
                 <span className="text-[9px] sm:text-[10px] font-bold text-yellow-400 uppercase tracking-wide">
                   {displayUser.user_metadata?.role || "User"}
@@ -98,7 +78,6 @@ export default function Header({ initialUser, initialProfile }: HeaderProps) {
               </div>
             </Link>
 
-            {/* Кнопка выйти: иконка видна всегда, текст скрывается на мобилках с помощью hidden sm:inline */}
             <button
               onClick={handleLogout}
               className="flex items-center gap-1 p-2 sm:p-0 text-slate-400 hover:text-red-400 transition-colors font-medium text-sm"

@@ -19,36 +19,20 @@ import { ActivitySection } from "@/components/student/activity-section";
 import { ActivityModal } from "@/components/student/activity-modal";
 import { useActivityModalStore } from "@/store/useActivityModalStore";
 import { useStudentDashboard } from "@/hooks/use-student-dashboard/index";
-import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/lib/supabase";
-import { useServerToday } from "@/providers/DateProvider"; // ИМПОРТ ВАШЕГО ХУКА КОНТЕКСТА
+import { useServerToday } from "@/providers/DateProvider";
+import { useUserProfile } from "@/hooks/use-user-profile";
 
 export default function DiaryPage() {
-  // Достаем стабильную дату сервера, посчитанную с учетом таймзоны юзера в MainLayout
   const serverToday = useServerToday();
 
   const selectedDate = useUserStore((state) => state.selectedDate);
   const setSelectedDate = useUserStore((state) => state.setSelectedDate);
 
-  // Запрашиваем профиль из TanStack Query для получения веса и пола
-  const { data: profile } = useQuery({
-    queryKey: ["user-profile-current"],
-    queryFn: async () => {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-      if (!session?.user) return null;
+  // 💡 ДОСТАЕМ ЮЗЕРА ИЗ STOРA И СТУЧИМСЯ В КЭШ REACT QUERY
+  const userId = useUserStore((state) => state.user?.id);
+  const { data: profile } = useUserProfile(userId);
 
-      const { data } = await supabase
-        .from("profiles")
-        .select("weight, gender")
-        .eq("id", session.user.id)
-        .single();
-      return data;
-    },
-    staleTime: 1000 * 60 * 5,
-  });
-
+  // Стабильные фитнес-дефолты, берутся мгновенно из памяти приложения
   const userWeight = Number(profile?.weight) || 70;
   const userGender = (profile?.gender as "male" | "female") || "female";
 

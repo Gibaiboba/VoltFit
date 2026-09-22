@@ -6,8 +6,8 @@ import { ActivityModal } from "@/components/student/activity-modal";
 import { useTabsLayoutLogic } from "@/hooks/use-tabs-layout-logic";
 import { StudentQuickMenu } from "@/components/student/student-quick-menu";
 import { StudentBottomBar } from "@/components/student/student-bottom-bar";
-import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/lib/supabase";
+import { useUserProfile } from "@/hooks/use-user-profile";
+import { useUserStore } from "@/store/useUserStore";
 
 const LEFT_TABS = [
   { id: "/student/diary", label: "Дневник", icon: Utensils },
@@ -44,25 +44,11 @@ export default function StudentTabsLayout({
     handleFastWaterAdd,
   } = useTabsLayoutLogic();
 
-  // Запрашиваем профиль текущего юзера из TanStack Query (берется из кэша приложения)
-  const { data: profile } = useQuery({
-    queryKey: ["user-profile-current"],
-    queryFn: async () => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (!user) return null;
+  // Забираем ID из Zustand и берем профиль из общего кэша TanStack Query
+  const userId = useUserStore((state) => state.user?.id);
+  const { data: profile } = useUserProfile(userId);
 
-      const { data } = await supabase
-        .from("profiles")
-        .select("weight, gender")
-        .eq("id", user.id)
-        .single();
-      return data;
-    },
-  });
-
-  // Запасные фитнес-дефолты, если профиль еще грузится или пустой
+  // Запасные фитнес-дефолты берутся мгновенно из памяти приложения
   const userWeight = Number(profile?.weight) || 70;
   const userGender = (profile?.gender as "male" | "female") || "female";
 
@@ -89,7 +75,6 @@ export default function StudentTabsLayout({
         </div>
       )}
 
-      {/* ИСПРАВЛЕНО: Убраны лишние пропсы калорий и переданы актуальные вес и пол из базы */}
       <ActivityModal
         isOpen={isActivityModalOpen}
         onClose={closeActivityModal}
@@ -113,8 +98,6 @@ export default function StudentTabsLayout({
           ref={menuRef}
           className="fixed bottom-0 left-0 right-0 z-50 px-6 pb-[calc(1.2rem+env(safe-area-inset-bottom))] md:pb-6"
         >
-          <div className="absolute inset-x-0 bottom-0 h-40 bg-gradient-to-t from-slate-900/15 via-slate-900/05 to-transparent pointer-events-none -z-10" />
-
           {isMenuOpen && (
             <StudentQuickMenu
               onAddMeal={handleAddMeal}

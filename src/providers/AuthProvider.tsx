@@ -4,34 +4,23 @@ import { useEffect } from "react";
 import { supabase } from "@/lib/supabase";
 import { useUserStore } from "@/store/useUserStore";
 
-// Клиентский рендеринг. Следит за сессией. Если сессия истечет или
-// пользователь нажмет «Выйти», то стор обновится автоматически и интерфейс среагирует (например исчезнет аватарка).
-
 export default function AuthProvider({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const { setUser, clearUser } = useUserStore();
+  const setUser = useUserStore((state) => state.setUser);
+  const clearUser = useUserStore((state) => state.clearUser);
 
   useEffect(() => {
-    const initUser = async () => {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-      if (session?.user) {
-        setUser(session.user);
-      }
-    };
-
-    initUser();
-
+    // Данные уже лежат в сторе благодаря StoreInitializer
+    // Оставляем ТОЛЬКО прослушивание живых событий авторизации
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((event, session) => {
       if (session?.user) {
         setUser(session.user);
-      } else if (event === "SIGNED_OUT") {
+      } else {
         clearUser();
       }
     });

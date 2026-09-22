@@ -3,6 +3,9 @@ import { createServerClient } from "@supabase/ssr";
 import Header from "@/components/Header/Header";
 import RouteGuardListener from "@/providers/RouteGuardListener";
 import { DateProvider } from "@/providers/DateProvider";
+import StoreInitializer from "@/providers/StoreInitializer";
+import QueryProvider from "@/providers/QueryProvider";
+import AuthProvider from "@/providers/AuthProvider";
 
 interface MainLayoutProps {
   children: React.ReactNode;
@@ -10,11 +13,8 @@ interface MainLayoutProps {
 
 export default async function MainLayout({ children }: MainLayoutProps) {
   const cookieStore = await cookies();
-
-  // 1. Получаем таймзону из куки, которую мы записали в RootLayout (дефолт — UTC)
   const userTimeZone = cookieStore.get("user-tz")?.value || "UTC";
 
-  // 2. Форматируем текущую дату сервера строго в YYYY-MM-DD с учетом таймзоны юзера
   const serverToday = new Intl.DateTimeFormat("en-CA", {
     timeZone: userTimeZone,
     year: "numeric",
@@ -49,12 +49,19 @@ export default async function MainLayout({ children }: MainLayoutProps) {
   }
 
   return (
-    <>
-      <RouteGuardListener />
-      <Header initialUser={user} initialProfile={profile} />
+    // 1. Сначала создаем контекст React Query
+    <QueryProvider>
+      {/* 2. Подключаем слушатель авторизации */}
+      <AuthProvider>
+        {/* 3. Мгновенно синхронизируем серверные данные с Zustand */}
+        <StoreInitializer user={user} serverToday={serverToday} />
 
-      {/* Теперь переменная serverToday существует и успешно передается вниз */}
-      <DateProvider serverToday={serverToday}>{children}</DateProvider>
-    </>
+        <RouteGuardListener />
+
+        <Header initialUser={user} initialProfile={profile} />
+
+        <DateProvider serverToday={serverToday}>{children}</DateProvider>
+      </AuthProvider>
+    </QueryProvider>
   );
 }

@@ -2,15 +2,13 @@ import type { Metadata } from "next";
 import "./globals.css";
 import { Toaster } from "sonner";
 import { Inter } from "next/font/google";
-import AuthProvider from "../providers/AuthProvider";
-import QueryProvider from "@/providers/QueryProvider";
 
 const inter = Inter({ subsets: ["latin", "cyrillic"] });
 
 export const metadata: Metadata = {
-  title: "Vitality on the go! VitGo — путь к идеальной форме",
+  title: "VoltFit — путь к идеальной форме",
   description:
-    "Персонализированные тренировки и трекинг активности в приложении VitGo",
+    "Персонализированные тренировки и трекинг активности в приложении VoltFit",
 };
 
 export default function RootLayout({
@@ -28,9 +26,7 @@ export default function RootLayout({
         />
       </head>
       <body className={inter.className}>
-        <QueryProvider>
-          <AuthProvider>{children}</AuthProvider>
-        </QueryProvider>
+        {children}
         <Toaster position="top-center" richColors closeButton />
       </body>
     </html>

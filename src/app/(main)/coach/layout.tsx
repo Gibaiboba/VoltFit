@@ -6,8 +6,8 @@ import { ActivityModal } from "@/components/student/activity-modal";
 import { useTabsLayoutLogic } from "@/hooks/use-tabs-layout-logic";
 import { QuickMenu } from "@/components/coach/quick-menu";
 import { BottomTabBar } from "@/components/coach/bottom-tab-bar";
-import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/lib/supabase";
+import { useUserProfile } from "@/hooks/use-user-profile";
+import { useUserStore } from "@/store/useUserStore";
 
 const LEFT_TABS = [
   { id: "/coach", label: "Ученики", icon: Users },
@@ -41,25 +41,10 @@ export default function CoachTabsLayout({
     handleFastWaterAdd,
   } = useTabsLayoutLogic();
 
-  // Запрашиваем из базы вес и пол ТРЕНЕРА
-  const { data: profile } = useQuery({
-    queryKey: ["user-profile-current"],
-    queryFn: async () => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (!user) return null;
+  // 💡 ИСПРАВЛЕНО: Забираем ID тренера из Zustand и берем профиль из общего кэша TanStack Query
+  const userId = useUserStore((state) => state.user?.id);
+  const { data: profile } = useUserProfile(userId);
 
-      const { data } = await supabase
-        .from("profiles")
-        .select("weight, gender")
-        .eq("id", user.id)
-        .single();
-      return data;
-    },
-  });
-
-  // Запасные фитнес-дефолты на время первичной загрузки данных тренера
   const userWeight = Number(profile?.weight) || 70;
   const userGender = (profile?.gender as "male" | "female") || "female";
 
@@ -75,7 +60,6 @@ export default function CoachTabsLayout({
         {children}
       </main>
 
-      {/* Глобальный конструктор еды тренера */}
       {activeMealType && (
         <div className="fixed inset-0 bg-slate-50 z-50 overflow-y-auto animate-in fade-in slide-in-from-bottom-8 duration-300">
           <div className="max-w-6xl mx-auto p-4 md:p-8 pb-20">
@@ -86,8 +70,6 @@ export default function CoachTabsLayout({
           </div>
         </div>
       )}
-
-      {/* Глобальное окно добавления активности для тренера */}
 
       <ActivityModal
         isOpen={isActivityModalOpen}
