@@ -9,8 +9,12 @@ import { SavedMeal } from "@/types/food";
 import { UserProfile } from "@/types/user";
 import { useNutritionStats } from "../use-nutrition-stats";
 import { getPreviousWeight } from "@/lib/utils/weight-utils";
-
 import { calculateDynamicWaterTarget } from "@/lib/utils/waterCalculator";
+import {
+  getAgeFromBirthDate,
+  calculateDailyCalories,
+} from "@/lib/fitnessCalculators";
+import { Goal } from "@/types/onboarding";
 
 export const useDashboardCalculations = (
   history: DailyLog[],
@@ -20,29 +24,49 @@ export const useDashboardCalculations = (
   userInput: Partial<FormDataType>,
   serverToday: string,
 ): DashboardCalculationsResult => {
-  const baseTargetCalories = useMemo(
-    () => profile?.daily_calories || 2000,
-    [profile],
-  );
+  const baseTargetCalories = useMemo(() => {
+    if (!profile) return 2000;
+
+    const age = getAgeFromBirthDate(profile.birth_date);
+    const currentAge = age > 0 ? age : 25;
+
+    const stableWeight = profile.weight || 70;
+
+    const normalizeGoal = (g: string | undefined): Goal => {
+      if (g === "lose" || g === "lose_weight") return "lose_weight";
+      if (g === "gain" || g === "gain_muscle") return "gain_muscle";
+      return "maintain";
+    };
+
+    const calculation = calculateDailyCalories({
+      weight: stableWeight,
+      height: profile.height || 170,
+      age: currentAge,
+      gender: (profile.gender as "male" | "female") || "female",
+      activityLevel: parseFloat(profile.activity_level?.toString() || "1.2"),
+      goal: normalizeGoal(profile.goal),
+      targetWeight: profile.target_weight,
+      targetDate: profile.onboarding_metadata?.target_date,
+    });
+
+    return calculation.calories || 2000;
+  }, [profile]);
 
   const currentLog = useMemo(
     () => history.find((l) => l.log_date === selectedDate),
     [history, selectedDate],
   );
 
-  // 1. Собираем актуальный массив активностей за день (Локальный черновик > База данных)
   const currentActivities = useMemo<LoggedActivity[]>(() => {
     return userInput.activities ?? currentLog?.activities ?? [];
   }, [userInput.activities, currentLog?.activities]);
 
-  // 2. Суммируем калории всех тренировок за день
   const totalBurnedCalories = useMemo<number>(() => {
     if (!currentActivities || currentActivities.length === 0) return 0;
-
-    return currentActivities.reduce((sum, act) => {
-      // Просто берем уже вычисленное значение из объекта активности
-      return sum + (Number(act.burned_calories) || 0);
-    }, 0);
+    return currentActivities.reduce(
+      (sum, act) => sum + (Number(act.burned_calories) || 0),
+      0,
+    );
   }, [currentActivities]);
 
   const targetCalories = useMemo<number>(() => {
@@ -60,10 +84,10 @@ export const useDashboardCalculations = (
     return getPreviousWeight(history, selectedDate);
   }, [history, selectedDate]);
 
-  // 3. Конструируем стейт формы под поддержку массива активностей
   const formData = useMemo<FormDataType>(() => {
     return {
       steps: (userInput.steps ?? currentLog?.steps ?? "").toString(),
+
       weight: (userInput.weight ?? currentLog?.weight ?? "").toString(),
       sleep_hours: (
         userInput.sleep_hours ??
@@ -99,10 +123,13 @@ export const useDashboardCalculations = (
     };
   }, [history]);
 
-  //расчет динамической цели по воде на лету
   const waterTarget = useMemo<number>(() => {
-    const stepsCount = parseInt(formData.steps) || 0;
-    return calculateDynamicWaterTarget(profile, stepsCount, currentActivities);
+    const stepsCountLocal = parseInt(formData.steps) || 0;
+    return calculateDynamicWaterTarget(
+      profile,
+      stepsCountLocal,
+      currentActivities,
+    );
   }, [profile, formData.steps, currentActivities]);
 
   return {

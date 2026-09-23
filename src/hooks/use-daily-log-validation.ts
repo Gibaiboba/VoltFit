@@ -72,7 +72,7 @@ export function useDailyLogValidation({
       } else {
         setFieldErrors((prev) => ({ ...prev, [field]: undefined }));
       }
-    }, 350);
+    }, 1500);
   };
 
   // Перехватчики кнопок воды с лимитом Zod

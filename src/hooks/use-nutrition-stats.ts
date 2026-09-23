@@ -6,58 +6,46 @@ import { SavedMeal } from "@/types/food";
 export function useNutritionStats(
   meals: SavedMeal[],
   selectedDate: string,
-  targetKcal: number, // Сюда уже приходят базовые калории + калории от тренировки
-  baseKcal: number = 2000, // Добавим базовый калораж для пропорции
+  targetKcal: number,
+  baseKcal: number = 2000,
 ) {
   return useMemo(() => {
-    // 1. Фильтруем еду строго по выбранной дате
     const dayMeals = meals.filter((m) => {
       const mealDate = toISODate(new Date(m.created_at));
       return mealDate === selectedDate;
     });
 
-    // 2. Считаем сумму съеденного через утилиту
     const consumed = calculateTotalStats(dayMeals);
-
-    // 3. Считаем прогресс калорий
     const progress = calculateProgress(consumed.kcal, targetKcal);
-
-    // 4. Вычисляем динамические цели БЖУ на основе финального targetKcal
-    // Вычисляем дельту (сожженные калории)
     const burnedCalories = Math.max(0, targetKcal - baseKcal);
 
-    // Базовые цели БЖУ (30% / 30% / 40% от базовых калорий профиля)
     const baseP = Math.round((baseKcal * 0.3) / 4);
     const baseF = Math.round((baseKcal * 0.3) / 9);
     const baseC = Math.round((baseKcal * 0.4) / 4);
 
-    // Добавочные БЖУ от тренировки (20% белки, 10% жиры, 70% углеводы)
     const extraP = Math.round((burnedCalories * 0.2) / 4);
     const extraF = Math.round((burnedCalories * 0.1) / 9);
     const extraC = Math.round((burnedCalories * 0.7) / 4);
 
-    const targetProteins = baseP + extraP;
-    const targetFats = baseF + extraF;
-    const targetCarbs = baseC + extraC;
+    const targetProteins = baseP + extraP || 0;
+    const targetFats = baseF + extraF || 0;
+    const targetCarbs = baseC + extraC || 0;
 
     return {
       dayMeals,
       consumed,
       progress,
-      // Возвращаем округленные съеденные БЖУ
       roundedStats: {
-        kcal: Math.round(consumed.kcal),
-        p: Math.round(consumed.p),
-        f: Math.round(consumed.f),
-        c: Math.round(consumed.c),
+        kcal: Math.round(consumed.kcal) || 0,
+        p: Math.round(consumed.p) || 0,
+        f: Math.round(consumed.f) || 0,
+        c: Math.round(consumed.c) || 0,
       },
-      // Возвращаем динамические ЦЕЛИ БЖУ, адаптированные под тренировку
       targetMacros: {
         p: targetProteins,
         f: targetFats,
         c: targetCarbs,
       },
-      // Сразу считаем процент выполнения по каждому макросу для UI полосок
       macrosProgress: {
         p:
           targetProteins > 0

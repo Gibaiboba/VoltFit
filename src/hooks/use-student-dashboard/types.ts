@@ -56,7 +56,7 @@ export interface StudentDashboardHook {
     currentFats: number;
     currentCarbs: number;
     calProgress: number;
-    history: DailyLog[]; // Поддержка обновленной структуры DailyLog
+    history: DailyLog[];
     todayStr: string;
     profile: UserProfile | null;
     isSaving: boolean;
