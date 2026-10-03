@@ -33,6 +33,12 @@ export default function SettingsForm({
   // Флаг: активен ли сейчас режим похудения
   const isLossWeightGoal = formData.goal === "lose_weight";
 
+  const getTomorrowDateString = () => {
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    return tomorrow.toISOString().split("T")[0];
+  };
+
   return (
     <div className="w-full space-y-6">
       <div className="bg-white rounded-2xl p-6 border-2 border-slate-200">
@@ -166,6 +172,7 @@ export default function SettingsForm({
           </div>
 
           {/* ДИНАМИЧЕСКИЙ БЛОК: НАСТРОЙКА ДЕДЛАЙНА ПОХУДЕНИЯ */}
+
           {isLossWeightGoal && (
             <div className="p-4 border-2 border-dashed border-blue-200 bg-blue-50/30 rounded-2xl space-y-4 transition-all animate-fadeIn">
               <div className="text-[10px] font-black uppercase text-blue-500 tracking-widest px-1">
@@ -187,6 +194,7 @@ export default function SettingsForm({
                   </label>
                   <input
                     type="date"
+                    min={getTomorrowDateString()}
                     value={formData.target_date || ""}
                     onChange={(e) => updateField("target_date")(e.target.value)}
                     className="w-full h-12 px-4 bg-white border-2 border-slate-200 focus:border-slate-400 outline-none rounded-xl text-xs font-bold text-slate-700 transition-colors"

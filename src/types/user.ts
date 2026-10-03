@@ -8,6 +8,8 @@ export interface OnboardingMetadata {
   stress_level?: "low" | "high";
   training_mode?: "pro" | "disciplined" | "none";
   target_date?: string;
+  start_date?: string;
+  start_weight?: number;
 }
 
 export interface UserProfile {
@@ -35,4 +37,5 @@ export interface UserProfile {
   hips?: number;
   water_target?: number;
   steps_target: number;
+  created_at: string;
 }

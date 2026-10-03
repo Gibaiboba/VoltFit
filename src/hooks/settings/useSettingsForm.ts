@@ -116,6 +116,10 @@ export function useSettingsForm(
 
   // РЕАКТИВНЫЙ ПЕРЕСЧЕТ ВОДЫ И ШАГОВ
   const isFirstRender = useRef(true);
+  // Храним предыдущие значения, чтобы поймать момент их физического переключения пользователем
+  const prevGoal = useRef(formData.goal);
+  const prevActivity = useRef(formData.activity_level);
+
   useEffect(() => {
     if (isFirstRender.current) {
       isFirstRender.current = false;
@@ -126,6 +130,21 @@ export function useSettingsForm(
     const numericActivity = (parseFloat(formData.activity_level) ||
       1.2) as ActivityLevel;
 
+    //  ЕСЛИ ПОЛЬЗОВАТЕЛЬ СМЕНИЛ ЦЕЛЬ ИЛИ АКТИВНОСТЬ — МЫ СБРАСЫВАЕМ БЛОКИРОВКУ РУЧНОГО ВВОДА,
+    // так как система обязана выдать новые дефолты под новую фитнес-стратегию!
+    const isGoalChanged = prevGoal.current !== formData.goal;
+    const isActivityChanged = prevActivity.current !== formData.activity_level;
+
+    if (isGoalChanged || isActivityChanged) {
+      isUserEditingWater.current = false;
+      isUserEditingSteps.current = false;
+
+      // Обновляем рефы предыдущих значений
+      prevGoal.current = formData.goal;
+      prevActivity.current = formData.activity_level;
+    }
+
+    // Расчет и обновление воды
     if (!isUserEditingWater.current) {
       const baseWaterLiters = calculateBaseWaterTarget({
         weight: numericWeight,
@@ -137,11 +156,13 @@ export function useSettingsForm(
       setFormData((prev) => ({ ...prev, water_target: waterMl }));
     }
 
+    // ТЕПЕРЬ КОД ТАКЖЕ СРАБОТАЕТ, потому что при смене цели блокировка сбросилась выше!
     if (!isUserEditingSteps.current) {
       const baseSteps = calculateBaseStepsTarget({
         goal: formData.goal,
         activityLevel: numericActivity,
       }).toString();
+
       setFormData((prev) => ({ ...prev, steps_target: baseSteps }));
     }
   }, [
@@ -151,7 +172,6 @@ export function useSettingsForm(
     formData.gender,
     currentAge,
   ]);
-
   // СИНХРОННЫЕ ВЫЧИСЛЕНИЯ КАЛОРИЙ И МАКРОСОВ
   const calculationResults = useMemo(() => {
     const numericWeight = parseFloat(formData.weight) || 70;
@@ -220,50 +240,23 @@ export function useSettingsForm(
     if (!file) return;
 
     const uploadPromise = async () => {
-      // 1. Сжимаем изображение на клиенте
       const options = {
         maxSizeMB: 0.1,
         maxWidthOrHeight: 400,
         useWebWorker: true,
       };
       const compressedFile = await imageCompression(file, options);
+      const filePath = `${userId}/avatar.png`;
 
-      const fileExt = file.name.split(".").pop() || "png";
-      const newFileName = `avatar_${Date.now()}.${fileExt}`;
-      const newFilePath = `${userId}/${newFileName}`;
-
-      // 💡 2. Удаляем старый файл из Supabase Storage, если он существует
-      if (formData.avatar_url) {
-        try {
-          // Вытаскиваем имя файла из текущего URL (все, что идет после названия бакета "/avatars/")
-          const urlParts = formData.avatar_url.split("/avatars/");
-          if (urlParts.length === 2) {
-            const oldFilePath = urlParts[1].split("?")[0]; // Убираем query-параметры, если они были
-
-            // Запускаем удаление старого файла
-            await supabase.storage.from("avatars").remove([oldFilePath]);
-          }
-        } catch (sliceError) {
-          // Ошибку удаления оборачиваем в try/catch, чтобы если файла не было или URL изменился,
-          // это не ломало пользователю загрузку нового аватара.
-          console.error("Не удалось удалить старый аватар:", sliceError);
-        }
-      }
-
-      // 3. Загружаем новый уникальный файл
       const { error: uploadError } = await supabase.storage
         .from("avatars")
-        .upload(newFilePath, compressedFile, { upsert: true });
+        .upload(filePath, compressedFile, { upsert: true });
       if (uploadError) throw uploadError;
 
-      // 4. Получаем новую чистую публичную ссылку
       const {
         data: { publicUrl },
-      } = supabase.storage.from("avatars").getPublicUrl(newFilePath);
-
-      // 5. Сохраняем в базу данных новый путь
-      updateProfile({ avatar_url: publicUrl });
-
+      } = supabase.storage.from("avatars").getPublicUrl(filePath);
+      updateProfile({ avatar_url: `${publicUrl}?t=${Date.now()}` });
       return "Фото обновлено!";
     };
 
@@ -272,15 +265,9 @@ export function useSettingsForm(
       success: (msg) => msg,
       error: "Ошибка загрузки",
     });
-
-    toast.promise(uploadPromise(), {
-      loading: "Загружаем фото...",
-      success: (msg) => msg,
-      error: "Ошибка загрузки",
-    });
   };
 
-  // СОХРАНЕНИЕ ДАННЫХ С ПРОВЕРКОЙ БЕЗОПАСНОСТИ ДАТЫ ТУТ
+  // СОХРАНЕНИЕ ДАННЫХ С АВТОМАТИЧЕСКИМ ПЕРЕЗАПУСКОМ МАРАФОНОВ ТУТ
   const handleSaveAll = () => {
     const goalMap: Record<string, Goal> = {
       lose: "lose_weight",
@@ -310,24 +297,42 @@ export function useSettingsForm(
 
     const activeGoal = (goalMap[formData.goal] || formData.goal) as Goal;
 
-    // ПРОВЕРКА КОРРЕКТИРОВКИ ДАТЫ:
-    // Если калькулятор выявил опасный дефицит, мы берем его безопасную adjustedDate
+    // 1. ПРОВЕРКА КОРРЕКТИРОВКИ ДАТЫ КАЛЬКУЛЯТОРОМ СЕКЬЮРНОСТИ:
     let finalTargetDate = formData.target_date;
     if (calculationResults.adjustedDate) {
       finalTargetDate = calculationResults.adjustedDate;
-      // Меняем локальное состояние интерфейса, чтобы инпут даты тоже обновился
       setFormData((prev) => ({
         ...prev,
         target_date: calculationResults.adjustedDate!,
       }));
-      // Уведомляем пользователя
       toast.warning(calculationResults.feedbackMessage);
     }
+
+    // 2. АВТОМАТИЧЕСКАЯ ФИКСАЦИЯ СТАРТА МАРАФОНА:
+    // Получаем сегодняшнюю ISO дату в чистом виде (строка YYYY-MM-DD)
+    const todayStr = new Date().toISOString().split("T")[0];
+
+    // Сравниваем новую дату из инпута со старой из базы. Если они разные — это новый марафон!
+    const isNewDeadline = finalTargetDate !== onboardingMetadata.target_date;
+
+    // Если дедлайн новый, то старт СЕГОДНЯ, иначе оставляем старую дату старта из базы
+    const finalStartDate = isNewDeadline
+      ? todayStr
+      : onboardingMetadata.start_date || todayStr;
+
+    // То же самое с весом: если марафон новый, фиксируем текущий вес как стартовый
+    const finalStartWeight = isNewDeadline
+      ? parseFloat(formData.weight) || undefined
+      : onboardingMetadata.start_weight ||
+        parseFloat(formData.weight) ||
+        undefined;
 
     const updatedMetadata = {
       ...onboardingMetadata,
       target_date:
         activeGoal === "lose_weight" ? finalTargetDate || undefined : undefined,
+      start_date: activeGoal === "lose_weight" ? finalStartDate : undefined,
+      start_weight: activeGoal === "lose_weight" ? finalStartWeight : undefined,
     };
 
     updateProfile({

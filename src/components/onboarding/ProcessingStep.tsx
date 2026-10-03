@@ -69,8 +69,6 @@ export default function ProcessingStep() {
         if (prev < currentStages.length - 1) {
           return prev + 1;
         } else {
-          // Мы дошли до последней стадии!
-          // Если база данных к этому моменту УЖЕ ответила — завершаем загрузку
           if (dbSavingFinishedRef.current) {
             setStatus("success");
             clearInterval(interval);
@@ -117,9 +115,15 @@ export default function ProcessingStep() {
           ...metadata
         } = data;
 
+        // Фиксируем сегодняшнюю дату в формате YYYY-MM-DD как дату старта марафона
+        const todayStr = new Date().toISOString().split("T")[0];
+
         const updatedMetadata = {
           ...metadata,
           target_date: goal === "lose_weight" ? target_date : undefined,
+          // Автоматически записываем дату старта и стартовый вес для прогресс-бара
+          start_date: goal === "lose_weight" ? todayStr : undefined,
+          start_weight: goal === "lose_weight" ? Number(weight) : undefined,
         };
 
         const { error: profileError } = await supabase

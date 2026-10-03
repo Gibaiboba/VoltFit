@@ -19,6 +19,7 @@ import { ActivityModal } from "@/components/student/activity-modal";
 import { useActivityModalStore } from "@/store/useActivityModalStore";
 import { useDailyLogValidation } from "@/hooks/use-daily-log-validation";
 import SleepMetricInput from "@/components/student/sleep-metric-input";
+import CountdownWidget from "@/components/dashboard/CountdownWidget";
 
 export default function StudentClient() {
   const { state, actions } = useStudentDashboard();
@@ -51,6 +52,9 @@ export default function StudentClient() {
   // извлекаем вес и пол из уже загруженного профиля
   const userWeight = Number(profile?.weight) || 70;
   const userGender = (profile?.gender as "male" | "female") || "female";
+
+  // Извлекаем метаданные онбординга (дедлайн)
+  const onboardingMetadata = profile?.onboarding_metadata || {};
 
   const {
     handleDateChange,
@@ -120,6 +124,14 @@ export default function StudentClient() {
               onDateChange={onWrappedDateChange}
             />
           </div>
+
+          <CountdownWidget
+            targetDate={onboardingMetadata.target_date}
+            startDate={onboardingMetadata.start_date}
+            currentWeight={Number(formData.weight) || userWeight}
+            startWeight={onboardingMetadata.start_weight}
+            targetWeight={profile?.target_weight}
+          />
 
           <CaloriesMacrosComboCard
             current={currentCalories}
