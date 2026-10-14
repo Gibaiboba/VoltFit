@@ -7,9 +7,13 @@ export interface OnboardingMetadata {
   fail_reason?: "strict" | "no_progress" | "boredom";
   stress_level?: "low" | "high";
   training_mode?: "pro" | "disciplined" | "none";
+  appetite?: "low" | "high" | string;
+  energy_level?: "tired" | "slump" | "good" | string;
   target_date?: string;
   start_date?: string;
   start_weight?: number;
+  diet_onboarding_completed?: boolean;
+  diet_answers?: Record<string, string>;
 }
 
 export interface UserProfile {

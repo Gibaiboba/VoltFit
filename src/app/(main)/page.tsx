@@ -98,6 +98,12 @@ export default function Home() {
               👨‍🎓 Кабинет Ученика
             </Link>
             <Link
+              href="/student/recipes"
+              className="flex items-center justify-center p-4 bg-slate-800 text-white font-bold rounded-2xl shadow-sm border border-slate-700 hover:border-yellow-400 transition-all text-center"
+            >
+              рецепты
+            </Link>
+            <Link
               href="/coach"
               className="flex items-center justify-center p-4 bg-slate-800 text-white font-bold rounded-2xl shadow-sm border border-slate-700 hover:border-yellow-400 transition-all text-center"
             >
