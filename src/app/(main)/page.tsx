@@ -104,6 +104,12 @@ export default function Home() {
               рецепты
             </Link>
             <Link
+              href="/student/workouts"
+              className="flex items-center justify-center p-4 bg-slate-800 text-white font-bold rounded-2xl shadow-sm border border-slate-700 hover:border-yellow-400 transition-all text-center"
+            >
+              тренировки
+            </Link>
+            <Link
               href="/coach"
               className="flex items-center justify-center p-4 bg-slate-800 text-white font-bold rounded-2xl shadow-sm border border-slate-700 hover:border-yellow-400 transition-all text-center"
             >

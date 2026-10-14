@@ -14,6 +14,11 @@ export interface OnboardingMetadata {
   start_weight?: number;
   diet_onboarding_completed?: boolean;
   diet_answers?: Record<string, string>;
+  fitness_onboarding_completed?: boolean;
+  fitness_answers?: {
+    training_place?: "home" | "gym" | "street" | string;
+    fitness_experience?: "beginner" | "advanced" | string;
+  };
 }
 
 export interface UserProfile {
