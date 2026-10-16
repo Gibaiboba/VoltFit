@@ -1,6 +1,6 @@
 "use client";
 
-import { Activity, Utensils, BarChart3, User } from "lucide-react";
+import { Activity, Utensils, Dumbbell, User } from "lucide-react";
 import FoodConstructor from "@/components/food/food-constructor";
 import { ActivityModal } from "@/components/student/activity-modal";
 import { useTabsLayoutLogic } from "@/hooks/use-tabs-layout-logic";
@@ -15,7 +15,7 @@ const LEFT_TABS = [
 ];
 
 const RIGHT_TABS = [
-  { id: "/student/history", label: "История", icon: BarChart3 },
+  { id: "/student/workouts", label: "Тренировки", icon: Dumbbell },
   { id: "/student/settings", label: "Профиль", icon: User },
 ];
 

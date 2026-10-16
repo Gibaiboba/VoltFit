@@ -15,14 +15,9 @@ export function useTabsLayoutLogic() {
 
   // Достаем выбранную дату и текущего авторизованного пользователя
   const selectedDate = useUserStore((state) => state.selectedDate);
-  const { user } = useUserStore();
-  const targetId = user?.id || "";
 
   // Загружаем данные дашборда (работает универсально по ID сессии)
-  const { state: dashState, actions: dashActions } = useStudentDashboard(
-    targetId,
-    selectedDate,
-  );
+  const { state: dashState, actions: dashActions } = useStudentDashboard();
 
   // Zustand-сторы для конструктора еды и модалки активности
   const activeMealType = useMealStore((state) => state.activeMealType);

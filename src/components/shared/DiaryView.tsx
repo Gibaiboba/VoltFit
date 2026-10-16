@@ -2,6 +2,8 @@
 
 import { useEffect, useState, useMemo, useCallback } from "react";
 import { toISODate } from "@/lib/utils/date-utils";
+import { UtensilsCrossed } from "lucide-react";
+import Link from "next/link";
 import { useDiaryLogic } from "@/hooks/use-diary-logic";
 import { useMacroStats } from "@/hooks/use-macro-stats";
 import { useUserStore } from "@/store/useUserStore";
@@ -162,7 +164,7 @@ export default function DiaryPage() {
           )}
 
           <section className="space-y-3">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between gap-4">
               {/* Синхронизировано через ваш контекст */}
               <DateNavigation
                 selectedDate={selectedDate}
@@ -171,6 +173,15 @@ export default function DiaryPage() {
                 onDateChange={setSelectedDate}
                 daysWithData={daysWithData}
               />
+
+              {/* Кнопка "Рецепты" */}
+              <Link
+                href="/student/recipes"
+                className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-slate-600 bg-white rounded-xl border border-slate-200/80 shadow-sm hover:bg-slate-50 hover:text-slate-900 transition-all duration-200 active:scale-95 whitespace-nowrap"
+              >
+                <UtensilsCrossed className="w-4 h-4 text-slate-500" />
+                <span className="hidden sm:inline">Рецепты</span>
+              </Link>
             </div>
             <CaloriesBanner
               current={consumed.kcal}

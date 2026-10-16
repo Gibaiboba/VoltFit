@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect } from "react";
-import { Scale, Footprints } from "lucide-react";
+import { Scale, Footprints, History } from "lucide-react";
+import Link from "next/link";
 import { toast } from "sonner";
 import PersonalTip from "@/components/shared/PersonalTip";
 import { CaloriesMacrosComboCard } from "@/components/student/calories-macros-combo-card";
@@ -116,13 +117,21 @@ export default function StudentClient() {
         skeleton={<DashboardSkeleton />}
       >
         <div className="max-w-4xl mx-auto space-y-2 sm:space-y-8 animate-in fade-in duration-300">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between gap-4">
             <DateNavigation
               selectedDate={selectedDate}
               isToday={isToday}
               todayStr={todayStr}
               onDateChange={onWrappedDateChange}
             />
+
+            <Link
+              href="/student/history"
+              className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-slate-600 bg-white rounded-xl border border-slate-200/80 shadow-sm hover:bg-slate-50 hover:text-slate-900 transition-all duration-200 active:scale-95 whitespace-nowrap"
+            >
+              <History className="w-4 h-4 text-slate-500" />
+              <span className="hidden sm:inline">История</span>
+            </Link>
           </div>
 
           <CountdownWidget
