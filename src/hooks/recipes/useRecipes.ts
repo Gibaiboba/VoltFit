@@ -4,8 +4,8 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase";
 import { toast } from "sonner";
 import { Goal } from "@/types/onboarding";
-import { INTERNAL_DIET_QUESTIONS } from "@/constants/recipesQuestion";
-import { MOCK_RECIPES_DATABASE } from "@/constants/recipesData";
+import { INTERNAL_DIET_QUESTIONS } from "@/constants/recipes/recipesQuestion";
+import { MOCK_RECIPES_DATABASE } from "@/constants/recipes/recipesData";
 import { OnboardingMetadata } from "@/types/user";
 
 export function useRecipes() {
