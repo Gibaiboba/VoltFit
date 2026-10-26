@@ -31,6 +31,7 @@ export default function WorkoutsPage() {
           <WorkoutDashboard
             onboardingMetadata={session.onboardingMetadata}
             userGlobalGoal={session.userGlobalGoal}
+            setIsActiveSessionActive={session.setIsActiveSessionActive}
             setIsCustomWorkoutActive={session.setIsCustomWorkoutActive}
             setSelectedExercises={session.setSelectedExercises}
             setCustomWorkoutName={session.setCustomWorkoutName}
@@ -43,17 +44,12 @@ export default function WorkoutsPage() {
             customWorkoutName={session.customWorkoutName}
             setCustomWorkoutName={session.setCustomWorkoutName}
             selectedExercises={session.selectedExercises}
-            setSelectedExercises={session.setSelectedExercises}
-            workoutDuration={session.workoutDuration}
             removeExerciseFromWorkout={session.removeExerciseFromWorkout}
-            handleDurationChange={session.handleDurationChange}
-            totalVolumeLoad={session.totalVolumeLoad}
-            totalBurnedCalories={session.totalBurnedCalories}
             addExerciseToWorkout={session.addExerciseToWorkout}
             addSetToExercise={session.addSetToExercise}
             updateSetValues={session.updateSetValues}
             cancelWorkout={session.cancelWorkout}
-            setIsCustomWorkoutActive={session.setIsCustomWorkoutActive}
+            saveWorkoutTemplate={session.saveWorkoutTemplate}
           />
         )}
       </AnimatePresence>

@@ -21,8 +21,12 @@ export function useWorkoutSession() {
   const [localFitnessAnswers, setLocalAnswers] = useState<
     Record<string, string>
   >({});
-  const [isCustomWorkoutActive, setIsCustomWorkoutActive] =
+
+  // Флаги управления режимами экранов
+  const [isBuilderActive, setIsBuilderActive] = useState<boolean>(false);
+  const [isActiveSessionActive, setIsActiveSessionActive] =
     useState<boolean>(false);
+
   const [isResetting, setIsResetting] = useState<boolean>(false);
   const [customWorkoutName, setCustomWorkoutName] =
     useState<string>("Моя тренировка");
@@ -39,22 +43,26 @@ export function useWorkoutSession() {
   const userGlobalGoal = profile?.goal || "maintain";
   const userWeight = profile?.weight || 70;
 
-  // Диспетчер активного экрана
+  // Обновленный диспетчер активного экрана
   const activeScreen = useMemo<
-    "dashboard" | "onboarding" | "custom_workout"
+    "dashboard" | "onboarding" | "custom_workout" | "active_workout"
   >(() => {
     if (!profile) return "dashboard";
     if (!onboardingMetadata.fitness_onboarding_completed && !isResetting) {
       return "onboarding";
     }
-    if (isCustomWorkoutActive) {
+    if (isActiveSessionActive) {
+      return "active_workout";
+    }
+    if (isBuilderActive) {
       return "custom_workout";
     }
     return "dashboard";
   }, [
     profile,
     onboardingMetadata.fitness_onboarding_completed,
-    isCustomWorkoutActive,
+    isBuilderActive,
+    isActiveSessionActive,
     isResetting,
   ]);
 
@@ -101,7 +109,6 @@ export function useWorkoutSession() {
       updateFitnessMetadata(newMetadata);
     }
   };
-
   // Реактивный подсчет суммарного тоннажа
   const totalVolumeLoad = useMemo<number>(() => {
     return selectedExercises.reduce((totalEx, ex) => {
@@ -188,14 +195,58 @@ export function useWorkoutSession() {
     updateFitnessMetadata(newMetadata as OnboardingMetadata);
   };
 
-  // Кнопка отмены активного конструктора сессии
+  // Экшен 1: Сохранение шаблона плана тренировки (без выполнения)
+  const saveWorkoutTemplate = async () => {
+    try {
+      // Здесь будущая логика отправки шаблона в supabase таблицу `workout_templates`
+      // Реализуем локальный сброс интерфейса:
+      setIsBuilderActive(false);
+      setSelectedExercises([]);
+      setWorkoutDuration(0);
+    } catch (error) {
+      // Выводим подробности в консоль для разработчика
+      console.error("Ошибка при сохранении шаблона:", error);
+
+      // Показываем пользователю понятный текст ошибки, если он есть в объекте
+      const message =
+        error instanceof Error ? error.message : "Неизвестная ошибка";
+      toast.error(`Ошибка при сохранении шаблона: ${message}`);
+    }
+  };
+
+  // Экшен 2: Полное завершение живой активной тренировки
+  const finishActiveWorkout = async (finalDuration: number) => {
+    try {
+      // Записываем финальное вычисленное время секундомера плееру наверх
+      setWorkoutDuration(finalDuration);
+
+      // Здесь ваша будущая логика отправки лога выполненной тренировки в таблицу `workout_logs`
+      toast.success(
+        `Тренировка "${customWorkoutName}" завершена! Тоннаж: ${totalVolumeLoad} кг, Время: ${finalDuration} мин, Калории: ${totalBurnedCalories} ккал записаны в дневник.`,
+      );
+
+      setIsActiveSessionActive(false);
+      setSelectedExercises([]);
+      setWorkoutDuration(0);
+    } catch (error) {
+      // Выводим подробности в консоль для разработчика
+      console.error("Ошибка при сохранении тренировки:", error);
+
+      // Показываем пользователю детальный текст ошибки
+      const message =
+        error instanceof Error ? error.message : "Неизвестная ошибка";
+      toast.error(`Ошибка при сохранении результатов тренировки: ${message}`);
+    }
+  };
+
+  // Кнопка отмены/прерывания любой активной сессии
   const cancelWorkout = () => {
-    setIsCustomWorkoutActive(false);
+    setIsBuilderActive(false);
+    setIsActiveSessionActive(false);
     setSelectedExercises([]);
     setWorkoutDuration(0);
   };
 
-  // Изменение длительности тренировки
   const handleDurationChange = (e: ChangeEvent<HTMLInputElement>) => {
     setWorkoutDuration(Math.max(0, parseInt(e.target.value) || 0));
   };
@@ -221,6 +272,9 @@ export function useWorkoutSession() {
     resetFitnessOptions,
     cancelWorkout,
     handleDurationChange,
-    setIsCustomWorkoutActive,
+    saveWorkoutTemplate,
+    finishActiveWorkout,
+    setIsCustomWorkoutActive: setIsBuilderActive,
+    setIsActiveSessionActive,
   };
 }
