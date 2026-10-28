@@ -6,10 +6,16 @@ export const formatMealTime = (date: string) =>
 
 // Превращает Date в "2026-03-09"
 export const toISODate = (date: Date) => {
+  // Проверяем, что дата передана и она валидна (не NaN)
+  if (!date || isNaN(date.getTime())) {
+    return "";
+  }
+
   const offset = date.getTimezoneOffset();
   const adjustedDate = new Date(date.getTime() - offset * 60 * 1000);
   return adjustedDate.toISOString().split("T")[0];
 };
+
 // Превращает "2026-03-09" в "09.03"
 export const formatToShortDate = (dateStr: string) => {
   if (!dateStr) return "--.--";

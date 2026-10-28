@@ -1,46 +1,58 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { Trash2, PlusCircle, CheckCircle, Timer } from "lucide-react";
+import { useState, useEffect, useMemo } from "react";
+import {
+  Trash2,
+  PlusCircle,
+  CheckCircle,
+  Timer,
+  Play,
+  Info,
+} from "lucide-react";
 import { toast } from "sonner";
 import { EXERCISES_DATABASE } from "@/constants/workout/exerciseData";
 import { ActiveWorkoutSessionProps } from "@/types/workout";
+
+// Расширяем ваши типы пропсом userWeight, который мы передаем из метаданных страницы
+interface EnhancedActiveWorkoutProps extends ActiveWorkoutSessionProps {
+  userWeight: number;
+}
 
 export default function ActiveWorkoutSession({
   customWorkoutName,
   selectedExercises,
   totalVolumeLoad,
-  totalBurnedCalories,
+  userWeight,
   updateSetValues,
   addSetToExercise,
   removeExerciseFromWorkout,
   addExerciseToWorkout,
   finishActiveWorkout,
   cancelWorkout,
-}: ActiveWorkoutSessionProps) {
-  // Живые стейты для таймеров
-  const [secondsElapsed, setSecondsElapsed] = useState(0);
+}: EnhancedActiveWorkoutProps) {
+  // Флаг запуска тренировки: теперь по умолчанию false
+  const [isTimerStarted, setIsTimerStarted] = useState<boolean>(false);
+  const [secondsElapsed, setSecondsElapsed] = useState<number>(0);
   const [restTimeLeft, setRestTimeLeft] = useState<number | null>(null);
 
-  // Секундомер тренировки (запускается автоматически при монтировании экрана)
+  // Секундомер тренировки: тикает ТОЛЬКО если тренировка запущена
   useEffect(() => {
+    if (!isTimerStarted) return;
+
     const mainTimer = setInterval(() => {
       setSecondsElapsed((prev) => prev + 1);
     }, 1000);
+
     return () => clearInterval(mainTimer);
-  }, []);
+  }, [isTimerStarted]);
 
-  // Таймер отдыха между подходами (исправленная версия)
+  // Таймер отдыха: работает только во время активной сессии
   useEffect(() => {
-    // Если отдых не запущен, ничего не делаем
-    if (restTimeLeft === null) return;
+    if (restTimeLeft === null || !isTimerStarted) return;
 
-    // Создаем интервал, который тикает каждую секунду
     const restTimer = setInterval(() => {
       setRestTimeLeft((prev) => {
         if (prev === null) return null;
-
-        // Если время вышло: выключаем таймер (возвращаем null) и показываем уведомление
         if (prev <= 1) {
           clearInterval(restTimer);
           toast("Отдых завершен! Пора делать следующий подход 🏋️‍♂️", {
@@ -48,35 +60,46 @@ export default function ActiveWorkoutSession({
           });
           return null;
         }
-
-        // Иначе просто уменьшаем на 1 секунду
         return prev - 1;
       });
     }, 1000);
 
-    // Очищаем интервал при размонтировании или изменении restTimeLeft
     return () => clearInterval(restTimer);
-  }, [restTimeLeft]);
+  }, [restTimeLeft, isTimerStarted]);
 
-  // Хелпер форматирования времени (секунды -> 00:00)
+  // Живой подсчет калорий на основе MET, веса и прошедшего времени
+  const liveBurnedCalories = useMemo(() => {
+    if (selectedExercises.length === 0 || secondsElapsed <= 0) return 0;
+    const avgMet =
+      selectedExercises.reduce((sum, ex) => sum + (ex.met || 4.0), 0) /
+      selectedExercises.length;
+    const durationInMinutes = secondsElapsed / 60;
+    const caloriesPerMinute = avgMet * 3.5 * (userWeight / 200);
+    return Math.round(caloriesPerMinute * durationInMinutes);
+  }, [selectedExercises, secondsElapsed, userWeight]);
+
   const formatTime = (totalSeconds: number) => {
     const mins = Math.floor(totalSeconds / 60);
     const secs = totalSeconds % 60;
     return `${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
   };
 
-  // Перехват клика на чекбокс "Готово" для запуска таймера отдыха
   const handleToggleSetDone = (
     exIndex: number,
     setIndex: number,
     currentDone: boolean,
   ) => {
+    // Не даем отмечать подходы, пока тренировка физически не началась
+    if (!isTimerStarted) {
+      toast.error("Сначала запустите тренировку кнопкой «Старт» сверху!");
+      return;
+    }
+
     const nextDoneState = !currentDone;
     updateSetValues(exIndex, setIndex, "done", nextDoneState);
 
-    // Если пользователь отметил подход как выполненный — запускаем 90 сек отдыха
     if (nextDoneState) {
-      setRestTimeLeft(90);
+      setRestTimeLeft(90); // Запуск 90 секунд отдыха
     }
   };
 
@@ -91,68 +114,91 @@ export default function ActiveWorkoutSession({
     const finalMinutes = Math.round(secondsElapsed / 60) || 1;
     finishActiveWorkout(finalMinutes);
   };
-
   return (
-    <div className="space-y-6 text-left relative">
-      {/* Плавающий виджет таймера отдыха */}
-      {restTimeLeft !== null && (
+    <div className="space-y-6 text-left relative pb-12">
+      {/* Плавающий виджет отдыха (показывается только во время активной фазы) */}
+      {restTimeLeft !== null && isTimerStarted && (
         <div className="fixed bottom-24 right-6 bg-emerald-600 text-white font-black px-5 py-3 rounded-full shadow-2xl flex items-center gap-2 animate-bounce z-50">
           <Timer size={18} className="animate-spin" />
           <span>Отдых: {restTimeLeft} сек</span>
           <button
             onClick={() => setRestTimeLeft(null)}
-            className="ml-2 text-emerald-200 text-xs"
+            className="ml-2 text-emerald-200 text-xs underline"
           >
             Пропустить
           </button>
         </div>
       )}
 
-      {/* Верхние информационные панели */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="bg-slate-900 text-white p-6 rounded-3xl flex flex-col justify-center">
-          <span className="text-[9px] font-black uppercase tracking-widest text-blue-400">
-            Текущий объём
-          </span>
-          <div className="text-4xl font-black italic mt-1 text-blue-400">
-            {totalVolumeLoad}{" "}
-            <span className="text-xs not-italic text-slate-400">кг</span>
+      {/* Условный рендеринг верхней панели: Подготовка vs Активный режим */}
+      {!isTimerStarted ? (
+        <div className="bg-gradient-to-r from-blue-600 to-indigo-700 text-white p-6 rounded-[32px] shadow-xl flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+          <div className="space-y-1.5">
+            <span className="px-2.5 py-0.5 bg-white/20 text-white text-[9px] font-black uppercase tracking-widest rounded-md inline-flex items-center gap-1">
+              <Info size={10} /> Режим подготовки
+            </span>
+            <h3 className="text-2xl font-black uppercase tracking-tight">
+              {customWorkoutName || "Новый комплекс"}
+            </h3>
+            <p className="text-xs text-blue-100 font-medium">
+              Проверьте состав упражнений, настройте стартовые веса и нажмите
+              кнопку старта для активации таймеров.
+            </p>
+          </div>
+          <button
+            onClick={() => setIsTimerStarted(true)}
+            className="h-14 px-8 bg-emerald-500 hover:bg-emerald-600 text-white rounded-2xl font-black text-sm uppercase tracking-widest flex items-center gap-3 transition-all transform hover:scale-[1.02] shadow-lg shadow-emerald-900/20 w-full md:w-auto justify-center shrink-0 border-b-4 border-emerald-700 active:border-b-0 active:mt-1"
+          >
+            <Play size={16} fill="currentColor" /> Начать тренировку
+          </button>
+        </div>
+      ) : (
+        /* Закрепленные живые панели статистики */
+        <div className="sticky top-0 bg-slate-50 pt-2 pb-4 z-40 grid grid-cols-1 md:grid-cols-3 gap-4 border-b border-slate-200/50">
+          <div className="bg-slate-900 text-white p-4 rounded-2xl flex flex-col justify-center shadow-md">
+            <span className="text-[9px] font-black uppercase tracking-widest text-blue-400">
+              Текущий объём
+            </span>
+            <div className="text-3xl font-black italic mt-0.5 text-blue-400">
+              {totalVolumeLoad}{" "}
+              <span className="text-xs not-italic text-slate-400">кг</span>
+            </div>
+          </div>
+
+          <div className="bg-slate-900 text-white p-4 rounded-2xl flex flex-col justify-center shadow-md">
+            <span className="text-[9px] font-black uppercase tracking-widest text-emerald-400">
+              Энергорасход
+            </span>
+            <div className="text-3xl font-black italic mt-0.5 text-emerald-400">
+              {liveBurnedCalories}{" "}
+              <span className="text-xs not-italic text-slate-400">ккал</span>
+            </div>
+          </div>
+
+          <div className="bg-blue-50 border border-blue-100 p-4 rounded-2xl flex flex-col justify-center shadow-sm">
+            <span className="text-[9px] font-black uppercase tracking-widest text-blue-600">
+              Время тренировки
+            </span>
+            <div className="text-3xl font-black italic mt-0.5 text-blue-700 tracking-wider">
+              {formatTime(secondsElapsed)}
+            </div>
           </div>
         </div>
+      )}
 
-        <div className="bg-slate-900 text-white p-6 rounded-3xl flex flex-col justify-center">
-          <span className="text-[9px] font-black uppercase tracking-widest text-emerald-400">
-            Энергорасход
-          </span>
-          <div className="text-4xl font-black italic mt-1 text-emerald-400">
-            {totalBurnedCalories}{" "}
-            <span className="text-xs not-italic text-slate-400">ккал</span>
-          </div>
-        </div>
-
-        {/* АВТОМАТИЧЕСКИЙ ЖИВОЙ СЕКУНДОМЕР */}
-        <div className="bg-blue-50 border border-blue-100 p-6 rounded-3xl flex flex-col justify-center">
-          <span className="text-[9px] font-black uppercase tracking-widest text-blue-600">
-            Время тренировки
-          </span>
-          <div className="text-4xl font-black italic mt-1 text-blue-700 tracking-wider">
-            {formatTime(secondsElapsed)}
-          </div>
-        </div>
-      </div>
-
-      {/* Заголовок активной сессии */}
-      <div className="border-b pb-2 flex justify-between items-end">
-        <div>
+      {/* Вспомогательный статус-бар, если тренировка уже тикает */}
+      {isTimerStarted && (
+        <div className="pt-2">
           <span className="text-[10px] font-black uppercase tracking-widest text-red-500 block animate-pulse">
             • ТРЕНИРОВКА В ПРОЦЕССЕ
           </span>
-          <h2 className="text-2xl font-black text-slate-900 uppercase tracking-tight">
+          <h2 className="text-xl font-black text-slate-900 uppercase tracking-tight">
             {customWorkoutName || "Активный комплекс"}
           </h2>
         </div>
-      </div>
-      {/* Список упражнений на тренировке */}
+      )}
+
+      {/* Список упражнений */}
       <div className="space-y-4">
         {selectedExercises.map((ex, exIndex) => (
           <div
@@ -191,6 +237,7 @@ export default function ActiveWorkoutSession({
                   </span>
                   <input
                     type="number"
+                    inputMode="decimal"
                     value={set.weight}
                     onChange={(e) =>
                       updateSetValues(
@@ -204,6 +251,7 @@ export default function ActiveWorkoutSession({
                   />
                   <input
                     type="number"
+                    inputMode="numeric"
                     value={set.reps}
                     onChange={(e) =>
                       updateSetValues(exIndex, setIndex, "reps", e.target.value)
@@ -239,7 +287,7 @@ export default function ActiveWorkoutSession({
         ))}
       </div>
 
-      {/* Опционально: Оставляем библиотеку снизу, чтобы добавить упражнение на ходу */}
+      {/* Добавление внепланового упражнения */}
       <div className="bg-white p-5 rounded-3xl border border-slate-100 space-y-3">
         <h4 className="text-xs font-black uppercase tracking-widest text-slate-400 px-1">
           Добавить внеплановое упражнение
@@ -258,17 +306,30 @@ export default function ActiveWorkoutSession({
         </div>
       </div>
 
-      {/* Панель управления сессией */}
-      <div className="flex gap-3 pt-2">
+      {/* Панель управления действиями */}
+      <div className="flex gap-3 pt-4">
         <button
-          onClick={cancelWorkout}
+          onClick={() => {
+            if (
+              window.confirm(
+                "Прервать тренировку? Текущие данные не будут сохранены.",
+              )
+            ) {
+              cancelWorkout();
+            }
+          }}
           className="w-1/3 h-14 bg-gray-100 text-gray-700 font-black text-xs uppercase tracking-widest rounded-2xl hover:bg-red-50 hover:text-red-600 transition-all"
         >
           Прервать
         </button>
         <button
           onClick={handleFinish}
-          className="w-2/3 h-14 bg-emerald-600 text-white font-black text-xs uppercase tracking-widest rounded-2xl hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-100 border-b-4 border-emerald-800 active:border-b-0 active:mt-1"
+          disabled={!isTimerStarted}
+          className={`w-2/3 h-14 font-black text-xs uppercase tracking-widest rounded-2xl transition-all shadow-lg border-b-4 ${
+            isTimerStarted
+              ? "bg-emerald-600 text-white hover:bg-emerald-700 shadow-emerald-100 border-emerald-800 active:border-b-0 active:mt-1 cursor-pointer"
+              : "bg-slate-200 text-slate-400 border-slate-300 cursor-not-allowed shadow-none"
+          }`}
         >
           Завершить тренировку 🏁
         </button>

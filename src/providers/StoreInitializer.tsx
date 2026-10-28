@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useState } from "react";
 import { User } from "@supabase/supabase-js";
 import { useUserStore } from "@/store/useUserStore";
 
@@ -13,13 +13,15 @@ export default function StoreInitializer({
   user,
   serverToday,
 }: StoreInitializerProps) {
-  useEffect(() => {
-    // обновляем состояние Zustand-стора сразу после монтирования компонента
+  // Функция внутри useState в React выполняется один раз
+  // при создании компонента — и на сервере, и на клиенте.
+  useState(() => {
     useUserStore.setState({
       user,
       selectedDate: serverToday,
     });
-  }, [user, serverToday]);
+    return true;
+  });
 
   return null;
 }

@@ -14,9 +14,9 @@ export default function CustomWorkoutBuilder({
   updateSetValues,
   removeExerciseFromWorkout,
   cancelWorkout,
-  saveWorkoutTemplate, // Предполагаем новую функцию в вашем хуке для сохранения шаблона
-}: CustomWorkoutBuilderProps & { saveWorkoutTemplate: () => void }) {
-  const handleSaveTemplate = () => {
+  saveWorkoutTemplate,
+}: CustomWorkoutBuilderProps) {
+  const handleSaveTemplate = async () => {
     if (!customWorkoutName.trim()) {
       toast.error("Введите название тренировки!");
       return;
@@ -25,8 +25,8 @@ export default function CustomWorkoutBuilder({
       toast.error("Добавьте хотя бы одно упражнение в шаблон!");
       return;
     }
-    saveWorkoutTemplate();
-    toast.success(`Шаблон "${customWorkoutName}" успешно сохранен!`);
+
+    await saveWorkoutTemplate();
   };
 
   return (

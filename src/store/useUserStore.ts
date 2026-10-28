@@ -1,6 +1,5 @@
 import { create } from "zustand";
 import { User } from "@supabase/supabase-js";
-import { toISODate } from "@/lib/utils/date-utils";
 
 interface UserState {
   user: User | null;
@@ -12,7 +11,7 @@ interface UserState {
 
 export const useUserStore = create<UserState>((set) => ({
   user: null,
-  selectedDate: toISODate(new Date()),
+  selectedDate: "",
 
   setUser: (user) => set({ user }),
   setSelectedDate: (date) => set({ selectedDate: date }),
