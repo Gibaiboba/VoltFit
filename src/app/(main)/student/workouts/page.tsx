@@ -106,6 +106,7 @@ export default function WorkoutsPage() {
                 addExerciseToWorkout={session.addExerciseToWorkout}
                 finishActiveWorkout={session.finishActiveWorkout}
                 cancelWorkout={session.cancelWorkout}
+                updateRestTime={session.updateRestTime}
               />
             </div>
           </motion.div>

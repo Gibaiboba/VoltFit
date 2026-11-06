@@ -120,6 +120,14 @@ export function useWorkoutSession() {
     isResetting,
   ]);
 
+  const updateRestTime = (exIndex: number, newSeconds: number) => {
+    setSelectedExercises((prev) =>
+      prev.map((ex, i) =>
+        i === exIndex ? { ...ex, rest_time: Math.max(0, newSeconds) } : ex,
+      ),
+    );
+  };
+
   const totalVolumeLoad = useMemo<number>(() => {
     return selectedExercises.reduce((totalEx, ex) => {
       const exVolume = ex.sets.reduce((totalSet, set) => {
@@ -181,7 +189,9 @@ export function useWorkoutSession() {
         id: exTemplate.id,
         title: exTemplate.title,
         met: exTemplate.met,
+        video_url: exTemplate.video_url,
         sets: [{ reps: "10", weight: "0", done: false }],
+        rest_time: 90,
       },
     ]);
   };
@@ -358,6 +368,7 @@ export function useWorkoutSession() {
     cancelWorkout,
     handleDurationChange,
     saveWorkoutTemplate,
+    updateRestTime,
     finishActiveWorkout,
     setIsCustomWorkoutActive: setIsBuilderActive,
     setIsActiveSessionActive,

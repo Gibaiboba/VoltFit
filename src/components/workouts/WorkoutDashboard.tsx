@@ -36,6 +36,7 @@ export default function WorkoutDashboard({
         title: "Отжимания от пола",
         met: 4.0,
         sets: [{ reps: "12", weight: "0", done: false }],
+        rest_time: 90,
       },
     ]);
     setCustomWorkoutName(

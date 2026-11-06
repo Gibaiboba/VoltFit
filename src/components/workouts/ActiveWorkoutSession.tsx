@@ -1,17 +1,53 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
-import {
-  Trash2,
-  PlusCircle,
-  CheckCircle,
-  Timer,
-  Play,
-  Info,
-} from "lucide-react";
+import { Trash2, PlusCircle, CheckCircle, Play, Info, X } from "lucide-react";
 import { toast } from "sonner";
-import { EXERCISES_DATABASE } from "@/constants/workout/exerciseData";
+import ExercisesCatalog from "@/components/workouts/ExercisesCatalog";
 import { ActiveWorkoutSessionProps } from "@/types/workout";
+
+declare global {
+  interface Window {
+    webkitAudioContext?: typeof AudioContext;
+  }
+}
+
+const playBeepSignal = (
+  frequency: number = 800,
+  duration: number = 0.15,
+): void => {
+  try {
+    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+
+    if (!AudioContextClass) return;
+
+    const ctx: AudioContext = new AudioContextClass();
+    const osc: OscillatorNode = ctx.createOscillator();
+    const gain: GainNode = ctx.createGain();
+
+    osc.type = "sine";
+    osc.frequency.setValueAtTime(frequency, ctx.currentTime);
+
+    gain.gain.setValueAtTime(0.1, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.00001, ctx.currentTime + duration);
+
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+
+    osc.start();
+    osc.stop(ctx.currentTime + duration);
+
+    // Автоматически уничтожаем контекст после завершения проигрывания скрипта
+    setTimeout(
+      () => {
+        ctx.close();
+      },
+      (duration + 0.1) * 1000,
+    );
+  } catch (e) {
+    console.error("Не удалось воспроизвести аудио-сигнал:", e);
+  }
+};
 
 // Расширяем ваши типы пропсом userWeight, который мы передаем из метаданных страницы
 interface EnhancedActiveWorkoutProps extends ActiveWorkoutSessionProps {
@@ -29,11 +65,13 @@ export default function ActiveWorkoutSession({
   addExerciseToWorkout,
   finishActiveWorkout,
   cancelWorkout,
+  updateRestTime,
 }: EnhancedActiveWorkoutProps) {
   // Флаг запуска тренировки: теперь по умолчанию false
   const [isTimerStarted, setIsTimerStarted] = useState<boolean>(false);
   const [secondsElapsed, setSecondsElapsed] = useState<number>(0);
   const [restTimeLeft, setRestTimeLeft] = useState<number | null>(null);
+  const [isCatalogOpen, setIsCatalogOpen] = useState<boolean>(false);
 
   // Секундомер тренировки: тикает ТОЛЬКО если тренировка запущена
   useEffect(() => {
@@ -46,26 +84,28 @@ export default function ActiveWorkoutSession({
     return () => clearInterval(mainTimer);
   }, [isTimerStarted]);
 
-  // Таймер отдыха: работает только во время активной сессии
+  // Тройной писк при окончании отдыха
   useEffect(() => {
-    if (restTimeLeft === null || !isTimerStarted) return;
+    if (restTimeLeft === null) return;
 
-    const restTimer = setInterval(() => {
-      setRestTimeLeft((prev) => {
-        if (prev === null) return null;
-        if (prev <= 1) {
-          clearInterval(restTimer);
-          toast("Отдых завершен! Пора делать следующий подход 🏋️‍♂️", {
-            position: "top-center",
-          });
-          return null;
-        }
-        return prev - 1;
-      });
+    if (restTimeLeft <= 0) {
+      setTimeout(() => {
+        setRestTimeLeft(null);
+      }, 0);
+
+      // Воспроизводим 3 быстрых сигнала
+      playBeepSignal(800, 0.15);
+      setTimeout(() => playBeepSignal(800, 0.15), 250);
+      setTimeout(() => playBeepSignal(800, 0.15), 500);
+      return;
+    }
+
+    const interval = setInterval(() => {
+      setRestTimeLeft((prev) => (prev !== null ? prev - 1 : null));
     }, 1000);
 
-    return () => clearInterval(restTimer);
-  }, [restTimeLeft, isTimerStarted]);
+    return () => clearInterval(interval);
+  }, [restTimeLeft]);
 
   // Живой подсчет калорий на основе MET, веса и прошедшего времени
   const liveBurnedCalories = useMemo(() => {
@@ -89,7 +129,6 @@ export default function ActiveWorkoutSession({
     setIndex: number,
     currentDone: boolean,
   ) => {
-    // Не даем отмечать подходы, пока тренировка физически не началась
     if (!isTimerStarted) {
       toast.error("Сначала запустите тренировку кнопкой «Старт» сверху!");
       return;
@@ -98,8 +137,12 @@ export default function ActiveWorkoutSession({
     const nextDoneState = !currentDone;
     updateSetValues(exIndex, setIndex, "done", nextDoneState);
 
+    // Запускаем таймер, только если сет отметили как выполненный
     if (nextDoneState) {
-      setRestTimeLeft(90); // Запуск 90 секунд отдыха
+      const exercise = selectedExercises[exIndex];
+      // Берем настроенный rest_time из упражнения, либо фолбек на 90 секунд
+      const targetRest = exercise?.rest_time || 90;
+      setRestTimeLeft(targetRest);
     }
   };
 
@@ -116,17 +159,34 @@ export default function ActiveWorkoutSession({
   };
   return (
     <div className="space-y-6 text-left relative pb-12">
-      {/* Плавающий виджет отдыха (показывается только во время активной фазы) */}
+      {/* ТАЙМЕР ОТДЫХА */}
       {restTimeLeft !== null && isTimerStarted && (
-        <div className="fixed bottom-24 right-6 bg-emerald-600 text-white font-black px-5 py-3 rounded-full shadow-2xl flex items-center gap-2 animate-bounce z-50">
-          <Timer size={18} className="animate-spin" />
-          <span>Отдых: {restTimeLeft} сек</span>
-          <button
-            onClick={() => setRestTimeLeft(null)}
-            className="ml-2 text-emerald-200 text-xs underline"
-          >
-            Пропустить
-          </button>
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 bg-slate-950/95 backdrop-blur-md text-white px-6 py-4 rounded-3xl shadow-2xl z-50 flex items-center gap-4 border border-slate-800 animate-in slide-in-from-bottom duration-300 w-[92%] max-w-sm">
+          <div className="flex flex-col text-left justify-center flex-1">
+            <span className="text-[9px] font-black uppercase tracking-widest text-emerald-400 mb-0.5">
+              Время отдыха
+            </span>
+            <span className="text-2xl font-black tabular-nums tracking-tight">
+              {Math.floor(restTimeLeft / 60)}:
+              {(restTimeLeft % 60).toString().padStart(2, "0")}
+            </span>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() =>
+                setRestTimeLeft((p) => (p !== null ? p + 30 : null))
+              }
+              className="px-3 py-2 bg-slate-900 hover:bg-slate-800 border border-slate-800 text-xs font-black uppercase tracking-wider rounded-xl transition-colors active:scale-95"
+            >
+              +30с
+            </button>
+            <button
+              onClick={() => setRestTimeLeft(null)}
+              className="px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-xs font-black uppercase tracking-wider rounded-xl transition-all shadow-md shadow-emerald-900/20 active:scale-95"
+            >
+              Пропустить
+            </button>
+          </div>
         </div>
       )}
 
@@ -153,7 +213,7 @@ export default function ActiveWorkoutSession({
           </button>
         </div>
       ) : (
-        /* Закрепленные живые панели статистики */
+        /* Закрепленные панели статистики */
         <div className="sticky top-0 bg-slate-50 pt-2 pb-4 z-40 grid grid-cols-1 md:grid-cols-3 gap-4 border-b border-slate-200/50">
           <div className="bg-slate-900 text-white p-4 rounded-2xl flex flex-col justify-center shadow-md">
             <span className="text-[9px] font-black uppercase tracking-widest text-blue-400">
@@ -217,6 +277,52 @@ export default function ActiveWorkoutSession({
               </button>
             </div>
 
+            {/* Рендерим видео, только если оно привязано к упражнению */}
+            {ex.video_url && (
+              <div className="w-full aspect-video rounded-2xl overflow-hidden bg-slate-900 border border-slate-100 shadow-inner relative group">
+                <video
+                  src={ex.video_url}
+                  autoPlay
+                  loop
+                  muted
+                  playsInline
+                  className="w-full h-full object-cover"
+                />
+                <span className="absolute bottom-2 right-2 bg-slate-900/60 backdrop-blur-md text-[10px] font-black uppercase tracking-widest text-white px-2.5 py-1 rounded-lg">
+                  Техника выполнения
+                </span>
+              </div>
+            )}
+
+            {/*  Индивидуальная настройка времени отдыха */}
+            <div className="flex items-center justify-between bg-slate-50 p-3 rounded-2xl border border-slate-100/70">
+              <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+                Отдых после подходов:
+              </span>
+              <div className="flex items-center gap-1.5">
+                <button
+                  onClick={() =>
+                    updateRestTime(exIndex, (ex.rest_time || 90) - 15)
+                  }
+                  className="w-8 h-8 bg-white border border-slate-200 text-slate-600 font-bold rounded-xl flex items-center justify-center hover:bg-slate-100 transition-colors active:scale-90"
+                >
+                  -15с
+                </button>
+                <span className="text-xs font-black text-slate-800 min-w-[55px] text-center tabular-nums">
+                  {Math.floor((ex.rest_time || 90) / 60)}м{" "}
+                  {(ex.rest_time || 90) % 60}с
+                </span>
+                <button
+                  onClick={() =>
+                    updateRestTime(exIndex, (ex.rest_time || 90) + 15)
+                  }
+                  className="w-8 h-8 bg-white border border-slate-200 text-slate-600 font-bold rounded-xl flex items-center justify-center hover:bg-slate-100 transition-colors active:scale-90"
+                >
+                  +15с
+                </button>
+              </div>
+            </div>
+
             <div className="space-y-2">
               <div className="grid grid-cols-4 text-[10px] font-black uppercase tracking-wider text-slate-400 text-center px-2">
                 <span>Сет</span>
@@ -224,7 +330,6 @@ export default function ActiveWorkoutSession({
                 <span>Повторы</span>
                 <span>Готово</span>
               </div>
-
               {ex.sets.map((set, setIndex: number) => (
                 <div
                   key={setIndex}
@@ -287,24 +392,51 @@ export default function ActiveWorkoutSession({
         ))}
       </div>
 
-      {/* Добавление внепланового упражнения */}
-      <div className="bg-white p-5 rounded-3xl border border-slate-100 space-y-3">
-        <h4 className="text-xs font-black uppercase tracking-widest text-slate-400 px-1">
-          Добавить внеплановое упражнение
-        </h4>
-        <div className="flex flex-wrap gap-2">
-          {EXERCISES_DATABASE.map((exTemplate) => (
-            <button
-              key={exTemplate.id}
-              onClick={() => addExerciseToWorkout(exTemplate)}
-              className="p-2.5 bg-slate-50 hover:bg-red-50 border border-slate-200 hover:border-red-200 rounded-2xl text-xs font-medium text-slate-700 transition-all flex items-center gap-2"
-            >
-              <span>{exTemplate.image}</span>
-              <span>{exTemplate.title}</span>
-            </button>
-          ))}
-        </div>
+      {/* КНОПКА ВЫЗОВА КАТАЛОГА УПРАЖНЕНИЙ */}
+      <div className="pt-2">
+        <button
+          onClick={() => setIsCatalogOpen(true)}
+          className="w-full py-4 bg-slate-50 hover:bg-slate-100 border-2 border-dashed border-slate-200 hover:border-slate-300 text-slate-500 hover:text-slate-750 rounded-2xl text-xs font-black uppercase tracking-widest transition-all flex items-center justify-center gap-2 active:scale-[0.98]"
+        >
+          <PlusCircle size={16} /> Добавить внеплановое упражнение
+        </button>
       </div>
+
+      {/* ВСПЛЫВАЮЩИЙ КАТАЛОГ  */}
+      {isCatalogOpen && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 animate-in fade-in duration-200">
+          <div className="bg-slate-50 w-full max-w-2xl rounded-t-[32px] sm:rounded-[32px] shadow-2xl overflow-hidden max-h-[85vh] sm:max-h-[90vh] flex flex-col animate-in slide-in-from-bottom duration-300 text-left">
+            {/* Шапка модального окна */}
+            <div className="p-5 bg-white border-b border-slate-100 flex justify-between items-center shrink-0">
+              <div>
+                <h3 className="text-lg font-black text-slate-950 uppercase tracking-tight">
+                  Каталог упражнений
+                </h3>
+                <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider mt-0.5">
+                  Выберите движения для добавления в текущую сессию
+                </p>
+              </div>
+              <button
+                onClick={() => setIsCatalogOpen(false)}
+                className="p-2.5 bg-slate-50 hover:bg-slate-100 text-slate-400 hover:text-slate-600 rounded-xl transition-colors"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Контент каталога со скроллом */}
+            <div className="overflow-y-auto p-5 space-y-4 class-scroll-clean">
+              <ExercisesCatalog
+                onSelectExercise={(ex) => {
+                  addExerciseToWorkout(ex);
+                  setIsCatalogOpen(false); // Автоматически закрываем каталог после добавления
+                  toast.success(`Упражнение "${ex.title}" добавлено!`);
+                }}
+              />
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Панель управления действиями */}
       <div className="flex gap-3 pt-4">

@@ -18,6 +18,8 @@ export interface WorkoutExercise {
   title: string;
   met: number;
   sets: WorkoutSet[];
+  video_url?: string;
+  rest_time: number;
 }
 
 // Шаблон упражнения из статической базы данных (библиотеки)
@@ -26,6 +28,9 @@ export interface ExerciseTemplate {
   title: string;
   met: number;
   image: string;
+  category: "Грудь" | "Спина" | "Ноги" | "Плечи" | "Руки" | "Пресс" | string;
+  video_url?: string;
+  target_muscle: string;
 }
 
 // Модель сохраненного шаблона тренировки
@@ -68,6 +73,7 @@ export interface ActiveWorkoutSessionProps {
   removeExerciseFromWorkout: (index: number) => void;
   addExerciseToWorkout: (exTemplate: ExerciseTemplate) => void;
   finishActiveWorkout: (finalDuration: number) => Promise<void>;
+  updateRestTime: (exIndex: number, newSeconds: number) => void;
   cancelWorkout: () => void;
 }
 
