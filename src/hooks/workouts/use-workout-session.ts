@@ -14,6 +14,7 @@ import { FITNESS_QUESTIONS } from "@/constants/workout/fitnessQuestion";
 import { useUpdateProfile } from "@/hooks/useUpdateProfile";
 import { useDashboardMutations } from "@/hooks/use-student-dashboard/use-mutations";
 import { DailyLog } from "@/types/shared";
+import { UserProfile } from "@/types/user";
 
 export function useWorkoutSession() {
   const queryClient = useQueryClient();
@@ -106,7 +107,8 @@ export function useWorkoutSession() {
     "dashboard" | "onboarding" | "custom_workout" | "active_workout"
   >(() => {
     if (!profile) return "dashboard";
-    if (!onboardingMetadata.fitness_onboarding_completed && !isResetting) {
+
+    if (!onboardingMetadata.fitness_onboarding_completed) {
       return "onboarding";
     }
     if (isActiveSessionActive) return "active_workout";
@@ -117,7 +119,6 @@ export function useWorkoutSession() {
     onboardingMetadata.fitness_onboarding_completed,
     isBuilderActive,
     isActiveSessionActive,
-    isResetting,
   ]);
 
   const updateRestTime = (exIndex: number, newSeconds: number) => {
@@ -157,27 +158,87 @@ export function useWorkoutSession() {
     if (currentQuestionIndex < FITNESS_QUESTIONS.length - 1) {
       setCurrentQuestionIndex((p) => p + 1);
     } else {
+      const userId = profile?.id;
+      if (!userId) return;
+
       const newMetadata = {
         ...onboardingMetadata,
         fitness_onboarding_completed: true,
         fitness_answers: updated,
       };
 
-      updateProfile({ onboarding_metadata: newMetadata });
-      setIsResetting(false);
-      setCurrentQuestionIndex(0);
+      queryClient.setQueryData<typeof profile>(
+        ["user-profile", userId],
+        (oldData) => {
+          if (!oldData) return oldData;
+          return {
+            ...oldData,
+            onboarding_metadata: newMetadata,
+          };
+        },
+      );
+
+      // 2. Отправляем данные на сервер
+      updateProfile(
+        { onboarding_metadata: newMetadata },
+        {
+          onSuccess: () => {
+            // 3. Сбрасываем индекс ТОЛЬКО после того, как экран УЖЕ переключился на дашборд
+            setIsResetting(false);
+            setCurrentQuestionIndex(0);
+            toast.success("План тренировок успешно сформирован!");
+          },
+          onError: () => {
+            toast.error("Не удалось сохранить ответы опроса");
+            // Если сервер лег — откатываем кэш назад, чтобы юзер мог попробовать еще раз
+            queryClient.invalidateQueries({
+              queryKey: ["user-profile", userId],
+            });
+          },
+        },
+      );
     }
   };
 
   const resetFitnessOptions = () => {
+    const userId = profile?.id;
+    if (!userId) {
+      toast.error("Пользователь не авторизован");
+      return;
+    }
     setIsResetting(true);
+    setCurrentQuestionIndex(0);
+    setLocalAnswers({});
+
     const newMetadata = {
       ...onboardingMetadata,
       fitness_onboarding_completed: false,
       fitness_answers: {},
     };
 
-    updateProfile({ onboarding_metadata: newMetadata });
+    queryClient.setQueryData<UserProfile | null>(
+      ["user-profile", userId],
+      (oldData) => {
+        if (!oldData) return oldData;
+        return {
+          ...oldData,
+          onboarding_metadata: newMetadata,
+        };
+      },
+    );
+    updateProfile(
+      { onboarding_metadata: newMetadata },
+      {
+        onSuccess: () => {
+          toast.success("Параметры сброшены. Пройдите опрос заново.");
+        },
+        onError: (err) => {
+          console.error("Ошибка при синхронизации с БД:", err);
+          toast.error("Не удалось сохранить изменения на сервере");
+          queryClient.invalidateQueries({ queryKey: ["user-profile", userId] });
+        },
+      },
+    );
   };
 
   // --- Методы конструктора тренировок ---
@@ -368,6 +429,7 @@ export function useWorkoutSession() {
     cancelWorkout,
     handleDurationChange,
     saveWorkoutTemplate,
+    isResetting,
     updateRestTime,
     finishActiveWorkout,
     setIsCustomWorkoutActive: setIsBuilderActive,

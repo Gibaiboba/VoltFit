@@ -18,9 +18,11 @@ export function useUpdateProfile() {
 
       if (error) throw error;
     },
+
     onSuccess: () => {
-      // Это заставит useUserProfile сделать новый запрос и автоматически обновить Zustand
-      queryClient.invalidateQueries({ queryKey: ["user-profile"] });
+      if (userId) {
+        queryClient.invalidateQueries({ queryKey: ["user-profile", userId] });
+      }
     },
   });
 }

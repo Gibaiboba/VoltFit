@@ -6,7 +6,7 @@ import { useWorkoutSession } from "@/hooks/workouts/use-workout-session";
 import WorkoutOnboarding from "@/components/workouts/WorkoutOnboarding";
 import WorkoutDashboard from "@/components/workouts/WorkoutDashboard";
 import CustomWorkoutBuilder from "@/components/workouts/CustomWorkoutBuilder";
-import ActiveWorkoutSession from "@/components/workouts/ActiveWorkoutSession";
+import ActiveWorkoutSession from "@/components/workouts/ActiveWorkoutSession/ActiveWorkoutSession";
 
 export default function WorkoutsPage() {
   const session = useWorkoutSession();
