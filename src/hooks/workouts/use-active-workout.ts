@@ -21,6 +21,7 @@ export const useActiveWorkout = ({
   const [secondsElapsed, setSecondsElapsed] = useState<number>(0);
   const [restTimeLeft, setRestTimeLeft] = useState<number | null>(null);
   const [isCatalogOpen, setIsCatalogOpen] = useState<boolean>(false);
+  const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
 
   // Секундомер тренировки: тикает ТОЛЬКО если тренировка запущена
   useEffect(() => {
@@ -90,7 +91,10 @@ export const useActiveWorkout = ({
   };
 
   // Обработчик завершения тренировки
-  const handleFinish = () => {
+  const handleFinish = async () => {
+    // 1. Мгновенная блокировка от повторного вызова
+    if (isSubmitting) return;
+
     const hasActiveSets = selectedExercises.some((ex) =>
       ex.sets.some((s) => s.done),
     );
@@ -98,8 +102,16 @@ export const useActiveWorkout = ({
       toast.error("Отметьте хотя бы один выполненный подход галочкой!");
       return;
     }
-    const finalMinutes = Math.round(secondsElapsed / 60) || 1;
-    finishActiveWorkout(finalMinutes);
+
+    setIsSubmitting(true); // Блокируем кнопку
+    setIsTimerStarted(false); // Сразу останавливаем секундомер
+
+    try {
+      const finalMinutes = Math.round(secondsElapsed / 60) || 1;
+      await finishActiveWorkout(finalMinutes);
+    } finally {
+      setIsSubmitting(false); // Разблокируем после завершения (на случай ошибки сети)
+    }
   };
 
   return {
@@ -115,5 +127,6 @@ export const useActiveWorkout = ({
     formattedTime,
     handleToggleSetDone,
     handleFinish,
+    isSubmitting,
   };
 };

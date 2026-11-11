@@ -82,8 +82,8 @@ export default function StudentTabsLayout({
         setFormData={dashActions.setFormData}
         userWeight={userWeight}
         userGender={userGender}
-        onSave={async () => {
-          dashActions.handleSave();
+        onSave={async (deletedWorkoutIds?: string[]) => {
+          dashActions.handleSave(deletedWorkoutIds);
           closeActivityModal();
         }}
         isSaving={dashState.isSaving}

@@ -5,13 +5,16 @@ import { studentService } from "@/services/student.service";
 import { supabase } from "@/lib/supabase";
 import { useUserStore } from "@/store/useUserStore";
 import { DailyLog } from "@/types/shared";
-import { ACTIVITIES_MAP } from "@/constants/activities";
 import { toast } from "sonner";
 
 interface InfiniteLogsCacheStructure {
   pages: DailyLog[][];
   pageParams: (string | undefined)[];
 }
+
+type SaveLogPayload = Partial<DailyLog> & {
+  deletedWorkoutIds?: string[];
+};
 
 interface MutationRollbackContext {
   previousRangeQueries: [QueryKey, DailyLog[] | undefined][];
@@ -29,12 +32,32 @@ export const useDashboardMutations = (
   const saveMutation = useMutation<
     DailyLog,
     Error,
-    Partial<DailyLog>,
+    SaveLogPayload,
     MutationRollbackContext
   >({
-    mutationFn: (logData) => studentService.saveLog(userId, logData),
+    // 2. Обновляем mutationFn: отделяем deletedWorkoutIds от данных дневника
+    mutationFn: async ({ deletedWorkoutIds, ...logData }) => {
+      // Сохраняем основной лог дня в daily_logs
+      const savedLog = await studentService.saveLog(userId, logData);
 
-    onMutate: async (newLogData): Promise<MutationRollbackContext> => {
+      // Если были удалены силовые тренировки — чистим их в таблице workout_logs
+      if (deletedWorkoutIds && deletedWorkoutIds.length > 0) {
+        await Promise.all(
+          deletedWorkoutIds.map((id) => studentService.deleteWorkoutLog(id)),
+        );
+        // Инвалидируем кэш истории тренировок (проверь свой ключ кэша для workout_logs)
+        await queryClient.invalidateQueries({ queryKey: ["workout-logs"] });
+      }
+
+      return savedLog;
+    },
+
+    // 3. В onMutate сразу отсекаем deletedWorkoutIds, чтобы не засорять кэш DailyLog
+    onMutate: async (payload): Promise<MutationRollbackContext> => {
+      // Создаем копию без deletedWorkoutIds
+      const newLogData = { ...payload };
+      delete newLogData.deletedWorkoutIds;
+
       if (!newLogData.log_date) {
         throw new Error("log_date is required for optimistic updates");
       }
@@ -59,24 +82,22 @@ export const useDashboardMutations = (
 
       const updateLogEntries = (old: DailyLog[] = []): DailyLog[] => {
         const exists = old.some((l) => l.log_date === targetDate);
-
         const dayActivities = newLogData.activities || [];
-        const computedActivityName =
-          dayActivities.length > 0
-            ? dayActivities
-                .map((a) => {
-                  const config = ACTIVITIES_MAP[a.activity_id];
-                  return config
-                    ? config.name.split(" ").slice(1).join(" ")
-                    : "Тренировка";
-                })
-                .join(", ")
-            : "День без тренировок";
+
+        // Автоматический пересчет сожженных калорий прямо в мутации на лету!
+        const computedBurnedCalories = dayActivities.reduce(
+          (sum, act) => sum + (Number(act.burned_calories) || 0),
+          0,
+        );
 
         if (exists) {
           return old.map((l) =>
             l.log_date === targetDate
-              ? { ...l, ...newLogData, activity_name: computedActivityName }
+              ? {
+                  ...l,
+                  ...newLogData,
+                  burned_calories: computedBurnedCalories,
+                }
               : l,
           );
         }
@@ -93,9 +114,8 @@ export const useDashboardMutations = (
           carbs: 0,
           sleep_hours: 0,
           water: 0,
-          activities: [],
-          burned_calories: 0,
-          activity_name: computedActivityName,
+          activities: dayActivities,
+          burned_calories: computedBurnedCalories,
           created_at: new Date().toISOString(),
           ...newLogData,
         };

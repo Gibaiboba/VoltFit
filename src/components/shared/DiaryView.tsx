@@ -18,11 +18,9 @@ import { MealType } from "@/types/food";
 import { MEAL_SLOTS } from "@/constants/mealTypes";
 import WaterTrackerCard from "@/components/student/WaterTrackerCard";
 import { ActivitySection } from "@/components/student/activity-section";
-import { ActivityModal } from "@/components/student/activity-modal";
 import { useActivityModalStore } from "@/store/useActivityModalStore";
 import { useStudentDashboard } from "@/hooks/use-student-dashboard/index";
 import { useServerToday } from "@/providers/DateProvider";
-import { useUserProfile } from "@/hooks/use-user-profile";
 
 export default function DiaryPage() {
   const serverToday = useServerToday();
@@ -30,18 +28,9 @@ export default function DiaryPage() {
   const selectedDate = useUserStore((state) => state.selectedDate);
   const setSelectedDate = useUserStore((state) => state.setSelectedDate);
 
-  // 💡 ДОСТАЕМ ЮЗЕРА ИЗ STOРA И СТУЧИМСЯ В КЭШ REACT QUERY
-  const userId = useUserStore((state) => state.user?.id);
-  const { data: profile } = useUserProfile(userId);
-
-  // Стабильные фитнес-дефолты, берутся мгновенно из памяти приложения
-  const userWeight = Number(profile?.weight) || 70;
-  const userGender = (profile?.gender as "male" | "female") || "female";
-
   // инициализация личного дашборда активностей и модалки
-  const { state: dashState, actions: dashActions } = useStudentDashboard();
-  const { isActivityModalOpen, closeActivityModal, openActivityModal } =
-    useActivityModalStore();
+  const { state: dashState } = useStudentDashboard();
+  const { openActivityModal } = useActivityModalStore();
 
   const activeMealType = useMealStore((state) => state.activeMealType);
   const setMealType = useMealStore((state) => state.setMealType);
@@ -139,15 +128,6 @@ export default function DiaryPage() {
     [displayMeals, clearItems, loadItems, setMealType],
   );
 
-  // Обработчик сохранения активности из модалки
-  const handleSaveActivity = async () => {
-    try {
-      dashActions.handleSave();
-      closeActivityModal();
-    } catch (err) {
-      console.error(err);
-    }
-  };
   return (
     <div className="p-2 bg-[var(--background)] min-h-screen pt-18 text-slate-900 relative">
       <AsyncBoundary
@@ -226,17 +206,6 @@ export default function DiaryPage() {
           </section>
         </div>
       </AsyncBoundary>
-
-      <ActivityModal
-        isOpen={isActivityModalOpen}
-        onClose={closeActivityModal}
-        formData={dashState.formData}
-        setFormData={dashActions.setFormData}
-        userWeight={userWeight}
-        userGender={userGender}
-        onSave={handleSaveActivity}
-        isSaving={dashState.isSaving}
-      />
     </div>
   );
 }

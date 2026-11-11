@@ -37,6 +37,7 @@ export default function ActiveWorkoutSession({
     formattedTime,
     handleToggleSetDone,
     handleFinish,
+    isSubmitting,
   } = useActiveWorkout({
     selectedExercises,
     userWeight,
@@ -156,15 +157,16 @@ export default function ActiveWorkoutSession({
           Прервать
         </button>
         <button
+          type="button"
           onClick={handleFinish}
-          disabled={!isTimerStarted}
+          disabled={!isTimerStarted || isSubmitting}
           className={`w-2/3 h-14 font-black text-xs uppercase tracking-widest rounded-2xl transition-all shadow-lg border-b-4 ${
-            isTimerStarted
+            isTimerStarted && !isSubmitting
               ? "bg-emerald-600 text-white hover:bg-emerald-700 shadow-emerald-100 border-emerald-800 active:border-b-0 active:mt-1 cursor-pointer"
               : "bg-slate-200 text-slate-400 border-slate-300 cursor-not-allowed shadow-none"
           }`}
         >
-          Завершить тренировку 🏁
+          {isSubmitting ? "Сохраняем тренировку..." : "Завершить тренировку 🏁"}
         </button>
       </div>
     </div>

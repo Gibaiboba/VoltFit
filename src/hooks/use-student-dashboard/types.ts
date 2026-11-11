@@ -7,6 +7,8 @@ export interface LoggedActivity {
   activity_id: string; // Ключ из ACTIVITIES_MAP
   duration: number; // Минуты
   burned_calories: number; // Рассчитанные калории именно за эту сессию
+  name?: string;
+  workout_log_id?: string; //это для точного удаления из двух таблиц
 }
 
 export interface Log {
@@ -69,7 +71,8 @@ export interface StudentDashboardHook {
   };
   actions: {
     handleDateChange: (date: string) => void;
-    handleSave: () => void;
+    handleSave: (deletedWorkoutIds?: string[]) => void;
+
     setFormData: (updater: FormUpdater) => void;
     addWater: () => void;
     removeWater: () => void;

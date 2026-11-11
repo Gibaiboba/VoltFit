@@ -15,11 +15,12 @@ import { useUpdateProfile } from "@/hooks/useUpdateProfile";
 import { useDashboardMutations } from "@/hooks/use-student-dashboard/use-mutations";
 import { DailyLog } from "@/types/shared";
 import { UserProfile } from "@/types/user";
+import { useServerToday } from "@/providers/DateProvider";
 
 export function useWorkoutSession() {
   const queryClient = useQueryClient();
   const { data: profile, isLoading } = useUserProfile();
-
+  const serverToday = useServerToday();
   // Подключаем мутацию дашборда прямо в сессию тренировки!
   const { saveMutation } = useDashboardMutations(profile?.id || "", () => {});
 
@@ -330,63 +331,73 @@ export function useWorkoutSession() {
     try {
       if (!profile?.id) return;
 
-      // Вычисляем сожжённые калории на основе финального времени секундомера
+      // 1. Вычисляем сожжённые калории тренировки
       const avgMet =
-        selectedExercises.reduce((sum, ex) => sum + ex.met, 0) /
-        selectedExercises.length;
+        selectedExercises.length > 0
+          ? selectedExercises.reduce((sum, ex) => sum + ex.met, 0) /
+            selectedExercises.length
+          : 5; // Безопасный дефолт MET
+
       const finalCalories = Math.round(
         avgMet * 3.5 * (userWeight / 200) * finalDuration,
       );
 
-      // А. Сначала сохраняем историю в таблицу workout_logs
-      await mutateSaveWorkoutLog({
+      // А. Сохраняем детальный лог в таблицу workout_logs
+      const savedWorkoutLog = await mutateSaveWorkoutLog({
         duration: finalDuration,
         calories: finalCalories,
       });
+      // Б. ИСПРАВЛЕННЫЙ ПОИСК КЭША: достаем данные дневника/трекера
+      const allRangeQueries = queryClient.getQueriesData<DailyLog[]>({
+        queryKey: ["student-logs-range", profile.id],
+      });
 
-      //  Достаем из кэша TanStack Query текущий лог за СЕГОДНЯ, чтобы не затереть шаги/воду/бег
-      const todayStr = new Date().toISOString().split("T")[0];
+      // Извлекаем массив из первой найденной структуры кэша
+      const firstCacheTuple = allRangeQueries[0];
+      const cachedLogs = firstCacheTuple ? firstCacheTuple[1] : [];
+      const todayLogFromCache = cachedLogs?.find(
+        (l) => l.log_date === serverToday,
+      );
 
-      // Ищем кэш диапазона или конкретного лога, который использует дашборд
-      const cachedLogs =
-        queryClient.getQueryData<DailyLog[]>([
-          "student-logs-range",
-          profile.id,
-        ]) || [];
-
-      const todayLogFromCache = cachedLogs.find((l) => l.log_date === todayStr);
-
-      //  Формируем новый объект активности по ACTIVITIES_MAP
+      // В. Формируем новый объект активности ДЛЯ МАССИВА JSONB (без верхнеуровневых полей)
       const newGymActivity = {
         id: crypto.randomUUID(),
+        workout_log_id: savedWorkoutLog.id,
         activity_id: "strength_normal",
         burned_calories: finalCalories,
         duration: finalDuration,
-        // Имя, которое автоматически распарсится мутацией дашборда
-        name: `Силовая: ${customWorkoutName}`,
+        name: customWorkoutName,
       };
 
-      // Соединяем старые активности за сегодня с новой тренировкой
       const currentActivities = todayLogFromCache?.activities || [];
       const updatedActivities = [...currentActivities, newGymActivity];
 
-      // Запускаем оптимистичную мутацию дашборда!
-      // Она обновит кружки и графики на StudentClient в памяти
-      saveMutation.mutate({
-        log_date: todayStr,
+      // Г. Считаем общую сумму сожженных калорий за день
+      const totalDayBurnedCalories = updatedActivities.reduce(
+        (sum, act) => sum + (Number(act.burned_calories) || 0),
+        0,
+      );
+
+      // Д. Запускаем безопасную мутацию дашборда (без отправки лишней колонки activity_name)
+      await saveMutation.mutateAsync({
+        log_date: serverToday,
         activities: updatedActivities,
-        // Передаем старые значения, чтобы оптимистичный апдейт их сохранил
+        burned_calories: totalDayBurnedCalories,
         steps: todayLogFromCache?.steps || 0,
         weight: todayLogFromCache?.weight || undefined,
         water: todayLogFromCache?.water || 0,
         sleep_hours: todayLogFromCache?.sleep_hours || 0,
       });
 
-      // Полный сброс активного экрана в дефолт
+      // Полный сброс экрана сессии
       setIsActiveSessionActive(false);
       setSelectedExercises([]);
       setWorkoutDuration(0);
       setCustomWorkoutName("Моя тренировка");
+
+      toast.success(
+        "Тренировка сохранена! КБЖУ в дневнике успешно обновлен 🚀",
+      );
     } catch (error) {
       console.error("Ошибка при завершении тренировки:", error);
       toast.error("Не удалось завершить тренировку. Проверьте сеть.");

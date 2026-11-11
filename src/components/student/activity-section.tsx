@@ -1,12 +1,7 @@
 "use client";
 
 import { ACTIVITIES_MAP } from "@/constants/activities";
-
-// Описываем тип для одной активности из formData
-interface LoggedActivity {
-  activity_id: string;
-  duration: number;
-}
+import { LoggedActivity } from "@/hooks/use-student-dashboard/types";
 
 interface ActivitySectionProps {
   activities: LoggedActivity[] | undefined;
@@ -29,19 +24,18 @@ export function ActivitySection({
         </p>
 
         {activities && activities.length > 0 ? (
-          // Выводим активности списком друг под другом
           <div className="space-y-1">
             {activities.map((act, index) => {
-              const nameWithEmoji =
-                ACTIVITIES_MAP[act.activity_id]?.name || "🏋️ Тренировка";
-              const cleanName = nameWithEmoji.split(" ").slice(1).join(" ");
+              const cleanName =
+                act.name ||
+                ACTIVITIES_MAP[act.activity_id]?.name ||
+                "🏋️ Тренировка";
 
               return (
                 <div
-                  key={index}
+                  key={act.id || index}
                   className="flex items-center gap-2 text-sm font-bold text-slate-700"
                 >
-                  {/* Компактный маркер списка */}
                   <span className="w-1 h-1 rounded-full bg-orange-400 shrink-0" />
                   <span className="break-words">
                     {cleanName} ({act.duration} мин)
@@ -51,7 +45,6 @@ export function ActivitySection({
             })}
           </div>
         ) : (
-          // Если тренировок нет
           <p className="text-sm font-bold text-slate-400 italic">
             День без тренировок
           </p>

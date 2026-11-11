@@ -6,7 +6,6 @@ import { ACTIVITIES_MAP } from "@/constants/activities";
 import { LoggedActivity } from "@/hooks/use-student-dashboard/types";
 import { ActivityModalProps } from "@/types/activity";
 
-// Из пропсов и типов полностью удалены: currentCalories, targetCalories, calProgress
 export function ActivityModal({
   isOpen,
   onClose,
@@ -14,20 +13,21 @@ export function ActivityModal({
   setFormData,
   onSave,
   isSaving,
-  userWeight, // Передаем вес текущего пользователя из профиля/БД
-  userGender, // Передаем пол текущего пользователя из профиля/БД
+  userWeight,
+  userGender,
 }: Omit<
   ActivityModalProps,
-  "currentCalories" | "targetCalories" | "calProgress"
+  "currentCalories" | "targetCalories" | "calProgress" | "onSave"
 > & {
   userWeight: number;
   userGender: "male" | "female";
+  onSave: (deletedWorkoutIds?: string[]) => void;
 }) {
-  // Локальные стейты для конструирования ОДНОЙ текущей добавляемой сессии
   const [localActivityId, setLocalActivityId] = useState("");
   const [localDuration, setLocalDuration] = useState("");
+  // Очередь ID записей из workout_logs, которые нужно удалить при нажатии "Сохранить"
+  const [deletedWorkoutIds, setDeletedWorkoutIds] = useState<string[]>([]);
 
-  // ПОДСЧЕТ СУММЫ НА ЛЕТУ ИЗ ТЕКУЩЕГО МАССИВА СЕССИЙ
   const totalBurnedCalories = (formData.activities || []).reduce(
     (sum, act) => sum + (Number(act.burned_calories) || 0),
     0,
@@ -43,21 +43,28 @@ export function ActivityModal({
       document.body.style.overflow = "unset";
     };
   }, [isOpen]);
-
   if (!isOpen) return null;
 
   const categories = Array.from(
     new Set(Object.values(ACTIVITIES_MAP).map((a) => a.category)),
   );
 
-  // Добавление новой сессии в массив активностей дня
+  const handleClose = () => {
+    setDeletedWorkoutIds([]); // Сбрасываем очередь прямо при клике
+    onClose();
+  };
+
+  const handleSaveClick = () => {
+    onSave(deletedWorkoutIds);
+    setDeletedWorkoutIds([]); // Очищаем очередь после отправки
+  };
+
   const handleAddSession = () => {
     if (!localActivityId || Number(localDuration) <= 0) return;
 
     const config = ACTIVITIES_MAP[localActivityId];
     if (!config) return;
 
-    // Считаем калории конкретно этой добавляемой сессии на основе пропсов из БД
     const genderFactor = userGender === "female" ? 0.014 : 0.015;
     const sessionBurned = Math.round(
       config.met * genderFactor * userWeight * Number(localDuration),
@@ -70,19 +77,25 @@ export function ActivityModal({
       burned_calories: sessionBurned,
     };
 
-    // Пушим в массив formData через иммутабельный апдейтер
     setFormData((prev) => ({
       ...prev,
       activities: [...(prev.activities || []), newSession],
     }));
 
-    // Очищаем инпуты конструктора сессии
     setLocalActivityId("");
     setLocalDuration("");
   };
 
-  // Удаление конкретной сессии из массива
   const handleRemoveSession = (sessionId: string) => {
+    // 1. Проверяем, привязана ли удаляемая активность к таблице workout_logs
+    const targetActivity = (formData.activities || []).find(
+      (act) => act.id === sessionId,
+    );
+    if (targetActivity?.workout_log_id) {
+      setDeletedWorkoutIds((prev) => [...prev, targetActivity.workout_log_id!]);
+    }
+
+    // 2. Удаляем из локального списка формы
     setFormData((prev) => ({
       ...prev,
       activities: (prev.activities || []).filter((act) => act.id !== sessionId),
@@ -108,7 +121,7 @@ export function ActivityModal({
           </p>
         </div>
 
-        {/* БЛОК 1. КОНСТРУКТОР СЕССИИ (ДОБАВЛЕНИЕ) */}
+        {/* БЛОК 1. КОНСТРУКТОР СЕССИИ */}
         <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm space-y-3">
           <h3 className="text-xs font-black uppercase text-slate-400 tracking-wider">
             Новая тренировка
@@ -126,7 +139,7 @@ export function ActivityModal({
                     .filter((a) => a.category === category)
                     .map((a) => (
                       <option key={a.id} value={a.id}>
-                        {a.name.split(" ").slice(1).join(" ")}
+                        {a.name}
                       </option>
                     ))}
                 </optgroup>
@@ -154,7 +167,7 @@ export function ActivityModal({
           </div>
         </div>
 
-        {/* БЛОК 2. СПИСОК УЖЕ ДОБАВЛЕННЫХ ТРЕНИРОВОК ЗА СЕГОДНЯ */}
+        {/* БЛОК 2. СПИСОК ДОБАВЛЕННЫХ ТРЕНИРОВОК */}
         <div className="flex-1 overflow-y-auto space-y-2 max-h-[200px] pr-1">
           <h3 className="text-xs font-black uppercase text-slate-400 tracking-wider">
             Запланировано на сегодня
@@ -167,6 +180,8 @@ export function ActivityModal({
           ) : (
             formData.activities.map((act) => {
               const config = ACTIVITIES_MAP[act.activity_id];
+              const displayName = act.name || config?.name || "Тренировка";
+
               return (
                 <div
                   key={act.id}
@@ -174,7 +189,7 @@ export function ActivityModal({
                 >
                   <div className="text-left">
                     <p className="text-xs font-bold text-slate-700">
-                      {config?.name || "Тренировка"}
+                      {displayName}
                     </p>
                     <p className="text-[10px] text-slate-400 font-medium">
                       Длительность: {act.duration} мин |{" "}
@@ -195,7 +210,6 @@ export function ActivityModal({
           )}
         </div>
 
-        {/* ИТОГОВАЯ СУММА — ИСПОЛЬЗУЕТ ДИНАМИЧЕСКИЙ СЧЕТЧИК */}
         {totalBurnedCalories > 0 && (
           <div className="p-3 bg-amber-50 rounded-xl flex items-center gap-2 text-amber-700 text-xs font-semibold border border-amber-100">
             <Flame className="w-4 h-4 text-amber-500 animate-pulse" />
@@ -206,13 +220,14 @@ export function ActivityModal({
         {/* КНОПКИ ДЕЙСТВИЙ */}
         <div className="flex gap-3 pt-2 shrink-0">
           <button
-            onClick={onClose}
+            onClick={handleClose}
             className="flex-1 p-3.5 bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold rounded-2xl transition-all text-xs"
           >
             Отмена
           </button>
           <button
-            onClick={onSave}
+            type="button"
+            onClick={handleSaveClick}
             disabled={isSaving}
             className="flex-1 p-3.5 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-2xl transition-all flex items-center justify-center gap-2 disabled:opacity-50 text-xs"
           >

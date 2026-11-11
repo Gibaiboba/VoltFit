@@ -16,7 +16,6 @@ import { useStudentDashboard } from "@/hooks/use-student-dashboard/index";
 import { useMacroStats } from "@/hooks/use-macro-stats";
 import AsyncBoundary from "@/components/shared/AsyncBoundary";
 import { useUserStore } from "@/store/useUserStore";
-import { ActivityModal } from "@/components/student/activity-modal";
 import { useActivityModalStore } from "@/store/useActivityModalStore";
 import { useDailyLogValidation } from "@/hooks/use-daily-log-validation";
 import SleepMetricInput from "@/components/student/sleep-metric-input";
@@ -25,8 +24,7 @@ import CountdownWidget from "@/components/dashboard/CountdownWidget";
 export default function StudentClient() {
   const { state, actions } = useStudentDashboard();
   const { selectedDate } = useUserStore();
-  const { isActivityModalOpen, closeActivityModal, openActivityModal } =
-    useActivityModalStore();
+  const { openActivityModal } = useActivityModalStore();
   const {
     loading,
     error,
@@ -50,9 +48,7 @@ export default function StudentClient() {
     targetCarbs,
   } = state;
 
-  // извлекаем вес и пол из уже загруженного профиля
   const userWeight = Number(profile?.weight) || 70;
-  const userGender = (profile?.gender as "male" | "female") || "female";
 
   // Извлекаем метаданные онбординга (дедлайн)
   const onboardingMetadata = profile?.onboarding_metadata || {};
@@ -98,15 +94,6 @@ export default function StudentClient() {
     { p: targetProteins || 0, f: targetFats || 0, c: targetCarbs || 0 },
     { p: currentProteins || 0, f: currentFats || 0, c: currentCarbs || 0 },
   );
-
-  const handleSaveActivity = () => {
-    try {
-      handleSave();
-      closeActivityModal();
-    } catch (err) {
-      console.error(err);
-    }
-  };
 
   return (
     <div className="p-2 bg-[var(--background)] min-h-screen pt-20 text-slate-900">
@@ -196,7 +183,7 @@ export default function StudentClient() {
               className={isFormInvalid ? "opacity-30 pointer-events-none" : ""}
             >
               <SaveButton
-                onClick={handleSave}
+                onClick={() => handleSave()}
                 isSaving={isSaving}
                 hasLog={hasLog}
               />
@@ -204,17 +191,6 @@ export default function StudentClient() {
           </div>
         </div>
       </AsyncBoundary>
-
-      <ActivityModal
-        isOpen={isActivityModalOpen}
-        onClose={closeActivityModal}
-        formData={formData}
-        setFormData={setFormData}
-        userWeight={userWeight}
-        userGender={userGender}
-        onSave={handleSaveActivity}
-        isSaving={isSaving}
-      />
     </div>
   );
 }

@@ -92,21 +92,25 @@ export const useStudentDashboard = (): StudentDashboardHook => {
   }, [stats.formData.water]);
 
   // Теперь передаем новые поля активности в мутацию сохранения
-  const handleSave = useCallback((): void => {
-    saveMutation.mutate({
-      log_date: selectedDate,
-      steps: parseInt(stats.formData.steps) || 0,
-      weight: parseFloat(stats.formData.weight) || 0,
-      calories: stats.currentCalories,
-      proteins: stats.currentProteins,
-      fats: stats.currentFats,
-      carbs: stats.currentCarbs,
-      sleep_hours: parseFloat(stats.formData.sleep_hours) || 0,
-      water: stats.formData.water,
-      activities: stats.formData.activities,
-      burned_calories: stats.burnedCalories,
-    });
-  }, [selectedDate, stats, saveMutation]);
+  const handleSave = useCallback(
+    (deletedWorkoutIds?: string[]): void => {
+      saveMutation.mutate({
+        log_date: selectedDate,
+        steps: parseInt(stats.formData.steps) || 0,
+        weight: parseFloat(stats.formData.weight) || 0,
+        calories: stats.currentCalories,
+        proteins: stats.currentProteins,
+        fats: stats.currentFats,
+        carbs: stats.currentCarbs,
+        sleep_hours: parseFloat(stats.formData.sleep_hours) || 0,
+        water: stats.formData.water,
+        activities: stats.formData.activities,
+        burned_calories: stats.burnedCalories,
+        deletedWorkoutIds,
+      });
+    },
+    [selectedDate, stats, saveMutation],
+  );
 
   return {
     state: {

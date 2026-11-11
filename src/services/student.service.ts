@@ -110,4 +110,16 @@ export const studentService = {
     if (error) throw error;
     return data || [];
   },
+
+  /**
+   * Удалить детальную запись силовой тренировки из workout_logs
+   */
+  async deleteWorkoutLog(workoutLogId: string): Promise<void> {
+    const { error } = await supabase
+      .from("workout_logs")
+      .delete()
+      .eq("id", workoutLogId);
+
+    if (error) throw error;
+  },
 };

@@ -12,11 +12,11 @@ export default function WorkoutsPage() {
   const session = useWorkoutSession();
   const isWorkoutActive = session.activeScreen === "active_workout";
 
-  // Перехват системной кнопки "Назад" в браузере / на смартфоне
+  const { cancelWorkout } = session;
+
   useEffect(() => {
     if (!isWorkoutActive) return;
 
-    // Пушим фейковое состояние, блокируя мгновенный уход со страницы
     window.history.pushState({ overlay: "workout-active" }, "");
 
     const handlePopState = () => {
@@ -25,16 +25,15 @@ export default function WorkoutsPage() {
       );
 
       if (confirmClose) {
-        session.cancelWorkout();
+        cancelWorkout();
       } else {
-        // Возвращаем фейковую точку в историю, если пользователь передумал выходить
         window.history.pushState({ overlay: "workout-active" }, "");
       }
     };
 
     window.addEventListener("popstate", handlePopState);
     return () => window.removeEventListener("popstate", handlePopState);
-  }, [isWorkoutActive, session]);
+  }, [isWorkoutActive, cancelWorkout]);
 
   if (session.isLoading) {
     return (
