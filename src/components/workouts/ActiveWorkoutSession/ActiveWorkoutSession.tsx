@@ -3,69 +3,69 @@
 import { PlusCircle, X } from "lucide-react";
 import { toast } from "sonner";
 import ExercisesCatalog from "@/components/workouts/ExercisesCatalog";
-import { ActiveWorkoutSessionProps } from "@/types/workout";
 import { useActiveWorkout } from "@/hooks/workouts/use-active-workout";
 import { RestTimerModal } from "@/components/workouts/ActiveWorkoutSession/RestTimerModal";
 import { WorkoutHeader } from "@/components/workouts/ActiveWorkoutSession/WorkoutHeader";
 import { ExerciseItem } from "@/components/workouts/ActiveWorkoutSession/ExerciseItem";
 
-interface EnhancedActiveWorkoutProps extends ActiveWorkoutSessionProps {
+interface ActiveWorkoutSessionProps {
   userWeight: number;
+  finishActiveWorkout: (finalDurationMinutes: number) => Promise<void>;
 }
 
 export default function ActiveWorkoutSession({
-  customWorkoutName,
-  selectedExercises,
-  totalVolumeLoad,
   userWeight,
-  updateSetValues,
-  addSetToExercise,
-  removeExerciseFromWorkout,
-  addExerciseToWorkout,
   finishActiveWorkout,
-  cancelWorkout,
-  updateRestTime,
-}: EnhancedActiveWorkoutProps) {
+}: ActiveWorkoutSessionProps) {
   const {
+    customWorkoutName,
+    selectedExercises,
     isTimerStarted,
-    setIsTimerStarted,
+    handleStartTimer,
+    minimizeWorkout,
+    cancelWorkout,
     restTimeLeft,
-    setRestTimeLeft,
+    addRestSeconds,
+    skipRest,
     isCatalogOpen,
     setIsCatalogOpen,
+    totalVolumeLoad,
     liveBurnedCalories,
     formattedTime,
+    addExercise,
+    removeExercise,
+    addSet,
+    updateSet,
+    updateRestTime,
     handleToggleSetDone,
     handleFinish,
     isSubmitting,
   } = useActiveWorkout({
-    selectedExercises,
     userWeight,
     finishActiveWorkout,
-    updateSetValues,
   });
 
   return (
     <div className="space-y-6 text-left relative pb-12">
-      {/*  ПЛАВАЮЩИЙ ТАЙМЕР ОТДЫХА */}
+      {/* ПЛАВАЮЩИЙ ТАЙМЕР ОТДЫХА */}
       {restTimeLeft !== null && isTimerStarted && (
         <RestTimerModal
           restTimeLeft={restTimeLeft}
-          onAddSeconds={() =>
-            setRestTimeLeft((p) => (p !== null ? p + 30 : null))
-          }
-          onSkip={() => setRestTimeLeft(null)}
+          onAddSeconds={() => addRestSeconds(30)}
+          onSkip={skipRest}
         />
       )}
 
-      {/* 2. ШАПКА ТРЕНИРОВКИ (Статистика или Режим Подготовки) */}
+      {/* ШАПКА ТРЕНИРОВКИ */}
       <WorkoutHeader
         isTimerStarted={isTimerStarted}
         customWorkoutName={customWorkoutName}
         totalVolumeLoad={totalVolumeLoad}
         liveBurnedCalories={liveBurnedCalories}
         formattedTime={formattedTime}
-        onStartTimer={() => setIsTimerStarted(true)}
+        onStartTimer={handleStartTimer}
+        onMinimize={minimizeWorkout}
+        onCancel={cancelWorkout}
       />
 
       {/* Вспомогательный статус-бар активного режима */}
@@ -80,18 +80,18 @@ export default function ActiveWorkoutSession({
         </div>
       )}
 
-      {/* 3. СПИСОК УПРАЖНЕНИЙ */}
+      {/* СПИСОК УПРАЖНЕНИЙ */}
       <div className="space-y-4">
         {selectedExercises.map((ex, exIndex) => (
           <ExerciseItem
             key={exIndex}
             ex={ex}
             exIndex={exIndex}
-            onRemoveExercise={removeExerciseFromWorkout}
+            onRemoveExercise={removeExercise}
             onUpdateRestTime={updateRestTime}
-            onUpdateSetValues={updateSetValues}
+            onUpdateSetValues={updateSet}
             onToggleSetDone={handleToggleSetDone}
-            onAddSet={addSetToExercise}
+            onAddSet={addSet}
           />
         ))}
       </div>
@@ -99,6 +99,7 @@ export default function ActiveWorkoutSession({
       {/* КНОПКА ВЫЗОВА КАТАЛОГА УПРАЖНЕНИЙ */}
       <div className="pt-2">
         <button
+          type="button"
           onClick={() => setIsCatalogOpen(true)}
           className="w-full py-4 bg-slate-50 hover:bg-slate-100 border-2 border-dashed border-slate-200 hover:border-slate-300 text-slate-500 hover:text-slate-750 rounded-2xl text-xs font-black uppercase tracking-widest transition-all flex items-center justify-center gap-2 active:scale-[0.98]"
         >
@@ -120,6 +121,7 @@ export default function ActiveWorkoutSession({
                 </p>
               </div>
               <button
+                type="button"
                 onClick={() => setIsCatalogOpen(false)}
                 className="p-2.5 bg-slate-50 hover:bg-slate-100 text-slate-400 hover:text-slate-600 rounded-xl transition-colors"
               >
@@ -130,7 +132,7 @@ export default function ActiveWorkoutSession({
             <div className="overflow-y-auto p-5 space-y-4 class-scroll-clean">
               <ExercisesCatalog
                 onSelectExercise={(ex) => {
-                  addExerciseToWorkout(ex);
+                  addExercise(ex);
                   setIsCatalogOpen(false);
                   toast.success(`Упражнение "${ex.title}" добавлено!`);
                 }}
@@ -143,6 +145,7 @@ export default function ActiveWorkoutSession({
       {/* НИЖНЯЯ ПАНЕЛЬ ДЕЙСТВИЙ */}
       <div className="flex gap-3 pt-4">
         <button
+          type="button"
           onClick={() => {
             if (
               window.confirm(

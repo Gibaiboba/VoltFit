@@ -16,6 +16,8 @@ import { useDashboardMutations } from "@/hooks/use-student-dashboard/use-mutatio
 import { DailyLog } from "@/types/shared";
 import { UserProfile } from "@/types/user";
 import { useServerToday } from "@/providers/DateProvider";
+import { useActiveWorkoutStore } from "@/store/useActiveWorkoutStore";
+import { WorkoutTemplate } from "@/types/workout";
 
 export function useWorkoutSession() {
   const queryClient = useQueryClient();
@@ -42,6 +44,9 @@ export function useWorkoutSession() {
   );
   const [workoutDuration, setWorkoutDuration] = useState<number>(0);
 
+  const startWorkoutSession = useActiveWorkoutStore(
+    (state) => state.startWorkoutSession,
+  );
   // Безопасные дефолтные значения из профиля
   const onboardingMetadata = useMemo<Partial<OnboardingMetadata>>(() => {
     return profile?.onboarding_metadata || {};
@@ -101,6 +106,60 @@ export function useWorkoutSession() {
       toast.error("Не удалось сохранить шаблон в базу данных");
     },
   });
+
+  // Мутация удаления шаблона из БД
+  const { mutateAsync: mutateDeleteTemplate, isPending: isDeletingTemplate } =
+    useMutation({
+      mutationFn: async (templateId: string) => {
+        if (!profile?.id) throw new Error("Пользователь не авторизован");
+
+        const { error } = await supabase
+          .from("workout_templates")
+          .delete()
+          .eq("id", templateId);
+
+        if (error) throw error;
+      },
+      onMutate: async (templateId) => {
+        // Отменяем текущие запросы списка шаблонов
+        await queryClient.cancelQueries({
+          queryKey: ["workout-templates", profile?.id],
+        });
+
+        // Сохраняем предыдущее состояние кэша на случай ошибки
+        const previousTemplates = queryClient.getQueryData<WorkoutTemplate[]>([
+          "workout-templates",
+          profile?.id,
+        ]);
+
+        // Мгновенно убираем шаблон из интерфейса (Optimistic UI)
+        queryClient.setQueryData<WorkoutTemplate[]>(
+          ["workout-templates", profile?.id],
+          (old) => (old ? old.filter((t) => t.id !== templateId) : []),
+        );
+
+        return { previousTemplates };
+      },
+      onSuccess: () => {
+        toast.success("Шаблон тренировки удален");
+      },
+      onError: (error, _templateId, context) => {
+        // Откатываем кэш назад, если произошла ошибка сети
+        if (context?.previousTemplates) {
+          queryClient.setQueryData(
+            ["workout-templates", profile?.id],
+            context.previousTemplates,
+          );
+        }
+        console.error("Ошибка при удалении шаблона:", error);
+        toast.error("Не удалось удалить шаблон");
+      },
+      onSettled: () => {
+        queryClient.invalidateQueries({
+          queryKey: ["workout-templates", profile?.id],
+        });
+      },
+    });
 
   // --- Вычисляемые свойства ---
 
@@ -416,6 +475,17 @@ export function useWorkoutSession() {
     setWorkoutDuration(Math.max(0, parseInt(e.target.value) || 0));
   };
 
+  const launchGlobalWorkout = (active: boolean) => {
+    if (active) {
+      // 1. Вызываем обновление глобального стора напрямую
+      startWorkoutSession(customWorkoutName, selectedExercises);
+
+      // 2. Очищаем локальные черновики конструктора
+      setSelectedExercises([]);
+      setCustomWorkoutName("Моя тренировка");
+    }
+  };
+
   return {
     userWeight,
     isLoading,
@@ -444,6 +514,8 @@ export function useWorkoutSession() {
     updateRestTime,
     finishActiveWorkout,
     setIsCustomWorkoutActive: setIsBuilderActive,
-    setIsActiveSessionActive,
+    setIsActiveSessionActive: launchGlobalWorkout,
+    deleteWorkoutTemplate: mutateDeleteTemplate,
+    isDeletingTemplate,
   };
 }

@@ -1,6 +1,7 @@
 "use client";
 
 import { Activity, Utensils, Dumbbell, User } from "lucide-react";
+import { AnimatePresence, motion } from "framer-motion";
 import FoodConstructor from "@/components/food/food-constructor";
 import { ActivityModal } from "@/components/student/activity-modal";
 import { useTabsLayoutLogic } from "@/hooks/use-tabs-layout-logic";
@@ -8,6 +9,10 @@ import { StudentQuickMenu } from "@/components/student/student-quick-menu";
 import { StudentBottomBar } from "@/components/student/student-bottom-bar";
 import { useUserProfile } from "@/hooks/use-user-profile";
 import { useUserStore } from "@/store/useUserStore";
+import { useActiveWorkoutStore } from "@/store/useActiveWorkoutStore";
+import { FloatingWorkoutBar } from "@/components/workouts/FloatingWorkoutBar";
+import ActiveWorkoutSession from "@/components/workouts/ActiveWorkoutSession/ActiveWorkoutSession";
+import { useFinishWorkout } from "@/hooks/workouts/use-finish-workout";
 
 const LEFT_TABS = [
   { id: "/student/diary", label: "Дневник", icon: Utensils },
@@ -44,13 +49,17 @@ export default function StudentTabsLayout({
     handleFastWaterAdd,
   } = useTabsLayoutLogic();
 
-  // Забираем ID из Zustand и берем профиль из общего кэша TanStack Query
   const userId = useUserStore((state) => state.user?.id);
   const { data: profile } = useUserProfile(userId);
 
-  // Запасные фитнес-дефолты берутся мгновенно из памяти приложения
   const userWeight = Number(profile?.weight) || 70;
   const userGender = (profile?.gender as "male" | "female") || "female";
+
+  // Подключаем глобальный стор активной тренировки
+  const { isWorkoutActive, isMinimized } = useActiveWorkoutStore();
+  const { finishActiveWorkout } = useFinishWorkout();
+
+  const isFullWorkoutOpen = isWorkoutActive && !isMinimized;
 
   return (
     <div className="min-h-screen bg-[#F8F9FA]">
@@ -63,6 +72,29 @@ export default function StudentTabsLayout({
       >
         {children}
       </main>
+
+      {/* ПОЛНОЭКРАННЫЙ ОВЕРЛЕЙ АКТИВНОЙ ТРЕНИРОВКИ (РАБОТАЕТ ПОВЕРХ ЛЮБОЙ ВКЛАДКИ) */}
+      <AnimatePresence>
+        {isFullWorkoutOpen && (
+          <motion.div
+            initial={{ y: "100%" }}
+            animate={{ y: 0 }}
+            exit={{ y: "100%" }}
+            transition={{ type: "spring", damping: 30, stiffness: 250 }}
+            className="fixed inset-0 bg-slate-50 z-50 overflow-y-auto pt-4 sm:pt-8 rounded-t-[32px] shadow-2xl"
+          >
+            <div className="max-w-4xl mx-auto w-full p-4 sm:p-6 md:p-8">
+              <ActiveWorkoutSession
+                userWeight={userWeight}
+                finishActiveWorkout={finishActiveWorkout}
+              />
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* ПЛАВАЮЩАЯ ПЛАШКА СВЁРНУТОЙ ТРЕНИРОВКИ */}
+      {!isConstructorOpen && <FloatingWorkoutBar />}
 
       {activeMealType && (
         <div className="fixed inset-0 bg-slate-50 z-50 overflow-y-auto animate-in fade-in slide-in-from-bottom-8 duration-300">
@@ -93,7 +125,7 @@ export default function StudentTabsLayout({
         <div className="fixed inset-0 bg-slate-900/30 backdrop-blur-md z-40 animate-in fade-in duration-200" />
       )}
 
-      {!isConstructorOpen && (
+      {!isConstructorOpen && !isFullWorkoutOpen && (
         <div
           ref={menuRef}
           className="fixed bottom-0 left-0 right-0 z-50 px-6 pb-[calc(1.2rem+env(safe-area-inset-bottom))] md:pb-6"
