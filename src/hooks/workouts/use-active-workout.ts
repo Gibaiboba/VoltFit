@@ -3,16 +3,14 @@ import { toast } from "sonner";
 import { playBeepSignal } from "@/lib/utils/beep-signal";
 import { formatTime } from "@/lib/utils/format-number";
 import { useActiveWorkoutStore } from "@/store/useActiveWorkoutStore";
+import { useFinishWorkout } from "@/hooks/workouts/use-finish-workout";
 
 interface UseActiveWorkoutProps {
   userWeight: number;
-  finishActiveWorkout: (finalDurationMinutes: number) => Promise<void>;
 }
 
-export const useActiveWorkout = ({
-  userWeight,
-  finishActiveWorkout,
-}: UseActiveWorkoutProps) => {
+export const useActiveWorkout = ({ userWeight }: UseActiveWorkoutProps) => {
+  const { finishActiveWorkout } = useFinishWorkout();
   const {
     customWorkoutName,
     selectedExercises,
@@ -146,7 +144,9 @@ export const useActiveWorkout = ({
     try {
       const finalMinutes = Math.round(secondsElapsed / 60) || 1;
       await finishActiveWorkout(finalMinutes);
-      resetWorkoutSession(); // Очищаем глобальный стор после успешного сохранения
+      resetWorkoutSession();
+    } catch {
+      // Ошибка уже показана пользователю в useFinishWorkout
     } finally {
       isSubmittingRef.current = false;
       setIsSubmitting(false);

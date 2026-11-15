@@ -31,9 +31,6 @@ export default function WorkoutDashboard({
   onboardingMetadata,
   userGlobalGoal,
   setIsCustomWorkoutActive,
-  setIsActiveSessionActive,
-  setSelectedExercises,
-  setCustomWorkoutName,
   resetFitnessOptions,
   onDeleteTemplate,
   savedTemplates = [], // По умолчанию пустой массив, если шаблонов еще нет
@@ -44,7 +41,12 @@ export default function WorkoutDashboard({
 
   // Быстрый запуск базового комплекса (сразу отправляет в плеер)
   const handleLaunchDefaultWorkout = () => {
-    setSelectedExercises([
+    const workoutTitle =
+      userGlobalGoal === "lose_weight"
+        ? "Жиросжигающий интенсив"
+        : "Силовой комплекс";
+
+    const defaultExercises: WorkoutExercise[] = [
       {
         id: "push_ups",
         title: "Отжимания от пола",
@@ -52,20 +54,14 @@ export default function WorkoutDashboard({
         sets: [{ reps: "12", weight: "0", done: false }],
         rest_time: 90,
       },
-    ]);
-    setCustomWorkoutName(
-      userGlobalGoal === "lose_weight"
-        ? "Жиросжигающий интенсив"
-        : "Силовой комплекс",
-    );
-    setIsActiveSessionActive(true); // Запуск плеера тренировки
+    ];
+
+    startWorkoutSession(workoutTitle, defaultExercises);
   };
 
   // Быстрый старт пустой тренировки (на ходу)
   const handleLaunchEmptyWorkout = () => {
-    setSelectedExercises([]);
-    setCustomWorkoutName("Быстрая тренировка");
-    setIsActiveSessionActive(true); // Запуск плеера тренировки
+    startWorkoutSession("Быстрая тренировка", []);
   };
 
   // Запуск конкретного кастомного шаблона

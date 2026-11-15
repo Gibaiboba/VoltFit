@@ -12,7 +12,6 @@ import { useUserStore } from "@/store/useUserStore";
 import { useActiveWorkoutStore } from "@/store/useActiveWorkoutStore";
 import { FloatingWorkoutBar } from "@/components/workouts/FloatingWorkoutBar";
 import ActiveWorkoutSession from "@/components/workouts/ActiveWorkoutSession/ActiveWorkoutSession";
-import { useFinishWorkout } from "@/hooks/workouts/use-finish-workout";
 
 const LEFT_TABS = [
   { id: "/student/diary", label: "Дневник", icon: Utensils },
@@ -57,7 +56,6 @@ export default function StudentTabsLayout({
 
   // Подключаем глобальный стор активной тренировки
   const { isWorkoutActive, isMinimized } = useActiveWorkoutStore();
-  const { finishActiveWorkout } = useFinishWorkout();
 
   const isFullWorkoutOpen = isWorkoutActive && !isMinimized;
 
@@ -84,10 +82,7 @@ export default function StudentTabsLayout({
             className="fixed inset-0 bg-slate-50 z-50 overflow-y-auto pt-4 sm:pt-8 rounded-t-[32px] shadow-2xl"
           >
             <div className="max-w-4xl mx-auto w-full p-4 sm:p-6 md:p-8">
-              <ActiveWorkoutSession
-                userWeight={userWeight}
-                finishActiveWorkout={finishActiveWorkout}
-              />
+              <ActiveWorkoutSession userWeight={userWeight} />
             </div>
           </motion.div>
         )}

@@ -10,12 +10,10 @@ import { ExerciseItem } from "@/components/workouts/ActiveWorkoutSession/Exercis
 
 interface ActiveWorkoutSessionProps {
   userWeight: number;
-  finishActiveWorkout: (finalDurationMinutes: number) => Promise<void>;
 }
 
 export default function ActiveWorkoutSession({
   userWeight,
-  finishActiveWorkout,
 }: ActiveWorkoutSessionProps) {
   const {
     customWorkoutName,
@@ -42,7 +40,6 @@ export default function ActiveWorkoutSession({
     isSubmitting,
   } = useActiveWorkout({
     userWeight,
-    finishActiveWorkout,
   });
 
   return (
