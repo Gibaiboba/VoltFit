@@ -1,10 +1,12 @@
 "use client";
 
 import { useUserStore } from "@/store/useUserStore";
+import { useActiveWorkoutStore } from "@/store/useActiveWorkoutStore";
 import { supabase } from "@/lib/supabase";
 import Image from "next/image";
 import { LogOut, User as UserIcon, LogIn } from "lucide-react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { User } from "@supabase/supabase-js";
 import { useQueryClient } from "@tanstack/react-query";
 import { UserProfile } from "@/types/user";
@@ -16,23 +18,28 @@ interface HeaderProps {
 }
 
 export default function Header({ initialUser, initialProfile }: HeaderProps) {
+  const router = useRouter();
   const user = useUserStore((state) => state.user);
   const clearUser = useUserStore((state) => state.clearUser);
   const queryClient = useQueryClient();
 
-  // Приоритет пользователю из Zustand (клиент), если пуст — берем серверного
   const displayUser = user || initialUser;
-
-  //передаем ID и серверные данные в качестве initialData.
-  // Запрос в сеть при старте НЕ пойдет. Но если профиль обновится в настройках,
-  // шапка моментально перерисуется!
   const { data: profile } = useUserProfile(displayUser?.id, initialProfile);
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
+
+    // 1. Полностью очищаем активную тренировку и её черновик в localStorage
+    useActiveWorkoutStore.getState().resetWorkoutSession();
+    localStorage.removeItem("voltfit-active-workout-storage");
+
+    // 2. Очищаем стор пользователя и кэш React Query
     clearUser();
-    queryClient.clear(); // Полностью чистим кэш React Query при выходе
-    window.location.href = "/";
+    queryClient.clear();
+
+    // 3. Делаем штатный переход на главную и обновляем серверные компоненты (шапку)
+    router.push("/");
+    router.refresh();
   };
 
   return (
@@ -79,8 +86,9 @@ export default function Header({ initialUser, initialProfile }: HeaderProps) {
             </Link>
 
             <button
+              type="button"
               onClick={handleLogout}
-              className="flex items-center gap-1 p-2 sm:p-0 text-slate-400 hover:text-red-400 transition-colors font-medium text-sm"
+              className="flex items-center gap-1 p-2 sm:p-0 text-slate-400 hover:text-red-400 transition-colors font-medium text-sm cursor-pointer"
               title="Выйти"
             >
               <LogOut size={18} className="shrink-0" />

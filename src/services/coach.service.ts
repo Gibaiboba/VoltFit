@@ -15,6 +15,8 @@ export const coachService = {
           daily_calories,
           gender,
           weight,
+          goal,
+          fitness_profile,
           daily_logs ( 
             weight,
             steps, 
@@ -102,5 +104,71 @@ export const coachService = {
     }
 
     return { success: true };
+  },
+
+  /**
+   * Получить все назначенные программы ученика (активную и архивные)
+   */
+  async getStudentPrograms(studentId: string) {
+    const { data, error } = await supabase
+      .from("assigned_programs")
+      .select("*")
+      .eq("student_id", studentId)
+      .order("created_at", { ascending: false });
+
+    if (error) throw error;
+    return data || [];
+  },
+
+  /**
+   * Назначить новую программу ученику (архивируя предыдущую активную)
+   */
+  async assignProgramToStudent(payload: {
+    studentId: string;
+    coachId: string;
+    programName: string;
+    coachNotes: string | null;
+    workouts: unknown[];
+  }) {
+    await supabase
+      .from("assigned_programs")
+      .update({ is_active: false })
+      .eq("student_id", payload.studentId)
+      .eq("is_active", true);
+
+    const { error } = await supabase.from("assigned_programs").insert({
+      student_id: payload.studentId,
+      coach_id: payload.coachId,
+      program_name: payload.programName,
+      coach_notes: payload.coachNotes,
+      workouts: payload.workouts,
+      is_active: true,
+    });
+
+    if (error) throw error;
+  },
+
+  /**
+   * Переключить статус активности программы (архивация / возврат из архива)
+   */
+  async setProgramActiveStatus(
+    studentId: string,
+    programId: string,
+    isActive: boolean,
+  ) {
+    if (isActive) {
+      await supabase
+        .from("assigned_programs")
+        .update({ is_active: false })
+        .eq("student_id", studentId)
+        .eq("is_active", true);
+    }
+
+    const { error } = await supabase
+      .from("assigned_programs")
+      .update({ is_active: isActive })
+      .eq("id", programId);
+
+    if (error) throw error;
   },
 };

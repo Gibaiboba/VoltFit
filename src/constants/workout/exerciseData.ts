@@ -9,6 +9,9 @@ export const EXERCISES_DATABASE: ExerciseTemplate[] = [
     category: "chest",
     target_muscle: "Грудь",
     image: "🏋️‍♂️",
+    locations: ["gym"],
+    equipment: ["full_gym"],
+    contraindications: ["heart"],
   },
   {
     id: "incline_dumbbell_press",
@@ -17,6 +20,8 @@ export const EXERCISES_DATABASE: ExerciseTemplate[] = [
     category: "chest",
     target_muscle: "Грудь",
     image: "💪",
+    locations: ["home", "gym"],
+    equipment: ["dumbbells", "full_gym"],
   },
   {
     id: "push_ups",
@@ -25,6 +30,8 @@ export const EXERCISES_DATABASE: ExerciseTemplate[] = [
     category: "chest",
     target_muscle: "Грудь/Трицепс",
     image: "🤸‍♂️",
+    locations: ["home", "gym", "street"],
+    equipment: ["bodyweight"],
   },
   {
     id: "chest_fly",
@@ -33,6 +40,8 @@ export const EXERCISES_DATABASE: ExerciseTemplate[] = [
     category: "chest",
     target_muscle: "Грудь",
     image: "🦋",
+    locations: ["gym"],
+    equipment: ["full_gym"],
   },
 
   // --- СПИНА (back) ---
@@ -43,6 +52,8 @@ export const EXERCISES_DATABASE: ExerciseTemplate[] = [
     category: "back",
     target_muscle: "Спина",
     image: "🧗‍♂️",
+    locations: ["gym", "street"],
+    equipment: ["pullup_bar", "full_gym"],
   },
   {
     id: "lat_pulldown",
@@ -51,6 +62,8 @@ export const EXERCISES_DATABASE: ExerciseTemplate[] = [
     category: "back",
     target_muscle: "Спина",
     image: "💪",
+    locations: ["gym"],
+    equipment: ["full_gym"],
   },
   {
     id: "barbell_row",
@@ -59,6 +72,9 @@ export const EXERCISES_DATABASE: ExerciseTemplate[] = [
     category: "back",
     target_muscle: "Спина",
     image: "🏋️‍♂️",
+    locations: ["gym"],
+    equipment: ["full_gym"],
+    contraindications: ["back", "postpartum"],
   },
   {
     id: "hyperextension",
@@ -67,6 +83,9 @@ export const EXERCISES_DATABASE: ExerciseTemplate[] = [
     category: "back",
     target_muscle: "Спина",
     image: "🧘‍♂️",
+    locations: ["gym"],
+    equipment: ["full_gym"],
+    contraindications: ["back"],
   },
 
   // --- НОГИ И ЯГОДИЦЫ (legs) ---
@@ -78,6 +97,9 @@ export const EXERCISES_DATABASE: ExerciseTemplate[] = [
     target_muscle: "Ноги",
     image: "🏋️‍♂️",
     video_url: "/videos/exercises/squats.mp4",
+    locations: ["gym"],
+    equipment: ["full_gym"],
+    contraindications: ["back", "knees", "heart", "postpartum"],
   },
   {
     id: "deadlift",
@@ -86,6 +108,9 @@ export const EXERCISES_DATABASE: ExerciseTemplate[] = [
     category: "legs",
     target_muscle: "Ноги/Спина",
     image: "🏋️‍♂️",
+    locations: ["gym"],
+    equipment: ["full_gym"],
+    contraindications: ["back", "knees", "heart", "postpartum"],
   },
   {
     id: "dumbell_lunges",
@@ -94,6 +119,9 @@ export const EXERCISES_DATABASE: ExerciseTemplate[] = [
     category: "legs",
     target_muscle: "Ноги",
     image: "🚶‍♂️",
+    locations: ["home", "gym", "street"],
+    equipment: ["dumbbells", "full_gym"],
+    contraindications: ["knees"],
   },
   {
     id: "leg_press",
@@ -103,6 +131,9 @@ export const EXERCISES_DATABASE: ExerciseTemplate[] = [
     target_muscle: "Ноги",
     image: "🦵",
     video_url: "/videos/exercises/legspress.mp4",
+    locations: ["gym"],
+    equipment: ["full_gym"],
+    contraindications: ["knees", "heart"],
   },
 
   // --- ПЛЕЧИ (shoulders) ---
@@ -113,6 +144,9 @@ export const EXERCISES_DATABASE: ExerciseTemplate[] = [
     category: "shoulders",
     target_muscle: "Плечи",
     image: "🏋️‍♂️",
+    locations: ["gym"],
+    equipment: ["full_gym"],
+    contraindications: ["back", "heart"],
   },
   {
     id: "lateral_raises",
@@ -122,6 +156,8 @@ export const EXERCISES_DATABASE: ExerciseTemplate[] = [
     target_muscle: "Плечи",
     image: "👐",
     video_url: "/videos/exercises/dumbellraises.mp4",
+    locations: ["home", "gym", "street"],
+    equipment: ["dumbbells", "full_gym"],
   },
 
   // --- РУКИ (arms) ---
@@ -132,6 +168,8 @@ export const EXERCISES_DATABASE: ExerciseTemplate[] = [
     category: "arms",
     target_muscle: "Руки",
     image: "💪",
+    locations: ["gym"],
+    equipment: ["full_gym"],
   },
   {
     id: "tricep_dips",
@@ -140,6 +178,8 @@ export const EXERCISES_DATABASE: ExerciseTemplate[] = [
     category: "arms",
     target_muscle: "Руки",
     image: "🤸‍♂️",
+    locations: ["gym", "street"],
+    equipment: ["pullup_bar", "full_gym"],
   },
   {
     id: "tricep_extension",
@@ -148,6 +188,8 @@ export const EXERCISES_DATABASE: ExerciseTemplate[] = [
     category: "arms",
     target_muscle: "Руки",
     image: "💪",
+    locations: ["gym"],
+    equipment: ["full_gym"],
   },
 
   // --- КОР И ПРЕСС (abs) ---
@@ -158,6 +200,9 @@ export const EXERCISES_DATABASE: ExerciseTemplate[] = [
     category: "abs",
     target_muscle: "Пресс",
     image: "🍫",
+    locations: ["home", "gym", "street"],
+    equipment: ["bodyweight"],
+    contraindications: ["back", "postpartum"],
   },
   {
     id: "plank",
@@ -166,6 +211,9 @@ export const EXERCISES_DATABASE: ExerciseTemplate[] = [
     category: "abs",
     target_muscle: "Пресс",
     image: "🧘‍♂️",
+    locations: ["home", "gym", "street"],
+    equipment: ["bodyweight"],
+    contraindications: ["postpartum"],
   },
 
   // --- КАРДИО И РАЗМИНКА (cardio) ---
@@ -176,6 +224,8 @@ export const EXERCISES_DATABASE: ExerciseTemplate[] = [
     category: "cardio",
     target_muscle: "Все тело",
     image: "🧘‍♂️",
+    locations: ["home", "gym", "street"],
+    equipment: ["bodyweight"],
   },
   {
     id: "treadmill_run",
@@ -184,5 +234,8 @@ export const EXERCISES_DATABASE: ExerciseTemplate[] = [
     category: "cardio",
     target_muscle: "Кардио",
     image: "🏃‍♂️",
+    locations: ["gym"],
+    equipment: ["full_gym"],
+    contraindications: ["knees", "heart", "postpartum"],
   },
 ];

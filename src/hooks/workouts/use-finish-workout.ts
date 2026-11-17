@@ -129,5 +129,7 @@ export function useFinishWorkout() {
     }
   };
 
+  queryClient.invalidateQueries({ queryKey: ["workout-logs", userId] });
+
   return { finishActiveWorkout };
 }

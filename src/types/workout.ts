@@ -1,10 +1,3 @@
-// Метаданные анбординга пользователя
-export interface OnboardingMetadata {
-  fitness_onboarding_completed: boolean;
-  energy_level?: string;
-  fitness_answers: Record<string, string>;
-}
-
 // Данные одиночного подхода (сета) в упражнении
 export interface WorkoutSet {
   reps: string;
@@ -22,15 +15,40 @@ export interface WorkoutExercise {
   rest_time: number;
 }
 
+export type ExerciseLocation = "home" | "gym" | "street";
+export type ExerciseEquipment =
+  | "bodyweight"
+  | "bands"
+  | "dumbbells"
+  | "pullup_bar"
+  | "full_gym";
+export type HealthRestriction =
+  | "back"
+  | "knees"
+  | "heart"
+  | "injuries"
+  | "postpartum";
+
 // Шаблон упражнения из статической базы данных (библиотеки)
 export interface ExerciseTemplate {
   id: string;
   title: string;
   met: number;
   image: string;
-  category: "Грудь" | "Спина" | "Ноги" | "Плечи" | "Руки" | "Пресс" | string;
+  category:
+    | "chest"
+    | "back"
+    | "legs"
+    | "shoulders"
+    | "arms"
+    | "abs"
+    | "cardio"
+    | string;
   video_url?: string;
   target_muscle: string;
+  locations?: ExerciseLocation[];
+  equipment?: ExerciseEquipment[];
+  contraindications?: HealthRestriction[];
 }
 
 // Модель сохраненного шаблона тренировки
@@ -39,6 +57,7 @@ export interface WorkoutTemplate {
   name: string;
   exercises: WorkoutExercise[];
 }
+
 // Пропсы для конструктора шаблонов (CustomWorkoutBuilder)
 export interface CustomWorkoutBuilderProps {
   customWorkoutName: string;
@@ -57,51 +76,41 @@ export interface CustomWorkoutBuilderProps {
   saveWorkoutTemplate: () => Promise<void>;
 }
 
-// Пропсы для активной сессии (ActiveWorkoutSession)
-export interface ActiveWorkoutSessionProps {
-  customWorkoutName: string;
-  selectedExercises: WorkoutExercise[];
-  totalVolumeLoad: number;
-  totalBurnedCalories: number;
-  updateSetValues: (
-    exIndex: number,
-    setIndex: number,
-    field: "reps" | "weight" | "done",
-    value: string | boolean,
-  ) => void;
-  addSetToExercise: (index: number) => void;
-  removeExerciseFromWorkout: (index: number) => void;
-  addExerciseToWorkout: (exTemplate: ExerciseTemplate) => void;
-  finishActiveWorkout: (finalDuration: number) => Promise<void>;
-  updateRestTime: (exIndex: number, newSeconds: number) => void;
-  cancelWorkout: () => void;
+// Типы шагов онбординга
+export type QuestionType = "single" | "multiple" | "text";
+
+export interface FitnessQuestionOption {
+  label: string;
+  value: string;
 }
 
-// Пропсы для дашборда (WorkoutDashboard)
-export interface WorkoutDashboardProps {
-  onboardingMetadata: Partial<OnboardingMetadata>;
-  userGlobalGoal: string;
-  setIsCustomWorkoutActive: (active: boolean) => void;
-  setIsActiveSessionActive: (active: boolean) => void;
-  setSelectedExercises: (exercises: WorkoutExercise[]) => void;
-  setCustomWorkoutName: (name: string) => void;
-  resetFitnessOptions: () => void;
-  savedTemplates?: WorkoutTemplate[];
+export interface FitnessQuestion {
+  id: string;
+  title: string;
+  subtitle?: string;
+  type: QuestionType;
+  femaleOnly?: boolean;
+  placeholder?: string;
+  options?: FitnessQuestionOption[];
 }
-export interface ActiveWorkoutSessionProps {
-  customWorkoutName: string;
-  selectedExercises: WorkoutExercise[];
-  totalVolumeLoad: number;
-  totalBurnedCalories: number;
-  updateSetValues: (
-    exIndex: number,
-    setIndex: number,
-    field: "reps" | "weight" | "done",
-    value: string | boolean,
-  ) => void;
-  addSetToExercise: (exIndex: number) => void;
-  removeExerciseFromWorkout: (exIndex: number) => void;
-  addExerciseToWorkout: (exercise: ExerciseTemplate) => void;
-  finishActiveWorkout: (finalDuration: number) => Promise<void>;
-  cancelWorkout: () => void;
+
+// Ответы спортивного онбординга
+export type FitnessAnswers = Record<string, string | string[]>;
+
+export interface FitnessProfile {
+  completed: boolean;
+  answers: FitnessAnswers;
+  updated_at?: string;
+}
+
+// Программа тренировок, назначенная тренером (таблица assigned_programs)
+export interface AssignedProgram {
+  id: string;
+  student_id: string;
+  coach_id?: string;
+  program_name: string;
+  coach_notes?: string;
+  is_active: boolean;
+  workouts: WorkoutTemplate[];
+  created_at: string;
 }

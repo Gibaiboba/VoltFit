@@ -6,26 +6,23 @@ import { supabase } from "@/lib/supabase";
 import { useUserProfile } from "@/hooks/use-user-profile";
 import { toast } from "sonner";
 import {
-  OnboardingMetadata,
+  FitnessProfile,
+  FitnessAnswers,
   WorkoutExercise,
   ExerciseTemplate,
+  AssignedProgram,
   WorkoutTemplate,
 } from "@/types/workout";
-import { FITNESS_QUESTIONS } from "@/constants/workout/fitnessQuestion";
+
 import { useUpdateProfile } from "@/hooks/useUpdateProfile";
 import { UserProfile } from "@/types/user";
 import { useActiveWorkoutStore } from "@/store/useActiveWorkoutStore";
+import { generatePresetWorkouts } from "@/lib/workout/generate-preset-workouts";
 
 export function useWorkoutSession() {
   const queryClient = useQueryClient();
   const { data: profile, isLoading } = useUserProfile();
   const { mutate: updateProfile } = useUpdateProfile();
-
-  // Локальные состояния онбординга и конструктора
-  const [currentQuestionIndex, setCurrentQuestionIndex] = useState<number>(0);
-  const [localFitnessAnswers, setLocalAnswers] = useState<
-    Record<string, string>
-  >({});
   const [isBuilderActive, setIsBuilderActive] = useState<boolean>(false);
   const [isResetting, setIsResetting] = useState<boolean>(false);
   const [customWorkoutName, setCustomWorkoutName] =
@@ -38,13 +35,60 @@ export function useWorkoutSession() {
     (state) => state.startWorkoutSession,
   );
 
-  // Безопасные дефолтные значения из профиля
-  const onboardingMetadata = useMemo<Partial<OnboardingMetadata>>(() => {
-    return profile?.onboarding_metadata || {};
+  // Читаем изолированный спортивный профиль из новой колонки fitness_profile
+  const fitnessProfile = useMemo<FitnessProfile>(() => {
+    return (
+      profile?.fitness_profile || {
+        completed: false,
+        answers: {},
+      }
+    );
   }, [profile]);
+
+  // Уровень энергии при необходимости берем из основного онбординга
+  const energyLevel = profile?.onboarding_metadata?.energy_level;
 
   const userGlobalGoal = profile?.goal || "maintain";
   const userWeight = profile?.weight || 70;
+
+  // Внутри useWorkoutSession (импортируй FitnessAnswers из "@/types/workout"):
+  const completeFitnessOnboarding = (answers: FitnessAnswers) => {
+    const userId = profile?.id;
+    if (!userId) return;
+
+    const newFitnessProfile: FitnessProfile = {
+      completed: true,
+      answers,
+      updated_at: new Date().toISOString(),
+    };
+
+    queryClient.setQueryData<typeof profile>(
+      ["user-profile", userId],
+      (oldData) => {
+        if (!oldData) return oldData;
+        return {
+          ...oldData,
+          fitness_profile: newFitnessProfile,
+        };
+      },
+    );
+
+    updateProfile(
+      { fitness_profile: newFitnessProfile },
+      {
+        onSuccess: () => {
+          setIsResetting(false);
+          toast.success("Спортивный профиль и программа сформированы! 🚀");
+        },
+        onError: () => {
+          toast.error("Не удалось сохранить ответы анкеты");
+          queryClient.invalidateQueries({
+            queryKey: ["user-profile", userId],
+          });
+        },
+      },
+    );
+  };
 
   // --- Запросы и мутации шаблонов ---
 
@@ -151,63 +195,10 @@ export function useWorkoutSession() {
     "dashboard" | "onboarding" | "custom_workout"
   >(() => {
     if (!profile) return "dashboard";
-    if (!onboardingMetadata.fitness_onboarding_completed) {
-      return "onboarding";
-    }
+    if (!fitnessProfile.completed) return "onboarding";
     if (isBuilderActive) return "custom_workout";
     return "dashboard";
-  }, [
-    profile,
-    onboardingMetadata.fitness_onboarding_completed,
-    isBuilderActive,
-  ]);
-  // --- Логика фитнес-анбординга ---
-
-  const handleSelectOnboardingOption = (questionId: string, value: string) => {
-    const updated = { ...localFitnessAnswers, [questionId]: value };
-    setLocalAnswers(updated);
-
-    if (currentQuestionIndex < FITNESS_QUESTIONS.length - 1) {
-      setCurrentQuestionIndex((p) => p + 1);
-    } else {
-      const userId = profile?.id;
-      if (!userId) return;
-
-      const newMetadata = {
-        ...onboardingMetadata,
-        fitness_onboarding_completed: true,
-        fitness_answers: updated,
-      };
-
-      queryClient.setQueryData<typeof profile>(
-        ["user-profile", userId],
-        (oldData) => {
-          if (!oldData) return oldData;
-          return {
-            ...oldData,
-            onboarding_metadata: newMetadata,
-          };
-        },
-      );
-
-      updateProfile(
-        { onboarding_metadata: newMetadata },
-        {
-          onSuccess: () => {
-            setIsResetting(false);
-            setCurrentQuestionIndex(0);
-            toast.success("План тренировок успешно сформирован!");
-          },
-          onError: () => {
-            toast.error("Не удалось сохранить ответы опроса");
-            queryClient.invalidateQueries({
-              queryKey: ["user-profile", userId],
-            });
-          },
-        },
-      );
-    }
-  };
+  }, [profile, fitnessProfile.completed, isBuilderActive]);
 
   const resetFitnessOptions = () => {
     const userId = profile?.id;
@@ -216,13 +207,10 @@ export function useWorkoutSession() {
       return;
     }
     setIsResetting(true);
-    setCurrentQuestionIndex(0);
-    setLocalAnswers({});
 
-    const newMetadata = {
-      ...onboardingMetadata,
-      fitness_onboarding_completed: false,
-      fitness_answers: {},
+    const emptyFitnessProfile: FitnessProfile = {
+      completed: false,
+      answers: {},
     };
 
     queryClient.setQueryData<UserProfile | null>(
@@ -231,15 +219,16 @@ export function useWorkoutSession() {
         if (!oldData) return oldData;
         return {
           ...oldData,
-          onboarding_metadata: newMetadata,
+          fitness_profile: emptyFitnessProfile,
         };
       },
     );
+
     updateProfile(
-      { onboarding_metadata: newMetadata },
+      { fitness_profile: emptyFitnessProfile },
       {
         onSuccess: () => {
-          toast.success("Параметры сброшены. Пройдите опрос заново.");
+          toast.success("Параметры сброшены. Пройдите анкету заново.");
         },
         onError: (err) => {
           console.error("Ошибка при синхронизации с БД:", err);
@@ -249,6 +238,31 @@ export function useWorkoutSession() {
       },
     );
   };
+
+  // Запрос назначенной тренером программы из assigned_programs
+  const { data: assignedProgram = null } = useQuery<AssignedProgram | null>({
+    queryKey: ["assigned-program", profile?.id],
+    queryFn: async () => {
+      if (!profile?.id) return null;
+      const { data, error } = await supabase
+        .from("assigned_programs")
+        .select("*")
+        .eq("student_id", profile.id)
+        .eq("is_active", true)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (error) throw error;
+      return data as AssignedProgram | null;
+    },
+    enabled: !!profile?.id,
+  });
+
+  // Генерация персональных комплексов на основе ответов анкеты и цели
+  const recommendedWorkouts = useMemo(() => {
+    return generatePresetWorkouts(fitnessProfile, userGlobalGoal, energyLevel);
+  }, [fitnessProfile, userGlobalGoal, energyLevel]);
 
   // --- Методы конструктора тренировок ---
 
@@ -334,15 +348,14 @@ export function useWorkoutSession() {
     userWeight,
     isLoading,
     activeScreen,
-    currentQuestionIndex,
-    onboardingMetadata,
     userGlobalGoal,
     customWorkoutName,
     setCustomWorkoutName,
     selectedExercises,
     setSelectedExercises,
     savedTemplates,
-    handleSelectOnboardingOption,
+    fitnessProfile,
+    energyLevel,
     addExerciseToWorkout,
     addSetToExercise,
     updateSetValues,
@@ -356,5 +369,9 @@ export function useWorkoutSession() {
     setIsActiveSessionActive: launchGlobalWorkout,
     deleteWorkoutTemplate: mutateDeleteTemplate,
     isDeletingTemplate,
+    completeFitnessOnboarding,
+    userGender: profile?.gender || "male",
+    assignedProgram,
+    recommendedWorkouts,
   };
 }

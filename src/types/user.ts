@@ -1,24 +1,24 @@
 import { Goal } from "./shared";
+import { FitnessProfile } from "./workout";
 
+// Только метаданные основного онбординга (дедлайн и триггеры из BASE_QUESTIONS / TARGET_QUESTIONS)
 export interface OnboardingMetadata {
-  diet_type?: "everything" | "vegan" | "keto" | "restrictions";
-  main_enemy?: "sweets" | "fastfood" | "night_eating" | "stress";
-  cooking_time?: "none" | "fast" | "slow";
-  fail_reason?: "strict" | "no_progress" | "boredom";
-  stress_level?: "low" | "high";
-  training_mode?: "pro" | "disciplined" | "none";
-  appetite?: "low" | "high" | string;
-  energy_level?: "tired" | "slump" | "good" | string;
   target_date?: string;
   start_date?: string;
   start_weight?: number;
-  diet_onboarding_completed?: boolean;
-  diet_answers?: Record<string, string>;
-  fitness_onboarding_completed?: boolean;
-  fitness_answers?: {
-    training_place?: "home" | "gym" | "street" | string;
-    fitness_experience?: "beginner" | "advanced" | string;
-  };
+  main_enemy?: "sweets" | "fastfood" | "night_eating" | "stress" | string;
+  fail_reason?: "strict" | "no_progress" | "boredom" | "first_time" | string;
+  body_type?: "ectomorph" | "mesomorph" | "endomorph" | string;
+  appetite?: "low" | "high" | string;
+  energy_level?: "tired" | "slump" | "good" | string;
+  main_concern?: "sugar" | "cramps" | "gums" | string;
+}
+
+// Структура для будущего 3-го онбординга (страница рецептов и питания)
+export interface NutritionProfile {
+  completed: boolean;
+  answers: Record<string, string | string[]>;
+  updated_at?: string;
 }
 
 export interface UserProfile {
@@ -41,6 +41,8 @@ export interface UserProfile {
   carbs?: number;
   onboarding_completed?: boolean;
   onboarding_metadata?: OnboardingMetadata | null;
+  fitness_profile?: FitnessProfile | null; // <--- 2-й онбординг (Тренировки)
+  nutrition_profile?: NutritionProfile | null; // <--- 3-й онбординг (Питание)
   chest?: number;
   waist?: number;
   hips?: number;

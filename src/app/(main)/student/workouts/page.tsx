@@ -22,20 +22,20 @@ export default function WorkoutsPage() {
       <AnimatePresence mode="wait">
         {session.activeScreen === "onboarding" && (
           <WorkoutOnboarding
-            currentQuestionIndex={session.currentQuestionIndex}
-            handleSelectOnboardingOption={session.handleSelectOnboardingOption}
+            userGender={session.userGender}
+            onCompleteOnboarding={session.completeFitnessOnboarding}
           />
         )}
 
         {session.activeScreen === "dashboard" && (
           <WorkoutDashboard
-            onboardingMetadata={session.onboardingMetadata}
+            fitnessProfile={session.fitnessProfile}
+            energyLevel={session.energyLevel}
             userGlobalGoal={session.userGlobalGoal}
-            setIsActiveSessionActive={session.setIsActiveSessionActive}
             setIsCustomWorkoutActive={session.setIsCustomWorkoutActive}
-            setSelectedExercises={session.setSelectedExercises}
-            setCustomWorkoutName={session.setCustomWorkoutName}
             resetFitnessOptions={session.resetFitnessOptions}
+            assignedProgram={session.assignedProgram}
+            recommendedWorkouts={session.recommendedWorkouts}
             savedTemplates={session.savedTemplates}
             onDeleteTemplate={session.deleteWorkoutTemplate}
           />

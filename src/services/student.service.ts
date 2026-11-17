@@ -122,4 +122,73 @@ export const studentService = {
 
     if (error) throw error;
   },
+
+  /**
+   * Получить историю силовых тренировок ученика
+   */
+  async getWorkoutLogs(userId: string, limit = 50) {
+    const { data, error } = await supabase
+      .from("workout_logs")
+      .select("*")
+      .eq("user_id", userId)
+      .order("created_at", { ascending: false })
+      .limit(limit);
+
+    if (error) throw error;
+    return data || [];
+  },
+
+  /**
+   * Удалить тренировку из workout_logs и пересчитать расход в daily_logs
+   */
+  async deleteWorkoutLogAndSyncDaily(
+    userId: string,
+    workoutLogId: string,
+  ): Promise<void> {
+    // 1. Удаляем из workout_logs
+    const { error: workoutError } = await supabase
+      .from("workout_logs")
+      .delete()
+      .eq("id", workoutLogId);
+
+    if (workoutError) throw workoutError;
+
+    // 2. Находим день в daily_logs, где привязана эта тренировка
+    const { data: userDailyLogs, error: fetchError } = await supabase
+      .from("daily_logs")
+      .select("id, activities")
+      .eq("user_id", userId)
+      .not("activities", "is", null);
+
+    if (fetchError) throw fetchError;
+
+    for (const dailyLog of userDailyLogs || []) {
+      const currentActivities = Array.isArray(dailyLog.activities)
+        ? dailyLog.activities
+        : [];
+
+      const updatedActivities = currentActivities.filter(
+        (act: { workout_log_id?: string }) =>
+          act.workout_log_id !== workoutLogId,
+      );
+
+      if (updatedActivities.length !== currentActivities.length) {
+        const updatedBurnedCalories = updatedActivities.reduce(
+          (sum: number, act: { burned_calories?: number }) =>
+            sum + (Number(act.burned_calories) || 0),
+          0,
+        );
+
+        const { error: updateError } = await supabase
+          .from("daily_logs")
+          .update({
+            activities: updatedActivities,
+            burned_calories: updatedBurnedCalories,
+          })
+          .eq("id", dailyLog.id);
+
+        if (updateError) throw updateError;
+      }
+    }
+  },
 };
